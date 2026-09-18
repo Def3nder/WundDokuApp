@@ -1,0 +1,13 @@
+##### PDF's als Beispiel #####
+drace*.pdf
+
+# Node
+node_modules/
+
+# Local secrets
+.env
+.env.local
+*.local.md
+
+# graft's local graph cache ‚Äî regenerable, not committed (run `graft build`).
+/graft/
