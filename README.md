@@ -23,13 +23,6 @@ npm install
 cp .env.example .env
 ```
 
-Für den PDF-Export die Vorlage bereitlegen — sie liegt bewusst nicht im
-Repository, siehe [assets/vorlage/README.md](assets/vorlage/README.md):
-
-```
-assets/vorlage/draco-wunddokumentationsbogen.pdf
-```
-
 In `.env` ein `AUTH_SECRET` eintragen:
 
 ```bash
@@ -63,12 +56,12 @@ Anmeldung ändern.**
 | `npm test` | Tests ausführen |
 | `npm run db:studio` | Datenbank im Browser ansehen |
 | `npm run db:migrate` | Schemaänderung einspielen |
-| `npm run pdf:map` | Feldzuordnung für den PDF-Export neu erzeugen |
 
 ## Aufbau
 
 ```
-assets/vorlage/    Original-PDF als Exportvorlage
+assets/vorlage/    Original-Papierbogen, nur Orientierung (nicht im Repository)
+assets/fonts/      Noto Sans fuer den PDF-Export
 prisma/            Schema, Migrationen, Testdaten
 storage/           Wundfotos (nicht im Repository)
 src/app/           Seiten und Routen
@@ -111,7 +104,7 @@ Was Du zusätzlich sicherstellen musst:
 
 - [x] Phase 1 — Fundament: Projekt, Design-System, Datenmodell, Enums
 - [x] Phase 2 — Patienten und Wunden: Stammdaten, Suche, Wund-Cockpit, Benutzerverwaltung
-- [~] Phase 3 — Aufnahmeformular: Schema, Actions und Bausteine fertig; Formular und Seiten offen
-- [ ] Phase 4 — Wundfotos
-- [ ] Phase 5 — Diagramme und Vergleich
-- [ ] Phase 6 — PDF-Export und Feinschliff
+- [x] Phase 3 — Aufnahmeformular
+- [x] Phase 4 — Wundfotos
+- [x] Phase 5 — Diagramme und Vergleich
+- [~] Phase 6 — PDF-Export und Audit-Log fertig; Feinschliff (Leerzustände, Tastaturbedienung, axe, Dark Mode) offen

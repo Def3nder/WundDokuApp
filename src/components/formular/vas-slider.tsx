@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { VAS_MAX, VAS_MIN } from "@/lib/enums";
 
@@ -38,8 +38,7 @@ export function VasSlider({
   fehler?: string;
 }) {
   const [wert, setWert] = useState<number | null>(vorgabe);
-  const id = useId();
-  const beschreibungId = `${id}-beschreibung`;
+  const beschreibungId = `${name}-beschreibung`;
 
   const anzeige = wert ?? 0;
   const farbe = wert == null ? "var(--border-strong)" : farbeFuer(wert);
@@ -47,7 +46,7 @@ export function VasSlider({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <label htmlFor={id} className="text-sm font-medium text-foreground">
+        <label htmlFor={name} className="text-sm font-medium text-foreground">
           {label}
         </label>
         <span className="tabular text-sm font-semibold" style={{ color: farbe }}>
@@ -56,7 +55,7 @@ export function VasSlider({
       </div>
 
       <input
-        id={id}
+        id={name}
         type="range"
         min={VAS_MIN}
         max={VAS_MAX}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +35,10 @@ export function Abschnitt({
 }) {
   // Ein Abschnitt mit Fehlern klappt auf, sonst findet man die Meldung nicht.
   const [offen, setOffen] = useState(offenVorgabe || hatFehler);
+
+  useEffect(() => {
+    if (hatFehler) setOffen(true);
+  }, [hatFehler]);
 
   return (
     <section

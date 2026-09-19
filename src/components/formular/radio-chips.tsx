@@ -41,6 +41,8 @@ export function RadioChips({
 
   return (
     <fieldset
+      id={name}
+      tabIndex={-1}
       role="radiogroup"
       aria-describedby={[hilfeId, fehlerId].filter(Boolean).join(" ") || undefined}
     >
@@ -122,7 +124,7 @@ export function JaNein({
 
   return (
     <div className="space-y-3">
-      <fieldset role="radiogroup" aria-describedby={hilfeId}>
+      <fieldset id={name} tabIndex={-1} role="radiogroup" aria-describedby={hilfeId}>
         <legend className="mb-2 text-sm font-medium text-foreground">{legende}</legend>
 
         {hilfe && (

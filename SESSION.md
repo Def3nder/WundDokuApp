@@ -3,22 +3,18 @@
 Arbeitsstand für die Fortsetzung in einer neuen Sitzung. Ergänzt die
 inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
 
-**Stand:** 19.09.2026 · Phase 1 und 2 fertig, Phase 3 etwa zur Hälfte
-**Prüfstand:** `npx tsc --noEmit` sauber · `npm test` 28/28 grün · noch nichts committet
+**Stand:** 19.09.2026 · Phase 1 bis 5 fertig · Phase 6 PDF-Export und Audit-Log fertig, Feinschliff offen
+**Prüfstand:** `npx tsc --noEmit` sauber · `npm test` 51/51 grün · `npm run build` sauber · Browser-Durchgang erfolgreich (Login, PDF-Export einzeln und Verlauf, Audit-Log-Filter) · noch nichts committet
 
 ---
 
-## Womit anfangen
-
-Phase 3 (Aufnahmeformular) ist angefangen. **Nächster Schritt: der Werte-Mapper
-`src/lib/schema/aufnahme-vorgabe.ts`.**
-
-### Fertig in Phase 3
+## Phase 3 — fertig
 
 | Datei | Inhalt |
 |---|---|
 | `src/lib/schema/aufnahme.ts` | Zod-Schema aller Aufnahmefelder inkl. `superRefine` |
 | `src/lib/schema/aufnahme-formdata.ts` | FormData → geprüfte Daten → Datensatz |
+| `src/lib/schema/aufnahme-vorgabe.ts` | Datensatz → Formularwerte und sichere Vorbefüllung ohne alte Messwerte |
 | `src/actions/aufnahmen.ts` | Anlegen, Ändern, Entwurf speichern, Löschen |
 | `src/components/formular/chip-group.tsx` | Mehrfachauswahl als Chips, mit Exklusiv-Option |
 | `src/components/formular/radio-chips.tsx` | Einfachauswahl + `JaNein` |
@@ -26,29 +22,82 @@ Phase 3 (Aufnahmeformular) ist angefangen. **Nächster Schritt: der Werte-Mapper
 | `src/components/formular/zifferblatt.tsx` | Uhrzeit-Auswahl für die Schmerzlage |
 | `src/components/formular/abschnitt.tsx` | Aufklappbarer Abschnitt + Sprungleiste |
 | `src/components/formular/wundgroesse.tsx` | Maße mit Live-Fläche und Trendvergleich |
+| `src/components/formular/aufnahme-formular.tsx` | Orchestrierung der sechs Abschnitte, Fehlernavigation und Speicherleiste |
+| `src/components/formular/abschnitt-*.tsx` | Befund, Größe, Infektion, Schmerz und Therapie als Teildateien |
+| `src/components/formular/use-autosave.ts` | Verzögertes Entwurf-Speichern mit versteckter `entwurfId` |
+| `src/app/(app)/wunden/[id]/aufnahmen/neu/page.tsx` | Erst-/Folgeaufnahme mit Vorbefüllung und Entwurfwiederaufnahme |
+| `src/app/(app)/aufnahmen/[id]/page.tsx` | Vollständige Leseansicht |
+| `src/app/(app)/aufnahmen/[id]/bearbeiten/page.tsx` | Korrekturansicht |
 
-### Fehlt noch in Phase 3
+Breite, Länge und Tiefe werden bei Folgeaufnahmen bewusst **nicht**
+vorbefüllt. Genau diese Werte müssen bei jedem Verbandwechsel neu gemessen
+werden, damit kein stehengebliebener Wert die Verlaufskurve verfälscht.
 
-1. **`src/lib/schema/aufnahme-vorgabe.ts`** — Datensatz → Formularwerte.
-   Braucht zwei Funktionen: `aufnahmeZuWerten(a)` für das Bearbeiten und
-   `vorbefuellungAus(letzte)` für „Von letzter Aufnahme übernehmen".
-   *Wichtige Festlegung:* Breite, Länge und Tiefe werden **nicht** vorbefüllt.
-   Genau die müssen bei jedem Verbandwechsel neu gemessen werden; ein
-   stehengebliebener Wert wäre eine falsche Verlaufskurve.
-2. **`src/components/formular/aufnahme-formular.tsx`** — das Formular, das die
-   sechs Abschnitte zusammensetzt. Wegen der Größe besser in Teildateien
-   (`abschnitt-befund.tsx`, `-groesse.tsx`, `-infektion.tsx`, `-schmerz.tsx`,
-   `-therapie.tsx`) und eine Datei, die sie orchestriert.
-3. **Autosave-Hook** — ruft `entwurfSpeichern` aus `src/actions/aufnahmen.ts`
-   mit Verzögerung auf und merkt sich die zurückgegebene `entwurfId` in einem
-   versteckten Feld `entwurfId`. Die Action ist fertig und wartet darauf.
-4. **Drei Seiten:**
-   - `src/app/(app)/wunden/[id]/aufnahmen/neu/page.tsx`
-   - `src/app/(app)/aufnahmen/[id]/page.tsx` (Leseansicht)
-   - `src/app/(app)/aufnahmen/[id]/bearbeiten/page.tsx`
+## Phase 4 — fertig
 
-   Die Zeitleiste verlinkt bereits auf `/aufnahmen/[id]`, das Cockpit auf
-   `/wunden/[id]/aufnahmen/neu` — beide Ziele sind noch 404.
+| Datei | Inhalt |
+|---|---|
+| `src/lib/fotos.ts` | Magic-Byte-Prüfung, Größenlimit, WebP-Konvertierung, EXIF-Entfernung, Thumbnail und sichere Speicherpfade |
+| `src/types/heic-convert.d.ts` | Server-seitiger HEIC-Fallback für Plattformen, auf denen `sharp`/libvips HEIC nicht direkt dekodiert |
+| `src/actions/fotos.ts` | Upload, Beschriftung, Sortierung und Soft Delete mit Audit-Protokoll |
+| `src/app/api/photos/[id]/route.ts` | Nur angemeldet erreichbare Original- und Thumbnail-Auslieferung ohne Browser-Cache |
+| `src/components/foto/foto-manager.tsx` | Drag-and-drop, Kamera, Mehrfachupload, Beschriftung und Sortierung |
+| `src/components/foto/foto-galerie.tsx` | Responsive Galerie und tastaturbedienbare Lightbox |
+| `src/lib/fotos.test.ts` | Format-, Größen-, EXIF- und Pfad-Traversal-Tests |
+
+Originaldateien werden nie gespeichert. Ablage: zwei EXIF-freie WebP-Dateien
+unter `storage/photos/<patientId>/<woundId>/` (max. 2000 px und Thumbnail mit
+max. 400 px). Der Foto-Upload einer neuen Aufnahme erzwingt zuerst denselben
+Autosave-Entwurf, der später finalisiert wird; dadurch entstehen keine
+verwaisten Fotos oder doppelten Aufnahmen.
+
+## Phase 5 — fertig
+
+| Datei | Inhalt |
+|---|---|
+| `src/lib/auswertung.ts` | Gruppierung der Wundgrund-Befunde sowie gerichtete Änderungen und Zahlendifferenzen |
+| `src/components/auswertung/verlaufsdiagramme.tsx` | Recharts-Diagramme für Fläche, Abmessungen, Schmerz/Exsudat und Wundgrund-Zusammensetzung |
+| `src/components/auswertung/vergleich-auswahl.tsx` | Barrierearme Auswahl und Tausch der beiden Vergleichszeitpunkte |
+| `src/app/(app)/wunden/[id]/vergleich/page.tsx` | Fotovergleich und Differenztabelle für Maße, Fläche, Exsudat, Schmerz-VAS und Wundgrund |
+| `src/app/(app)/wunden/[id]/page.tsx` | Auswertungsbereich im Wund-Cockpit und Einstieg in den Vergleich |
+| `src/lib/auswertung.test.ts` | Tests für Gruppierung, Befundänderungen und gerichtete Differenzen |
+
+Auswertungen berücksichtigen ausschließlich abgeschlossene, nicht gelöschte
+Aufnahmen. Die Diagramme bleiben über eine Screenreader-Tabelle zugänglich. Im
+Vergleich wird standardmäßig die vorletzte gegen die neueste Aufnahme gezeigt;
+beide Zeitpunkte können unabhängig gewählt und getauscht werden.
+
+## Phase 6 — PDF-Export & Audit-Log fertig, Feinschliff offen
+
+| Datei | Inhalt |
+|---|---|
+| `assets/fonts/` | Statische Noto-Sans-Instanzen (Regular/Bold) für den PDF-Export, siehe dortige README |
+| `src/lib/pdf/builder.ts` | Eigenständiges PDF-Layout-Werkzeug auf `pdf-lib` (Titel, Abschnitte, Raster, Tabelle, Fotos, Fußzeile) |
+| `src/lib/pdf/export.ts` | Baut Einzel- und Verlaufs-PDF aus denselben Feldern wie die Leseansicht |
+| `src/app/api/aufnahmen/[id]/pdf/route.ts` | Download einer einzelnen Aufnahme |
+| `src/app/api/wunden/[id]/pdf/route.ts` | Download des gesamten Wundverlaufs |
+| `src/app/(app)/einstellungen/audit-log/page.tsx` | Änderungsprotokoll, admin-only, mit Bereichsfilter |
+
+**Wichtigste Wendung:** Der DRACO-Papierbogen wird **nicht** mehr als
+AcroForm-Exportvorlage befüllt (ursprünglicher Plan mit `build-pdf-map.ts` /
+`field-map.json` verworfen) — er diente nur der fachlichen Orientierung. Siehe
+[T12](docs/ENTSCHEIDUNGEN.md#t12--eigenstaendiges-pdf-layout-statt-vorlagen-fill).
+`assets/vorlage/` bleibt als Referenz, ist aber keine Laufzeit-Abhängigkeit mehr.
+
+Für durchsuchbaren/kopierbaren Text wird eine echte Schriftdatei eingebettet
+(`@pdf-lib/fontkit` + Noto Sans, siehe
+[T13](docs/ENTSCHEIDUNGEN.md#t13--echte-schriftdatei-statt-pdf-standardschrift)) —
+**Vorsicht beim nochmal Nachdenken:** Der ursprüngliche Verdacht, `pdf-lib`s
+Standardschrift mache Umlaute im Export unlesbar/unkopierbar, war ein
+Fehlalarm — siehe [„Terminal zeigt `�` statt Umlaute"](#terminal-zeigt--statt-umlaute-kein-pdf-fehler)
+weiter unten. Die Schrifteinbettung selbst ist trotzdem sinnvoll (Konsistenz
+mit der App-eigenen Schrift) und bleibt.
+
+## Womit anfangen — Feinschliff
+
+Leerzustände durchgehen, Formular und Cockpit komplett mit Tastatur bedienen,
+axe-Durchlauf auf Formular/Cockpit/Audit-Log, Dark Mode auf allen neuen Seiten
+gegenprüfen (PDF-Buttons, Protokoll-Tabelle, Filter-Chips).
 
 ### Die sechs Abschnitte
 
@@ -57,16 +106,7 @@ Phase 3 (Aufnahmeformular) ist angefangen. **Nächster Schritt: der Werte-Mapper
 3. Entzündung & Infektion (inkl. Abstrich)
 4. Schmerz
 5. Therapieplan
-6. Fotos (erst in Phase 4, Abschnitt vorerst als Platzhalter)
-
----
-
-## Danach
-
-- **Phase 4** — Wundfotos: Upload mit `sharp`, EXIF entfernen, Thumbnails,
-  geschützte Auslieferung über `src/app/api/photos/[id]/route.ts`
-- **Phase 5** — Verlaufsdiagramme (Recharts) und Foto-Vergleich
-- **Phase 6** — PDF-Export, Änderungsprotokoll-Ansicht, Feinschliff
+6. Fotos (in Phase 4 vollständig umgesetzt)
 
 ---
 
@@ -132,6 +172,33 @@ der Seite. Das ist ein Aufnahmeartefakt, kein Layoutfehler — per DOM geprüft
 
 `Screenshot timed out after 5s`, wenn das Fenster im Hintergrund liegt. Einfach
 wiederholen oder auf `get_page_text` / `find` ausweichen.
+
+### PDF-Layout: `pdf-lib`-Positionsrechnung real rendern, nicht nur typchecken
+
+In `pdf/builder.ts` war `maxHoehe` für Fotos als
+`SEITE_HOEHE - OBEN_START - UNTEN_GRENZE` berechnet — ergibt **-6** statt der
+verfügbaren Höhe, weil `OBEN_START` schon eine y-Koordinate ist (kein Randmaß).
+TypeScript und die Tests fanden das nicht, weil die Rechnung überall intern
+konsistent blieb; erst ein tatsächlich gerenderter Seitenausschnitt
+(`pypdfium2`, siehe unten) zeigte briefmarkengroße statt seitenfüllende Fotos.
+Bei jeder neuen Geometrie-Formel in `builder.ts`: eine Seite mit echtem Inhalt
+rendern und ansehen, nicht nur `tsc`/`vitest` grün sehen.
+
+### Terminal zeigt `�` statt Umlaute — kein PDF-Fehler
+
+`pdftotext`/`pdfplumber`-Ausgabe in diesem Git-Bash/Windows-Terminal zeigt `�`
+für jedes `ä ö ü ß ² ·` — sieht wie eine falsche Unicode-Zuordnung im PDF aus,
+ist aber nur die Terminal-Darstellung. Erst der Byte-Wert bestätigt es:
+`ord(zeichen)` lieferte korrekt `0xe4` (ä) usw., `\ufffd` kam im String gar
+nicht vor. Bei jedem Verdacht auf falsche PDF-Kodierung: Code-Punkt direkt
+prüfen (`hex(ord(ch))`), nicht der gedruckten Zeichen trauen.
+
+### Python-Skripte über Bash: Windows-Pfad, nicht Git-Bash-Pfad
+
+Das lokale Python (`C:\Program Files\Python312\python`) versteht `/c/Users/...`
+(Git-Bash-Schreibweise) nicht — `FileNotFoundError`. Immer die
+Windows-Schreibweise mit Schrägstrichen übergeben (`C:/Users/...`), auch wenn
+der Befehl selbst aus Bash kommt.
 
 ---
 

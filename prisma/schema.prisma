@@ -220,9 +220,11 @@ model Photo {
   beschreibung  String?
   reihenfolge   Int      @default(0)
   aufgenommenAm DateTime @default(now())
+  geloeschtAm   DateTime?
   createdAt     DateTime @default(now())
 
   @@index([assessmentId, reihenfolge])
+  @@index([geloeschtAm])
 }
 
 model AuditLog {

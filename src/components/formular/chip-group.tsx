@@ -61,6 +61,8 @@ export function ChipGroup({
 
   return (
     <fieldset
+      id={name}
+      tabIndex={-1}
       aria-describedby={[hilfeId, fehlerId].filter(Boolean).join(" ") || undefined}
     >
       <legend className="mb-2 text-sm font-medium text-foreground">{legende}</legend>
