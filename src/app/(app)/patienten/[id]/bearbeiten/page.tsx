@@ -28,7 +28,6 @@ export default async function PatientBearbeitenSeite({
         <Breadcrumb eintraege={[
           { label: "Patienten", href: "/" },
           { label: `${patient.nachname}, ${patient.vorname}`, href: `/patienten/${id}` },
-          { label: "Stammdaten bearbeiten" },
         ]} />
         <h1 className="mt-2 text-2xl font-semibold">Stammdaten bearbeiten</h1>
       </div>

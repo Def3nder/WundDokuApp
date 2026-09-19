@@ -27,7 +27,6 @@ export default async function NeueWundeSeite({
         <Breadcrumb eintraege={[
           { label: "Patienten", href: "/" },
           { label: `${patient.nachname}, ${patient.vorname}`, href: `/patienten/${id}` },
-          { label: "Wunde anlegen" },
         ]} />
         <h1 className="mt-2 text-2xl font-semibold">Wunde anlegen</h1>
         <p className="mt-1 text-sm text-muted-foreground">

@@ -94,7 +94,6 @@ export default async function WundeSeite({
         <Breadcrumb eintraege={[
           { label: "Patienten", href: "/" },
           { label: `${wunde.patient.nachname}, ${wunde.patient.vorname}`, href: `/patienten/${wunde.patientId}` },
-          { label: wunde.bezeichnung },
         ]} />
       </div>
 

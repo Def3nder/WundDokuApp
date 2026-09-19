@@ -103,7 +103,6 @@ export default async function VergleichSeite({
           { label: "Patienten", href: "/" },
           { label: `${wunde.patient.nachname}, ${wunde.patient.vorname}`, href: `/patienten/${wunde.patientId}` },
           { label: wunde.bezeichnung, href: `/wunden/${id}` },
-          { label: "Aufnahmen vergleichen" },
         ]} />
         <div className="mt-2">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Auswertung</p>

@@ -13,7 +13,7 @@ export default async function NeuerPatientSeite() {
   return (
     <div className="max-w-3xl space-y-6">
       <div>
-        <Breadcrumb eintraege={[{ label: "Patienten", href: "/" }, { label: "Patient anlegen" }]} />
+        <Breadcrumb eintraege={[{ label: "Patienten", href: "/" }]} />
         <h1 className="mt-2 text-2xl font-semibold">Patient anlegen</h1>
       </div>
 

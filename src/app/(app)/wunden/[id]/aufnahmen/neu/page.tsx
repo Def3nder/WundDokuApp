@@ -57,7 +57,6 @@ export default async function NeueAufnahmeSeite({
           { label: "Patienten", href: "/" },
           { label: `${wunde.patient.nachname}, ${wunde.patient.vorname}`, href: `/patienten/${wunde.patientId}` },
           { label: wunde.bezeichnung, href: `/wunden/${id}` },
-          { label: letzte ? "Folgeaufnahme erfassen" : "Erstaufnahme erfassen" },
         ]} />
         <h1 className="mt-2 text-2xl font-semibold">
           {letzte ? "Folgeaufnahme erfassen" : "Erstaufnahme erfassen"}

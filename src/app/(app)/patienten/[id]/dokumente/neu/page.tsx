@@ -29,7 +29,6 @@ export default async function NeuesDokumentSeite({
           { label: "Patienten", href: "/" },
           { label: `${patient.nachname}, ${patient.vorname}`, href: `/patienten/${id}` },
           { label: titel, href: `/patienten/${id}/dokumente?typ=${typ}` },
-          { label: `${bezeichnung} hinzufügen` },
         ]} />
         <h1 className="mt-2 text-2xl font-semibold">{bezeichnung} hinzufügen</h1>
         <p className="mt-1 text-sm text-muted-foreground">

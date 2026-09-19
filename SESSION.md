@@ -246,6 +246,46 @@ gelisteten Patientin/Wunde liegen geblieben sind.
 
 ---
 
+## Nachtrag — Breadcrumb zeigt nur Übergeordnetes (19.09.2026)
+
+Regel vom Nutzer: Der Pfad (`Breadcrumb`) zeigt ausschließlich Übergeordnetes,
+nie den aktuellen Eintrag selbst — der steht ja immer direkt darunter als
+Überschrift. Betraf alle 12 Seiten, die `<Breadcrumb>` nutzen; die letzte
+Zeile (der bisherige selbstreferenzierende, unverlinkte Eintrag) entfiel
+überall. Zwei Regionen brauchten dabei eine Sonderregel statt der wörtlichen
+„direkter URL-Elternteil":
+
+- **Wunde ansehen/anlegen/bearbeiten:** Pfad endet immer beim Patienten
+  (`Patienten / [Nachname, Vorname]`) — die Wunde selbst (auch beim
+  Bearbeiten, technisch eine Unterseite `/wunden/[id]/bearbeiten`) gilt als
+  „der Eintrag", nicht als eigene Pfad-Ebene. `wunden/[id]/bearbeiten/page.tsx`
+  bekam dafür eine neue Unterzeile mit `wunde.bezeichnung` unter der
+  Überschrift, sonst wäre nirgends mehr sichtbar gewesen, welche Wunde
+  bearbeitet wird.
+- **Aufnahme ansehen/anlegen/bearbeiten/vergleichen:** Pfad endet bei der
+  Wunde (`… / [Wundname]`), analog dazu.
+
+Einfache Formulare ohne Zwischenebene (Patient anlegen, Benutzer anlegen,
+Stammdaten bearbeiten) verloren einfach ihre letzte Pfad-Zeile.
+`patienten/[id]/dokumente/page.tsx` und `patienten/[id]/page.tsx` folgten der
+Regel bereits vorher richtig und blieben unverändert.
+
+## Nachtrag — An-/Abmelden nicht mehr im Protokoll (19.09.2026)
+
+Auf Nutzerwunsch entfernt: `src/lib/auth.ts`s `authorize()` schrieb bei jeder
+erfolgreichen Anmeldung einen `ANMELDEN`-Eintrag (`db.auditLog.create`,
+direkt dort statt über `protokolliere()`, da `authorize` ausserhalb des
+sitzungsgebundenen Server-Action-Kontexts läuft). Dieser Aufruf entfiel
+ersatzlos. Eine „Abgemeldet"-Protokollierung gab es nie (nur `signOut()` in
+`app-shell.tsx`, ohne Audit-Aufruf) - das betraf also nur das Anmelden.
+
+Der Enum-Wert `ANMELDEN` (`src/lib/enums.ts`, Label „Angemeldet") und der Typ
+in `src/lib/audit.ts` blieben bewusst bestehen, damit bereits gespeicherte
+alte Einträge im Protokoll weiterhin ein Label statt des rohen Codes zeigen -
+nur das *Schreiben* neuer Einträge wurde gestoppt.
+
+---
+
 ## Was beim Bauen zu beachten ist
 
 ### Der Dev-Server muss zum Bauen aus sein

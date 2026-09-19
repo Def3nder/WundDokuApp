@@ -18,7 +18,6 @@ const ENTITAETEN = [
   { wert: "PatientDocument", label: "Dokument" },
   { wert: "Doctor", label: "Arzt" },
   { wert: "CareService", label: "Pflegedienst" },
-  { wert: "User", label: "Benutzer" },
 ] as const;
 
 function labelVonEntitaet(wert: string): string {
@@ -64,7 +63,7 @@ export default async function AuditLogSeite({
   const gefiltert = entitaet && ENTITAETEN.some((e) => e.wert === entitaet) ? entitaet : undefined;
 
   const eintraege = await db.auditLog.findMany({
-    where: gefiltert ? { entitaet: gefiltert } : undefined,
+    where: { aktion: { not: "ANMELDEN" }, ...(gefiltert ? { entitaet: gefiltert } : {}) },
     orderBy: { zeitpunkt: "desc" },
     take: ANZAHL,
     include: { user: { select: { name: true, handzeichen: true } } },

@@ -52,8 +52,6 @@ export default async function AufnahmeBearbeitenSeite({
           { label: "Patienten", href: "/" },
           { label: `${aufnahme.wunde.patient.nachname}, ${aufnahme.wunde.patient.vorname}`, href: `/patienten/${aufnahme.wunde.patientId}` },
           { label: aufnahme.wunde.bezeichnung, href: `/wunden/${aufnahme.woundId}` },
-          { label: `Aufnahme vom ${datum(aufnahme.datum)}`, href: `/aufnahmen/${id}` },
-          { label: "Aufnahme bearbeiten" },
         ]} />
         <h1 className="mt-2 text-2xl font-semibold">Aufnahme bearbeiten</h1>
         <p className="mt-1 text-sm text-muted-foreground">

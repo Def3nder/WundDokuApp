@@ -14,7 +14,6 @@ export default async function NeuerBenutzerSeite() {
       <div>
         <Breadcrumb eintraege={[
           { label: "Benutzer", href: "/einstellungen/benutzer" },
-          { label: "Benutzer anlegen" },
         ]} />
         <h1 className="mt-2 text-2xl font-semibold">Benutzer anlegen</h1>
       </div>

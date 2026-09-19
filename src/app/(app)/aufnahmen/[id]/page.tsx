@@ -109,7 +109,6 @@ export default async function AufnahmeSeite({ params }: { params: Promise<{ id: 
           { label: "Patienten", href: "/" },
           { label: `${aufnahme.wunde.patient.nachname}, ${aufnahme.wunde.patient.vorname}`, href: `/patienten/${aufnahme.wunde.patientId}` },
           { label: aufnahme.wunde.bezeichnung, href: `/wunden/${aufnahme.woundId}` },
-          { label: `Aufnahme vom ${datum(aufnahme.datum)}` },
         ]} />
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold">Aufnahme vom {datum(aufnahme.datum)}</h1>

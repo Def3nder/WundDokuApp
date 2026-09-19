@@ -27,10 +27,9 @@ export default async function WundeBearbeitenSeite({
         <Breadcrumb eintraege={[
           { label: "Patienten", href: "/" },
           { label: `${wunde.patient.nachname}, ${wunde.patient.vorname}`, href: `/patienten/${wunde.patientId}` },
-          { label: wunde.bezeichnung, href: `/wunden/${id}` },
-          { label: "Wunde bearbeiten" },
         ]} />
         <h1 className="mt-2 text-2xl font-semibold">Wunde bearbeiten</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{wunde.bezeichnung}</p>
       </div>
 
       <WundeFormular
