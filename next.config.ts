@@ -27,11 +27,19 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Erlaubt den Zugriff auf den Dev-Server ueber die LAN-IP dieses Rechners
+  // (z. B. vom Tablet aus) - ohne das blockiert Next.js Requests, die nicht
+  // von localhost oder dem Start-Host kommen.
+  allowedDevOrigins: ["192.168.1.65"],
   serverExternalPackages: ["sharp", "heic-convert", "@prisma/client", "bcryptjs"],
   experimental: {
     serverActions: {
       // Wundfotos koennen gross sein.
       bodySizeLimit: "20mb",
+      // Sonst lehnt Next.js Server Actions ab, die ueber die LAN-IP aufgerufen
+      // werden (Origin- gegen Host-Pruefung, CSRF-Schutz). Anders als bei
+      // allowedDevOrigins gehoert der Port mit in den Eintrag.
+      allowedOrigins: ["192.168.1.65:3000"],
     },
   },
   async headers() {

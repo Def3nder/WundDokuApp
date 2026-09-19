@@ -4,17 +4,17 @@ import type { NextRequest } from "next/server";
 /**
  * Grobschutz: leitet Nichtangemeldete zur Anmeldung um.
  *
- * Geprueft wird nur, ob ein Sitzungscookie vorhanden ist - die Middleware
- * laeuft in der Edge-Runtime und kann das JWT ohne Node-Krypto nicht pruefen.
- * Die eigentliche Pruefung passiert in jeder Server Action und jeder Route
- * ueber verlangeSitzung().
+ * Geprueft wird hier bewusst nur, ob ein Sitzungscookie vorhanden ist. Diese
+ * optimistische Vorpruefung bleibt schnell; die verbindliche Pruefung des JWT
+ * und der Benutzerrechte passiert in Server Actions und Route Handlern ueber
+ * verlangeSitzung() beziehungsweise auth().
  */
 const OEFFENTLICH = ["/login", "/api/auth"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (OEFFENTLICH.some((p) => pathname.startsWith(p))) {
+  if (OEFFENTLICH.some((pfad) => pathname.startsWith(pfad))) {
     return NextResponse.next();
   }
 
