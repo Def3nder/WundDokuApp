@@ -1,13 +1,44 @@
-##### PDF's als Beispiel #####
-drace*.pdf
-
-# Node
+# Abhaengigkeiten
 node_modules/
+.pnp
+.pnp.js
 
-# Local secrets
-.env
-.env.local
+# Next.js
+.next/
+out/
+build/
+next-env.d.ts
+
+# PDFs bleiben lokal - fremdes Material gehoert nicht ins Repository.
+# Die Exportvorlage liegt unter assets/vorlage/, siehe dortige README.
+*.pdf
+assets/vorlage/*.pdf
+
+# Persoenliche Notizen
 *.local.md
 
-# graft's local graph cache ‚Äî regenerable, not committed (run `graft build`).
+# Patientendaten - duerfen NIEMALS ins Repository
+storage/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+prisma/*.db*
+exports/
+
+# Umgebung
+.env
+.env.local
+.env.*.local
+
+# Sonstiges
+.DS_Store
+*.pem
+npm-debug.log*
+yarn-error.log*
+.vercel
+*.tsbuildinfo
+coverage/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/

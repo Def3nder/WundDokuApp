@@ -1,0 +1,239 @@
+@import "tailwindcss";
+
+/*
+ * Design-System der WundDokuApp
+ * Stil: "Accessible & Ethical" (Healthcare, WCAG AA/AAA)
+ *
+ * Abweichung von der Skill-Empfehlung: Als Arbeitsflaeche nutzen wir neutrales
+ * Slate statt des getoenten #ECFEFF. Datendichte Formulare brauchen einen
+ * ruhigen Untergrund; Cyan bleibt die Primaerfarbe.
+ *
+ * Komponenten verwenden ausschliesslich diese Tokens, nie rohe Hex-Werte.
+ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Flaechen */
+  --background: #f8fafc;
+  --surface: #ffffff;
+  --surface-muted: #f1f5f9;
+  --card: #ffffff;
+  --overlay: rgb(15 23 42 / 0.5);
+
+  /* Text */
+  --foreground: #0f172a;
+  --heading: #164e63;
+  --muted-foreground: #475569;
+
+  /* Aktionen */
+  --primary: #0891b2;
+  --primary-hover: #0e7490;
+  --on-primary: #ffffff;
+  --secondary: #e0f2fe;
+  --on-secondary: #0c4a6e;
+
+  /* Semantik */
+  --accent: #059669;
+  --on-accent: #ffffff;
+  --warning: #b45309;
+  --on-warning: #ffffff;
+  --destructive: #dc2626;
+  --on-destructive: #ffffff;
+  --info: #0369a1;
+
+  /* Linien und Fokus */
+  --border: #cbd5e1;
+  --border-strong: #94a3b8;
+  --input: #ffffff;
+  --ring: #0891b2;
+
+  /* Klinische Statusfarben - immer zusammen mit Icon und Text verwenden */
+  --status-gut: #059669;
+  --status-mittel: #b45309;
+  --status-schlecht: #dc2626;
+  --status-neutral: #64748b;
+
+  /* Diagrammserien: in Helligkeit gestaffelt, damit sie auch ohne
+     Farbsehen unterscheidbar bleiben (zusaetzlich Strichmuster). */
+  --chart-1: #0e7490;
+  --chart-2: #059669;
+  --chart-3: #b45309;
+  --chart-4: #7c3aed;
+  --chart-5: #be123c;
+
+  --radius: 0.625rem;
+}
+
+.dark {
+  --background: #0b1220;
+  --surface: #131c2e;
+  --surface-muted: #1b2639;
+  --card: #131c2e;
+  --overlay: rgb(2 6 23 / 0.7);
+
+  --foreground: #e8eef7;
+  --heading: #7dd3fc;
+  --muted-foreground: #a1b0c5;
+
+  --primary: #22b8d4;
+  --primary-hover: #38cee8;
+  --on-primary: #05202a;
+  --secondary: #1b3a4b;
+  --on-secondary: #bae6fd;
+
+  --accent: #34d399;
+  --on-accent: #052e21;
+  --warning: #fbbf24;
+  --on-warning: #2b1a02;
+  --destructive: #f87171;
+  --on-destructive: #2c0707;
+  --info: #7dd3fc;
+
+  /* Bewusst heller als ueblich: Trenner verschwinden sonst im Dark Mode. */
+  --border: #33415c;
+  --border-strong: #4c5c7a;
+  --input: #1b2639;
+  --ring: #38cee8;
+
+  --status-gut: #34d399;
+  --status-mittel: #fbbf24;
+  --status-schlecht: #f87171;
+  --status-neutral: #94a3b8;
+
+  --chart-1: #38bdf8;
+  --chart-2: #34d399;
+  --chart-3: #fbbf24;
+  --chart-4: #c4b5fd;
+  --chart-5: #fda4af;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-heading: var(--heading);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
+  --color-secondary: var(--secondary);
+  --color-on-secondary: var(--on-secondary);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-warning: var(--warning);
+  --color-on-warning: var(--on-warning);
+  --color-destructive: var(--destructive);
+  --color-on-destructive: var(--on-destructive);
+  --color-info: var(--info);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-status-gut: var(--status-gut);
+  --color-status-mittel: var(--status-mittel);
+  --color-status-schlecht: var(--status-schlecht);
+  --color-status-neutral: var(--status-neutral);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --font-sans: var(--font-noto-sans), system-ui, sans-serif;
+  --font-heading: var(--font-figtree), var(--font-noto-sans), system-ui, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    /* 16px Basis: verhindert das Auto-Zoom von iOS bei Eingabefeldern. */
+    font-size: 1rem;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-heading);
+    color: var(--heading);
+    font-weight: 600;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+
+  /* Messwerte duerfen beim Aktualisieren nicht springen. */
+  .tabular, input[type="number"], td.zahl, .messwert {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Sichtbarer Fokus ueberall - nie entfernen. */
+  :focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  ::placeholder {
+    color: var(--muted-foreground);
+    opacity: 0.75;
+  }
+}
+
+@layer utilities {
+  /* Mindestgroesse fuer Tippziele - die App wird am Bett auf dem Tablet bedient. */
+  .tippziel {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .nur-screenreader {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
+
+/* Bewegung nur, wenn der Nutzer sie nicht abbestellt hat. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  .nicht-drucken {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+    color: #000;
+  }
+}
