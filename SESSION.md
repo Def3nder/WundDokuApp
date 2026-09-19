@@ -284,6 +284,168 @@ in `src/lib/audit.ts` blieben bewusst bestehen, damit bereits gespeicherte
 alte Einträge im Protokoll weiterhin ein Label statt des rohen Codes zeigen -
 nur das *Schreiben* neuer Einträge wurde gestoppt.
 
+**Nachfrage:** Die schon vorhandenen alten `ANMELDEN`-Einträge sollten auch
+nicht mehr *angezeigt* werden. `einstellungen/audit-log/page.tsx`s Abfrage
+filtert sie jetzt serverseitig heraus (`aktion: { not: "ANMELDEN" }`, auch im
+"Alle"-Filter, kombiniert per Spread mit dem optionalen Bereichsfilter). Die
+Zeilen bleiben in der Datenbank, tauchen aber nirgends mehr im Protokoll auf.
+Zusätzlich flog der Bereichs-Filter „Benutzer" (`entitaet: "User"`) aus der
+Filterleiste (`ENTITAETEN`) - echte Benutzer-Aktionen wie Anlegen/Passwort
+zurücksetzen (`src/actions/benutzer.ts`) werden weiterhin protokolliert und
+sind über „Alle" sichtbar, nur der eigene Filter-Chip dafür ist weg.
+
+---
+
+## Nachtrag — Freihand-Marker als zweite Lokalisationsart (19.09.2026)
+
+Auf Wunsch ergänzt: zweite, umschaltbare Eingabeart für die Wund-Lokalisation
+neben der Körperkarte (siehe oben) - freies Einzeichnen eines roten Kreises
+auf einem unmarkierten Körperbild. Klicken+Ziehen legt Mittelpunkt und Größe
+fest; ein weiterer Zug auf dem bereits gezeichneten Marker verschiebt ihn
+(Größe bleibt), ein Zug daneben zeichnet ihn neu. Ein „Marker löschen"-Button
+setzt ihn zurück. Die Position hat **bewusst keine Verbindung** zu den drei
+Lokalisations-Dropdowns.
+
+| Datei | Inhalt |
+|---|---|
+| `public/koerperkarte-leer.webp` | Vorlage ohne Markierungen (`Wundlokalisation_ohne_Marker.png`), als WebP |
+| `src/components/formular/freihand-karte.tsx` | Zeichnen/Verschieben/Löschen per Pointer-Events |
+| `src/components/wunde/freihand-marker-vorschau.tsx` | Reine Lese-Ansicht desselben Markers fürs Wund-Cockpit |
+
+**Datenmodell (Migration `20260919163629_lokalisation_freihand`):**
+- `Wound.lokalisationMarkerX/Y/Radius` (`Float?`, Prozent der Bildbreite) -
+  alle drei zusammen gesetzt oder keins (`wundeSchema`s `superRefine` prüft
+  das). Wird unverändert mitgespeichert, unabhängig davon, welcher Modus
+  gerade angezeigt wird - ein Wechsel der Anzeige löscht nichts, nur der
+  eigene Button tut das.
+- `User.lokalisationsAnzeige` (`String`, `"KARTE"` | `"FREIHAND"`,
+  Default `"KARTE"`) - die Vorliebe ist **pro Benutzer**, nicht pro Browser
+  oder Gerät gespeichert (wichtig, weil hier oft vom Tablet *und* vom
+  Stationsrechner gearbeitet wird). Eigene Server-Action
+  `lokalisationsAnzeigeSetzen()` in `src/actions/wunden.ts`, ohne
+  Audit-Eintrag (reine Anzeige-Vorliebe, kein Wunddatum).
+
+**Kreis bleibt rund, obwohl Breite/Höhe der Vorlage unterschiedlich skalieren:**
+Der Radius wird als Prozent der Bild*breite* gespeichert (gleiche Einheit wie
+x). Für die *Höhe* des Kreises (CSS `height`, löst gegen die Containerhöhe
+auf) muss der Wert mit `KOERPERKARTE_BREITE / KOERPERKARTE_HOEHE`
+umgerechnet werden, sonst wird aus dem Kreis eine Ellipse. Betrifft sowohl
+das Zeichnen (`freihand-karte.tsx`) als auch die Lese-Ansicht
+(`freihand-marker-vorschau.tsx`) - beide benutzen dieselbe Konstante.
+
+**Bekannte Einschränkung:** Das Zeichnen selbst ist reine Zeigegeräte-Bedienung
+(Maus/Touch), ohne Tastatur-Äquivalent - wie bei den meisten
+Freihand-Zeichenwerkzeugen praktisch nicht sinnvoll nachzubilden. Die drei
+Dropdowns bleiben die vollständig tastatur- und screenreaderbediente
+Standardeingabe; das Einzeichnen ist eine rein ergänzende, optische
+Markierung.
+
+**Migration bei laufendem Dev-Server:** `npm run db:migrate` legt zwar die
+SQL-Migration an, aber `prisma generate` scheitert am selben
+DLL-Lock-Problem wie `npx next build` (siehe unten) - Server beenden,
+`npx prisma generate` erneut laufen lassen, danach neu starten.
+
+---
+
+## Nachtrag — Zwei Formular-Bugs beim Wunde-Anlegen (19.09.2026)
+
+Nutzer meldete: Beim Anlegen einer neuen Wunde erscheint andauernd
+„Ungültiger Arzt", und bei jedem Validierungsfehler werden die übrigen
+Dropdown-Auswahlen (Diagnose, Arzt, Lokalisation, Einheit) gelöscht. Zwei
+unabhängige, echte Bugs - keiner davon aus der heutigen Sitzung neu
+entstanden, beide vermutlich schon länger vorhanden, aber bisher nie mit
+einem echten Seed-Arzt *und* einem gleichzeitigen anderen Validierungsfehler
+durchgetestet.
+
+### Bug 1 — `.cuid()` verträgt sich nicht mit den Seed-IDs
+
+`src/lib/schema/wunde.ts` validierte `arztId`/`pflegedienstId` mit
+`z.string().cuid(...)`. Die Seed-Ärzte/-Pflegedienste haben aber feste,
+lesbare IDs wie `"seed-doctor-01"` (`prisma/seed.ts`) statt echter
+Prisma-`cuid()`-Werte - die bestehen `.cuid()` nicht. Mit einem echten Arzt
+(nicht `cuid`-förmige ID) schlug die Validierung deshalb **immer** fehl,
+noch bevor die eigentliche Existenzprüfung (`stammdatenFehler()` in
+`src/actions/wunden.ts`, fragt die Datenbank) überhaupt lief - diese
+Prüfung macht das Format-Constraint ohnehin überflüssig.
+`src/lib/schema/patient.ts` hatte für dasselbe Feld nie ein `.cuid()`,
+daher funktionierte die Arztauswahl dort schon immer.
+
+**Fix:** `.cuid()` entfernt, nur noch `z.string().trim().min(1, "Ungültiger Arzt")`
+- die echte Prüfung bleibt die Datenbankabfrage.
+
+### Bug 2 — Formular verliert Dropdown-Werte nach jedem Absenden
+
+Der eigentlich interessante Fund, nach längerer Fehlersuche mit
+`console.log`-Instrumentierung direkt in `WundeFormular` (Render-Zähler,
+`JSON.stringify(zustand)`, ein `reset`-Event-Listener auf dem `<form>`):
+
+- **Nicht** die Ursache: ein Remount der Komponente (ein reiner,
+  von `zustand`/`vorgabe` unabhängiger `useState`-Zähler blieb über
+  mehrere Renders hinweg stabil).
+- **Nicht** die Ursache: fehlende Daten. `zustand.werte` (das Ergebnis von
+  `wundeAnlegen`/`wundeAendern`) enthielt nachweislich die richtigen Werte
+  (`"diagnoseTyp":"DEKUBITUS","arztId":"seed-doctor-07"` etc., per
+  `console.log` direkt geprüft).
+- **Nicht** die Ursache: natives `form.reset()` - ein Listener auf das
+  `reset`-Event des `<form>` feuerte nie.
+- **Die tatsächliche Ursache:** Nach jedem Abschluss der Server Action
+  (React 19 + `useActionState`, auch bei einer Rückgabe mit
+  Validierungsfehlern statt eines Throws) setzt React/Next.js die
+  `<select>`- und Checkbox-**DOM-Knoten** des Formulars direkt auf ihren
+  ursprünglichen Zustand zurück - ohne ein `reset`-Event auszulösen. Der
+  **React-State bleibt dabei korrekt** (mit `value={auswahl.diagnoseTyp}`
+  kontrolliert nachgewiesen: State zeigte weiterhin `"DEKUBITUS"`, das
+  tatsächliche `<select>`-DOM-Element aber `""`). React bemerkt die
+  Abweichung nicht, weil sein Reconciler beim erneuten Rendern nur prüft,
+  ob sich der `value`/`checked`-**Prop** gegenüber dem *vorherigen Render*
+  geändert hat - und der hatte sich ja nicht geändert, also unterbleibt die
+  erneute DOM-Zuweisung (React vertraut darauf, dass der DOM noch dem
+  letzten von ihm gesetzten Wert entspricht - hier stimmt das nicht mehr).
+  Reine Text-`<input>`/`<textarea>` sind sichtbar nicht betroffen (die
+  Kurzbezeichnung blieb in jedem Test korrekt erhalten) - vermutlich
+  behandelt Reacts interne Zurücksetzung nur "echte" Auswahl-Steuerelemente
+  (`select`, `checkbox`, `radio`).
+
+**Fix, der tatsächlich funktioniert:** Weder unkontrolliertes `defaultValue`
+noch kontrolliertes `value`+`onChange` allein reichen. Nötig ist ein
+`key`, der sich bei jedem neuen `zustand`-Ergebnis ändert und dadurch einen
+**echten Neuaufbau** des `<form>`-Unterbaums erzwingt (nicht der ganzen
+Komponente - nur des `<form>`-Elements und seiner Kinder; `useState` in
+`WundeFormular` selbst bleibt erhalten):
+
+```ts
+const zustandGeneration = useRef(0);
+const vorherigerZustand = useRef(zustand);
+if (vorherigerZustand.current !== zustand) {
+  zustandGeneration.current += 1;
+  vorherigerZustand.current = zustand;
+}
+// ...
+<form key={zustandGeneration.current} action={formAction} ...>
+```
+
+Bei einem echten Neuaufbau greift für jedes Feld wieder ganz normal
+`defaultValue={w(...)}` bzw. `value={...}` - ein frisch erzeugter DOM-Knoten
+hat noch keinen "letzten von React gesetzten Wert", mit dem der neue Prop
+verglichen werden könnte, die Zuweisung passiert also garantiert.
+
+**Angewendet auf:** `wunde-formular.tsx`, `patient-formular.tsx` (hatte
+denselben Aufbau mit kontrollierten Selects, aber ohne den `key` - also
+genauso betroffen), `neuer-benutzer.tsx` (Rollen-Select). **Nicht
+angefasst:** `aufnahme-formular.tsx` - hat zwei native `<Select>`
+(Wagner-Grad, Dekubitus-Kategorie) mit demselben Risiko, aber deutlich
+komplexerer Zustand (Autosave, Fotos, Abschnitts-Navigation) - ein
+pauschaler `key`-Neuaufbau des ganzen Formulars würde dort vermutlich mehr
+kaputtmachen als reparieren. Braucht eine gezieltere Lösung (z. B. nur die
+zwei betroffenen Felder selbst mit einem eigenen `key` versehen), separat zu
+prüfen.
+
+**Für künftige Formulare mit `useActionState` in dieser Codebase:** Jedes
+`<select>`/`<input type="checkbox">`/`<input type="radio">`, dessen Wert
+nach einem fehlgeschlagenen Absenden erhalten bleiben soll, braucht diesen
+`key`-Trick (oder muss komplett client-seitig, ohne Formular-Action,
+gehalten werden). Reine Text-Felder brauchen ihn nicht.
+
 ---
 
 ## Was beim Bauen zu beachten ist

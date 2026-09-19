@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -66,8 +66,20 @@ export function PatientFormular({
   const [arztAuswahl, setArztAuswahl] = useState(w("arztId"));
   const [pflegedienstAuswahl, setPflegedienstAuswahl] = useState(w("pflegedienstId"));
 
+  // Nach jedem Absenden (auch bei einem Fehler) setzt React/Next.js die
+  // <select>-DOM-Knoten dieses Formulars auf ihren Ursprungszustand zurueck,
+  // ohne dass React das bei einem unveraenderten value-Prop bemerkt - siehe
+  // dieselbe Anmerkung in wunde-formular.tsx. Ein wechselnder `key` auf dem
+  // <form> erzwingt bei jedem neuen `zustand` einen echten Neuaufbau.
+  const zustandGeneration = useRef(0);
+  const vorherigerZustand = useRef(zustand);
+  if (vorherigerZustand.current !== zustand) {
+    zustandGeneration.current += 1;
+    vorherigerZustand.current = zustand;
+  }
+
   return (
-    <form action={formAction} className="space-y-6" noValidate>
+    <form key={zustandGeneration.current} action={formAction} className="space-y-6" noValidate>
       <FehlerUebersicht fehler={zustand.fehler} />
 
       {zustand.meldung && (

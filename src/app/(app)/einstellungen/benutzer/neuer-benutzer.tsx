@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,10 +18,22 @@ export function NeuerBenutzer({ abbrechenNach }: { abbrechenNach: string }) {
   const w = (feld: string) => zustand.werte?.[feld] ?? "";
   const f = (feld: string) => zustand.fehler?.[feld];
 
+  // Nach jedem Absenden (auch bei einem Fehler) setzt React/Next.js das
+  // <select>-Element auf seinen Ursprungszustand zurueck, ohne dass React
+  // das bei einem unveraenderten defaultValue bemerkt - siehe dieselbe
+  // Anmerkung in wunde-formular.tsx. Ein wechselnder `key` auf dem <form>
+  // erzwingt bei jedem neuen `zustand` einen echten Neuaufbau.
+  const zustandGeneration = useRef(0);
+  const vorherigerZustand = useRef(zustand);
+  if (vorherigerZustand.current !== zustand) {
+    zustandGeneration.current += 1;
+    vorherigerZustand.current = zustand;
+  }
+
   return (
     <Card>
       <CardContent className="space-y-5 pt-6">
-        <form action={formAction} className="space-y-5" noValidate>
+        <form key={zustandGeneration.current} action={formAction} className="space-y-5" noValidate>
           <FehlerUebersicht fehler={zustand.fehler} />
 
           <div className="grid gap-5 sm:grid-cols-2">

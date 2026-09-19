@@ -6,6 +6,7 @@ import {
   beschreibeLokalisation,
   beschreibeRezidiv,
 } from "@/lib/wundtext";
+import { FreihandMarkerVorschau } from "./freihand-marker-vorschau";
 
 type Wunde = {
   bezeichnung: string;
@@ -15,6 +16,9 @@ type Wunde = {
   lokalisationSeite: string | null;
   lokalisationAusrichtung: string | null;
   lokalisationFreitext: string | null;
+  lokalisationMarkerX: number | null;
+  lokalisationMarkerY: number | null;
+  lokalisationMarkerRadius: number | null;
   bestehtSeitWert: number | null;
   bestehtSeitEinheit: string | null;
   rezidiv: boolean;
@@ -121,6 +125,21 @@ export function WundeKopf({
             {wunde.diagnoseFreitext}
           </p>
         )}
+
+        {wunde.lokalisationMarkerX != null &&
+          wunde.lokalisationMarkerY != null &&
+          wunde.lokalisationMarkerRadius != null && (
+            <div className="mt-4 border-t border-border pt-4">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Eingezeichnete Lokalisation
+              </p>
+              <FreihandMarkerVorschau
+                x={wunde.lokalisationMarkerX}
+                y={wunde.lokalisationMarkerY}
+                radius={wunde.lokalisationMarkerRadius}
+              />
+            </div>
+          )}
       </CardContent>
     </Card>
   );

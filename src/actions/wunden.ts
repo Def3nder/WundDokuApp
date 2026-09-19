@@ -129,6 +129,20 @@ export async function wundeWiedereroeffnen(wundeId: string): Promise<void> {
   revalidatePath(`/wunden/${wundeId}`);
 }
 
+/**
+ * Merkt sich pro Benutzer, ob die Lokalisation über die Körperkarte (mit
+ * vorgegebenen Markierungen) oder frei einzeichenbar angezeigt werden soll.
+ * Reine Anzeige-Vorliebe, kein Wunddatum - deshalb kein Audit-Eintrag.
+ */
+export async function lokalisationsAnzeigeSetzen(modus: string): Promise<void> {
+  const sitzung = await verlangeSitzung();
+  if (modus !== "KARTE" && modus !== "FREIHAND") return;
+  await db.user.update({
+    where: { id: sitzung.user.id },
+    data: { lokalisationsAnzeige: modus },
+  });
+}
+
 export async function wundeLoeschen(wundeId: string): Promise<void> {
   const sitzung = await verlangeSitzung();
 

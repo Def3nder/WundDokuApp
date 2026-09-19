@@ -303,6 +303,24 @@ entspricht der medizinischen Konvention für anteriore/posteriore
 Körperkarten und wurde beim Klicktest gegen die bekannte Anatomie
 (Schulter, dann Knöchel/lateral) geprüft.
 
+### T15 — Freihand-Marker als eigenständige Daten, unabhängig von der Körperkarte
+
+Auf Wunsch ergänzt: zweite Eingabeart für die Lokalisation — ein frei auf ein
+unmarkiertes Körperbild gezeichneter Kreis (`assets/vorlage/Wundlokalisation_ohne_Marker.png`,
+Klicken+Ziehen für Größe, danach verschiebbar), umschaltbar gegen die
+Körperkarte aus [T14](#t14--körperkarte-befüllt-die-vorhandenen-lokalisationsfelder-statt-eigene-daten-zu-speichern).
+
+Anders als T14 füllt dieser Marker **nicht** die drei Dropdown-Felder — der
+Nutzer wollte ihn ausdrücklich unabhängig davon. Er braucht deshalb eigene
+Datenbankfelder (`Wound.lokalisationMarkerX/Y/Radius`, Prozentwerte,
+Migration `20260919163629_lokalisation_freihand`), statt wie die Körperkarte
+in vorhandene Felder zu schreiben.
+
+Die Wahl zwischen beiden Eingabearten ist **pro Benutzer** gespeichert
+(`User.lokalisationsAnzeige`), nicht pro Browser (`localStorage`) — die Praxis
+nutzt sowohl Tablets als auch den Stationsrechner, eine browserlokale
+Einstellung wäre bei Gerätewechsel weg gewesen.
+
 ---
 
 ## Bewusst nicht umgesetzt

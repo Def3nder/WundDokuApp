@@ -23,6 +23,10 @@ model User {
   passwordHash String
   rolle        String   @default("PFLEGE") // ADMIN | PFLEGE
   aktiv        Boolean  @default(true)
+  /// Bevorzugte Eingabeart fuer die Wund-Lokalisation: KARTE (anklickbare
+  /// Markierungen) | FREIHAND (Marker frei auf leeres Bild einzeichnen).
+  /// Pro Benutzer gemerkt, nicht pro Wunde.
+  lokalisationsAnzeige String @default("KARTE")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -87,6 +91,13 @@ model Wound {
   lokalisationSeite       String? // LINKS | RECHTS
   lokalisationAusrichtung String? // LATERAL | MEDIAL
   lokalisationFreitext    String?
+  /// Frei eingezeichneter Marker auf dem unmarkierten Körperbild (Alternative
+  /// zur Karte mit vorgegebenen Punkten). x/y = Mittelpunkt, radius = Radius,
+  /// alle drei in Prozent der Bildgröße. Unabhängig von den drei Feldern
+  /// oben - beeinflusst sie nicht und wird nicht aus ihnen abgeleitet.
+  lokalisationMarkerX      Float?
+  lokalisationMarkerY      Float?
+  lokalisationMarkerRadius Float?
 
   // --- Wunde besteht seit ---
   bestehtSeitWert    Int?

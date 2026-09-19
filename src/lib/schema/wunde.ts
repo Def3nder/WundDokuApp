@@ -23,6 +23,17 @@ const zahlOderNull = (max: number, feld: string) =>
       .nullable(),
   );
 
+/** Prozentwert (0-100) mit Nachkommastellen, für den frei gezeichneten Marker. */
+const prozentOderNull = (feld: string) =>
+  z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+    z.coerce
+      .number({ invalid_type_error: `${feld}: bitte eine Zahl angeben` })
+      .min(0, `${feld}: mindestens 0`)
+      .max(100, `${feld}: höchstens 100`)
+      .nullable(),
+  );
+
 export const wundeSchema = z
   .object({
     bezeichnung: z
@@ -40,8 +51,15 @@ export const wundeSchema = z
       z.string().trim().max(500, "Höchstens 500 Zeichen").nullable(),
     ),
 
-    arztId: z.preprocess(leerZuNull, z.string().cuid("Ungültiger Arzt").nullable()),
-    pflegedienstId: z.preprocess(leerZuNull, z.string().cuid("Ungültiger Pflegedienst").nullable()),
+    // Kein .cuid() - Stammdaten-IDs sind nicht zwangsläufig echte CUIDs (die
+    // Testärzte/-pflegedienste aus dem Seed haben feste IDs wie
+    // "seed-doctor-01"). Ob die ID tatsächlich existiert, prüft ohnehin
+    // stammdatenFehler() in src/actions/wunden.ts gegen die Datenbank.
+    arztId: z.preprocess(leerZuNull, z.string().trim().min(1, "Ungültiger Arzt").nullable()),
+    pflegedienstId: z.preprocess(
+      leerZuNull,
+      z.string().trim().min(1, "Ungültiger Pflegedienst").nullable(),
+    ),
 
     lokalisationRegion: z.preprocess(
       leerZuNull,
@@ -56,6 +74,9 @@ export const wundeSchema = z
       leerZuNull,
       z.string().trim().max(500, "Höchstens 500 Zeichen").nullable(),
     ),
+    lokalisationMarkerX: prozentOderNull("Marker-Position"),
+    lokalisationMarkerY: prozentOderNull("Marker-Position"),
+    lokalisationMarkerRadius: prozentOderNull("Marker-Größe"),
 
     bestehtSeitWert: zahlOderNull(999, "Bestehtsdauer"),
     bestehtSeitEinheit: z.preprocess(
@@ -91,6 +112,20 @@ export const wundeSchema = z
         message: "Anzahl nur angeben, wenn ein Rezidiv vorliegt",
       });
     }
+    // Der frei gezeichnete Marker ist ein einzelner Kreis - entweder ganz
+    // oder gar nicht gesetzt, nie nur teilweise.
+    const markerFelder = [
+      daten.lokalisationMarkerX,
+      daten.lokalisationMarkerY,
+      daten.lokalisationMarkerRadius,
+    ];
+    if (markerFelder.some((f) => f != null) && markerFelder.some((f) => f == null)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["lokalisationMarkerX"],
+        message: "Marker unvollständig - bitte neu einzeichnen",
+      });
+    }
   });
 
 export type WundeEingabe = z.infer<typeof wundeSchema>;
@@ -106,6 +141,9 @@ export function wundeAusFormData(fd: FormData) {
     lokalisationSeite: fd.get("lokalisationSeite"),
     lokalisationAusrichtung: fd.get("lokalisationAusrichtung"),
     lokalisationFreitext: fd.get("lokalisationFreitext"),
+    lokalisationMarkerX: fd.get("lokalisationMarkerX"),
+    lokalisationMarkerY: fd.get("lokalisationMarkerY"),
+    lokalisationMarkerRadius: fd.get("lokalisationMarkerRadius"),
     bestehtSeitWert: fd.get("bestehtSeitWert"),
     bestehtSeitEinheit: fd.get("bestehtSeitEinheit"),
     rezidiv: fd.get("rezidiv") === "on" || fd.get("rezidiv") === "true",

@@ -1,13 +1,15 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { FehlerUebersicht } from "@/components/ui/fehler-uebersicht";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { KoerperKarte, type LokalisationWahl } from "@/components/formular/koerperkarte";
+import { FreihandKarte, type FreihandMarker } from "@/components/formular/freihand-karte";
 import {
   AUSRICHTUNGEN,
   DIAGNOSE_TYPEN,
@@ -16,6 +18,7 @@ import {
   ZEITEINHEITEN,
 } from "@/lib/enums";
 import type { FormZustand } from "@/actions/patienten";
+import { lokalisationsAnzeigeSetzen } from "@/actions/wunden";
 
 const START: FormZustand = {};
 
@@ -29,6 +32,9 @@ export type WundeWerte = {
   lokalisationSeite: string;
   lokalisationAusrichtung: string;
   lokalisationFreitext: string;
+  lokalisationMarkerX: string;
+  lokalisationMarkerY: string;
+  lokalisationMarkerRadius: string;
   bestehtSeitWert: string;
   bestehtSeitEinheit: string;
   rezidiv: boolean;
@@ -45,6 +51,9 @@ const LEER: WundeWerte = {
   lokalisationSeite: "",
   lokalisationAusrichtung: "",
   lokalisationFreitext: "",
+  lokalisationMarkerX: "",
+  lokalisationMarkerY: "",
+  lokalisationMarkerRadius: "",
   bestehtSeitWert: "",
   bestehtSeitEinheit: "MONATE",
   rezidiv: false,
@@ -58,6 +67,7 @@ export function WundeFormular({
   absendeText = "Speichern",
   aerzte = [],
   pflegedienste = [],
+  anzeigeModus = "KARTE",
 }: {
   action: (zustand: FormZustand, fd: FormData) => Promise<FormZustand>;
   vorgabe?: WundeWerte;
@@ -65,6 +75,8 @@ export function WundeFormular({
   absendeText?: string;
   aerzte?: { id: string; name: string; praxis: string | null }[];
   pflegedienste?: { id: string; name: string }[];
+  /** Zuletzt gewählte Anzeigeart der Lokalisation, pro Benutzer gemerkt. */
+  anzeigeModus?: string;
 }) {
   const [zustand, formAction, laeuft] = useActionState(action, START);
   const [rezidiv, setRezidiv] = useState(vorgabe.rezidiv);
@@ -73,14 +85,57 @@ export function WundeFormular({
     (zustand.werte?.[feld] as string | undefined) ?? String(vorgabe[feld] ?? "");
   const f = (feld: string) => zustand.fehler?.[feld];
 
+  // Nach jedem Absenden (auch bei einem Fehler) setzt React/Next.js die
+  // <select>- und Checkbox-DOM-Knoten dieses Formulars auf ihren
+  // Ursprungszustand zurueck, OHNE dass React das bei einem unveraenderten
+  // value/checked-Prop bemerkt - der interne Zustand bleibt korrekt, nur die
+  // tatsaechlich angezeigte Eingabe faellt sichtbar auf "keine Auswahl"
+  // zurueck. Ein wechselnder `key` auf dem <form> erzwingt bei jedem neuen
+  // Ergebnis von `zustand` einen echten Neuaufbau des Baums - die frischen
+  // Felder lesen dann wieder korrekt aus `w()`/lokalem State.
+  const zustandGeneration = useRef(0);
+  const vorherigerZustand = useRef(zustand);
+  if (vorherigerZustand.current !== zustand) {
+    zustandGeneration.current += 1;
+    vorherigerZustand.current = zustand;
+  }
+
+  const [auswahl, setAuswahl] = useState({
+    diagnoseTyp: w("diagnoseTyp"),
+    arztId: w("arztId"),
+    pflegedienstId: w("pflegedienstId"),
+    bestehtSeitEinheit: w("bestehtSeitEinheit"),
+  });
+  const waehle = (feld: keyof typeof auswahl) => (e: ChangeEvent<HTMLSelectElement>) =>
+    setAuswahl((a) => ({ ...a, [feld]: e.target.value }));
+
   const [lokalisation, setLokalisation] = useState<LokalisationWahl>({
     region: w("lokalisationRegion"),
     seite: w("lokalisationSeite"),
     ausrichtung: w("lokalisationAusrichtung"),
   });
 
+  const [modus, setModus] = useState<"KARTE" | "FREIHAND">(
+    anzeigeModus === "FREIHAND" ? "FREIHAND" : "KARTE",
+  );
+  const [freihandMarker, setFreihandMarker] = useState<FreihandMarker | null>(() => {
+    const x = Number.parseFloat(w("lokalisationMarkerX"));
+    const y = Number.parseFloat(w("lokalisationMarkerY"));
+    const radius = Number.parseFloat(w("lokalisationMarkerRadius"));
+    return Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(radius)
+      ? { x, y, radius }
+      : null;
+  });
+
+  function modusWaehlen(neu: "KARTE" | "FREIHAND") {
+    setModus(neu);
+    // Reine Anzeige-Vorliebe, kein Formularfeld - Fehler dabei sind nicht
+    // kritisch und werden bewusst nicht dem Nutzer gemeldet.
+    lokalisationsAnzeigeSetzen(neu).catch(() => {});
+  }
+
   return (
-    <form action={formAction} className="space-y-6" noValidate>
+    <form key={zustandGeneration.current} action={formAction} className="space-y-6" noValidate>
       <FehlerUebersicht fehler={zustand.fehler} />
 
       {zustand.meldung && (
@@ -108,7 +163,13 @@ export function WundeFormular({
 
           <Field id="diagnoseTyp" label="Diagnose" pflicht fehler={f("diagnoseTyp")}>
             {(p) => (
-              <Select {...p} name="diagnoseTyp" defaultValue={w("diagnoseTyp")} required>
+              <Select
+                {...p}
+                name="diagnoseTyp"
+                value={auswahl.diagnoseTyp}
+                onChange={waehle("diagnoseTyp")}
+                required
+              >
                 <option value="">Bitte auswählen …</option>
                 {DIAGNOSE_TYPEN.map((d) => (
                   <option key={d.wert} value={d.wert}>
@@ -137,13 +198,13 @@ export function WundeFormular({
           <h2 className="text-base font-semibold">Versorgungspartner</h2>
           <div className="grid gap-5 sm:grid-cols-2">
             <Field id="arztId" label="Arzt" fehler={f("arztId")}>
-              {(p) => <Select {...p} name="arztId" defaultValue={w("arztId")}>
+              {(p) => <Select {...p} name="arztId" value={auswahl.arztId} onChange={waehle("arztId")}>
                 <option value="">Kein Arzt ausgewählt</option>
                 {aerzte.map((arzt) => <option key={arzt.id} value={arzt.id}>{arzt.name}{arzt.praxis ? ` · ${arzt.praxis}` : ""}</option>)}
               </Select>}
             </Field>
             <Field id="pflegedienstId" label="Pflegedienst" fehler={f("pflegedienstId")}>
-              {(p) => <Select {...p} name="pflegedienstId" defaultValue={w("pflegedienstId")}>
+              {(p) => <Select {...p} name="pflegedienstId" value={auswahl.pflegedienstId} onChange={waehle("pflegedienstId")}>
                 <option value="">Kein Pflegedienst ausgewählt</option>
                 {pflegedienste.map((dienst) => <option key={dienst.id} value={dienst.id}>{dienst.name}</option>)}
               </Select>}
@@ -222,7 +283,54 @@ export function WundeFormular({
             </Field>
           </div>
 
-          <KoerperKarte wert={lokalisation} onWahl={setLokalisation} />
+          <div className="space-y-3">
+            <div
+              role="group"
+              aria-label="Anzeigeart der Lokalisationshilfe"
+              className="inline-flex rounded-lg border border-border-strong p-1"
+            >
+              <button
+                type="button"
+                aria-pressed={modus === "KARTE"}
+                onClick={() => modusWaehlen("KARTE")}
+                className={cn(
+                  "tippziel rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-200",
+                  modus === "KARTE"
+                    ? "bg-secondary text-on-secondary"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Körperkarte
+              </button>
+              <button
+                type="button"
+                aria-pressed={modus === "FREIHAND"}
+                onClick={() => modusWaehlen("FREIHAND")}
+                className={cn(
+                  "tippziel rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-200",
+                  modus === "FREIHAND"
+                    ? "bg-secondary text-on-secondary"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Frei einzeichnen
+              </button>
+            </div>
+
+            {modus === "KARTE" ? (
+              <KoerperKarte wert={lokalisation} onWahl={setLokalisation} />
+            ) : (
+              <FreihandKarte wert={freihandMarker} onWahl={setFreihandMarker} />
+            )}
+
+            <input type="hidden" name="lokalisationMarkerX" value={freihandMarker?.x ?? ""} />
+            <input type="hidden" name="lokalisationMarkerY" value={freihandMarker?.y ?? ""} />
+            <input
+              type="hidden"
+              name="lokalisationMarkerRadius"
+              value={freihandMarker?.radius ?? ""}
+            />
+          </div>
 
           <Field
             id="lokalisationFreitext"
@@ -259,7 +367,8 @@ export function WundeFormular({
               <Select
                 id="bestehtSeitEinheit"
                 name="bestehtSeitEinheit"
-                defaultValue={w("bestehtSeitEinheit")}
+                value={auswahl.bestehtSeitEinheit}
+                onChange={waehle("bestehtSeitEinheit")}
                 aria-label="Einheit"
                 aria-invalid={f("bestehtSeitEinheit") ? true : undefined}
                 className="w-40"
