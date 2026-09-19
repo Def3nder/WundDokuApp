@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, ClipboardList, Columns2, Pencil, Plus } from "lucide-react";
+import { ChevronLeft, ClipboardList, Columns2, FileDown, Pencil, Plus } from "lucide-react";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -146,14 +146,22 @@ export default async function WundeSeite({
                     Messwerte aus abgeschlossenen Aufnahmen in zeitlicher Reihenfolge.
                   </p>
                 </div>
-                {verlaufsdaten.length >= 2 && (
+                <div className="flex flex-wrap gap-3">
+                  {verlaufsdaten.length >= 2 && (
+                    <Button variant="outline" asChild>
+                      <Link href={`/wunden/${id}/vergleich`}>
+                        <Columns2 aria-hidden="true" />
+                        Aufnahmen vergleichen
+                      </Link>
+                    </Button>
+                  )}
                   <Button variant="outline" asChild>
-                    <Link href={`/wunden/${id}/vergleich`}>
-                      <Columns2 aria-hidden="true" />
-                      Aufnahmen vergleichen
-                    </Link>
+                    <a href={`/api/wunden/${id}/pdf`}>
+                      <FileDown aria-hidden="true" />
+                      Verlauf als PDF
+                    </a>
                   </Button>
-                )}
+                </div>
               </div>
               <Verlaufsdiagramme daten={verlaufsdaten} />
             </section>

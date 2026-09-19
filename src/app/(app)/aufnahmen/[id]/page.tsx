@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Pencil } from "lucide-react";
+import { ChevronLeft, FileDown, Pencil } from "lucide-react";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -129,6 +129,9 @@ export default async function AufnahmeSeite({ params }: { params: Promise<{ id: 
       <div className="flex flex-wrap gap-3">
         <Button asChild>
           <Link href={`/aufnahmen/${id}/bearbeiten`}><Pencil aria-hidden="true" />{aufnahme.istEntwurf ? "Entwurf fortsetzen" : "Aufnahme bearbeiten"}</Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <a href={`/api/aufnahmen/${id}/pdf`}><FileDown aria-hidden="true" />Als PDF</a>
         </Button>
         <AufnahmeLoeschen action={loeschAction} />
       </div>

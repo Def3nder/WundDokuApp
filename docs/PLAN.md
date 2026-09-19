@@ -158,17 +158,24 @@ Der Papierbogen hat ~180 Felder auf einer Seite. Eins-zu-eins übertragen wäre 
 
 ---
 
-## PDF-Export im DRACO-Layout
+## PDF-Export in eigenem Layout
 
-Das Original-PDF ist ein interaktives AcroForm mit 316 Feldern. Deren Namen sind generisch (`Kontrollkästchen 113`, `Textfeld 1024`), also nicht selbsterklärend — die Zuordnung muss über die Widget-Koordinaten erfolgen, die ich bereits extrahiert habe.
+Der DRACO-Papierbogen diente nur der fachlichen Orientierung beim Aufbau von
+Datenmodell und Formular — er ist fremdes Material und wird nicht als
+Exportvorlage befüllt (siehe [T12](ENTSCHEIDUNGEN.md#t12--eigenstaendiges-pdf-layout-statt-vorlagen-fill)).
 
 Vorgehen:
-1. Einmaliges Skript `scripts/build-pdf-map.ts` erzeugt `src/lib/pdf/field-map.json` — es liest die Widget-Rechtecke aus, ordnet jedem Feld das nächstliegende Label zu und bildet daraus `{ feldname → datenschlüssel }`.
-2. Die Zuordnung wird per Hand geprüft und im JSON festgeschrieben (nicht zur Laufzeit geraten).
-3. `src/lib/pdf/export.ts` lädt die Vorlage mit `pdf-lib`, setzt die Feldwerte, flacht das Formular ab und hängt eine dritte Seite mit den Wundfotos an.
-4. Route `app/api/aufnahmen/[id]/pdf/route.ts` liefert das Ergebnis als Download.
-
-Das Original bleibt unverändert unter `assets/vorlage/`. Zusätzlich ein Sammel-Export „gesamter Verlauf einer Wunde" als mehrseitiges PDF.
+1. `src/lib/pdf/builder.ts` zeichnet ein eigenständiges Layout direkt mit
+   `pdf-lib`: Titel, Abschnitte, Label/Wert-Raster, Tabelle, Fotos, Fußzeile
+   mit Seitenzahl. Eingebettete Schrift statt PDF-Standardschrift (Noto Sans,
+   siehe [T13](ENTSCHEIDUNGEN.md#t13--echte-schriftdatei-statt-pdf-standardschrift)).
+2. `src/lib/pdf/export.ts` befüllt es mit denselben Feldern in derselben
+   Reihenfolge wie die Leseansicht (`aufnahmen/[id]/page.tsx`), damit
+   Bildschirm und Ausdruck nie auseinanderlaufen. Fotos werden dafür aus dem
+   gespeicherten WebP nach JPEG umkodiert (`pdf-lib` kann kein WebP einbetten).
+3. Route `app/api/aufnahmen/[id]/pdf/route.ts` liefert eine einzelne Aufnahme,
+   `app/api/wunden/[id]/pdf/route.ts` den gesamten Verlauf einer Wunde
+   (chronologisch, mit vorangestellter Übersichtstabelle) als Download.
 
 ---
 
@@ -220,7 +227,7 @@ Upload-Route mit `sharp`, EXIF-Entfernung, Thumbnails, geschützte Auslieferung,
 Verlaufsdiagramme, Foto-Vergleich mit Differenztabelle, Trend-Badges in der Zeitleiste.
 
 **Phase 6 — PDF & Feinschliff**
-Feldzuordnung erzeugen und prüfen, Export einzeln und als Verlauf, Audit-Log, Leerzustände, Tastaturbedienung, axe-Durchlauf, Dark-Mode-Kontrollgang.
+Export einzeln und als Verlauf in eigenem PDF-Layout, Audit-Log-Ansicht, Leerzustände, Tastaturbedienung, axe-Durchlauf, Dark-Mode-Kontrollgang.
 
 ---
 
@@ -228,8 +235,8 @@ Feldzuordnung erzeugen und prüfen, Export einzeln und als Verlauf, Audit-Log, L
 
 ```
 prisma/schema.prisma · seed.ts
-assets/vorlage/draco-wunddokumentationsbogen.pdf
-scripts/build-pdf-map.ts
+assets/vorlage/draco-wunddokumentationsbogen.pdf   (nur Orientierung, keine Laufzeit-Abhaengigkeit)
+assets/fonts/NotoSans-{Regular,Bold}.ttf            fuer den PDF-Export
 storage/photos/…                      (gitignored)
 src/app/
   (auth)/login/page.tsx
@@ -237,8 +244,10 @@ src/app/
   (app)/patienten/[id]/…
   (app)/wunden/[id]/…
   (app)/aufnahmen/[id]/…
+  (app)/einstellungen/audit-log/page.tsx
   api/photos/[id]/route.ts            geschützte Bildauslieferung
   api/aufnahmen/[id]/pdf/route.ts
+  api/wunden/[id]/pdf/route.ts
   globals.css                         Design-Tokens
 src/components/
   formular/                           ChipGroup, VasSlider, Zifferblatt, Koerperschema,
@@ -248,7 +257,7 @@ src/components/
 src/lib/
   schema/                             Zod: aufnahme.ts, wunde.ts, patient.ts
   enums.ts                            alle Auswahlwerte + deutsche Labels
-  pdf/                                export.ts, field-map.json
+  pdf/                                builder.ts, export.ts
   fotos.ts · auth.ts · db.ts · audit.ts
 src/actions/                          Server Actions je Entität
 ```
@@ -270,7 +279,7 @@ npm install && npx prisma migrate dev && npx prisma db seed && npm run dev
 3. Folgeaufnahme starten → prüfen, dass sie vorbefüllt ist; Größe verkleinern; prüfen, dass das Flächen-Delta „−x %" erscheint
 4. Cockpit: Zeitleiste zeigt beide Aufnahmen, Diagramme zeigen den Verlauf
 5. Vergleich beider Aufnahmen aufrufen, Differenztabelle prüfen
-6. PDF exportieren und **gegen das Original-PDF legen** — jedes Kreuz muss an derselben Stelle sitzen
+6. PDF exportieren (einzelne Aufnahme und gesamter Verlauf) und gegen die Bildschirmansicht prüfen — dieselben Felder, dieselbe Reihenfolge
 
 **Technische Prüfungen**
 - `npm run build` und `npx tsc --noEmit` ohne Fehler

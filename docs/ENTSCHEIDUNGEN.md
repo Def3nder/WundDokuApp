@@ -48,16 +48,13 @@ Die vierte Stufe ergibt als Steigerung keinen Sinn. Ich dokumentiere
 *Wenn das falsch ist:* eine Zeile in `src/lib/enums.ts` ändern. Bereits erfasste
 Daten bleiben gültig, da der gespeicherte Schlüssel derselbe bleibt.
 
-### A2 — PDF-Export nutzt das Original als Vorlage
+### A2 — PDF-Export nutzt das Original als Vorlage — **verworfen, siehe T12**
 
-Der Ausdruck soll layoutgleich zum Papierbogen sein, deshalb fülle ich das
-Original-AcroForm mit `pdf-lib`, statt ein eigenes Layout zu bauen. Das Original
-liegt unverändert unter `assets/vorlage/` und wird ausschließlich mit den eigenen
-Patientendaten befüllt.
-
-*Offener Punkt:* Falls das lizenzrechtlich nicht gewünscht ist, baue ich ein
-eigenes Layout — das kostet etwa einen halben Tag und ändert nur
-`src/lib/pdf/`.
+Ursprünglich geplant: das Original-AcroForm mit `pdf-lib` befüllen, damit der
+Ausdruck layoutgleich zum Papierbogen ist. Auf Rückfrage entschieden: Der
+Papierbogen diente nur der fachlichen Orientierung beim Aufbau von
+Datenmodell und Formular — er ist fremdes Material und wird nicht als
+Exportvorlage verwendet. Details siehe [T12](#t12--eigenstaendiges-pdf-layout-statt-vorlagen-fill).
 
 ### A3 — Graduierung gehört an die Aufnahme
 
@@ -146,20 +143,17 @@ Bild.
 `geloeschtAm` statt `DELETE`. Versehentliches Löschen einer Aufnahme wäre sonst
 unwiederbringlicher Verlust von Behandlungsdokumentation.
 
-### T10 — Vorlage liegt lokal, nicht im Repository
+### T10 — Vorlage liegt lokal, nicht im Repository, und wird nicht mehr gelesen
 
 Das Original-PDF ist fremdes Material und soll nicht in die Versionsverwaltung.
 Es liegt unter `assets/vorlage/draco-wunddokumentationsbogen.pdf` und ist über
 `.gitignore` ausgeschlossen; daneben steht eine versionierte
-[README](../assets/vorlage/README.md), die erklärt, was dort hingehört.
+[README](../assets/vorlage/README.md).
 
-Die daraus abgeleitete Feldzuordnung `src/lib/pdf/field-map.json` **wird**
-versioniert — sie enthält nur Feldnamen und Koordinaten, keinen Inhalt der
-Vorlage. So bleibt der Code nachvollziehbar, ohne die Datei mitzuliefern.
-
-*Folge:* Nach einem frischen Klon fehlt die Vorlage. Der PDF-Export meldet das
-verständlich und verweist auf die README; alle übrigen Funktionen laufen
-unabhängig davon.
+Seit [T12](#t12--eigenstaendiges-pdf-layout-statt-vorlagen-fill) ist die Datei
+reine Orientierungshilfe beim Entwickeln, keine Laufzeit-Abhängigkeit mehr —
+der PDF-Export braucht sie nicht, liest sie nicht und meldet auch nichts, wenn
+sie fehlt.
 
 *Noch offen:* Die Datei steckt weiterhin im Commit `2ae0f97` der Historie. Sie
 aus HEAD zu löschen entfernt sie nicht aus der Vergangenheit. Solange das
@@ -171,6 +165,43 @@ die Historie neu geschrieben werden (`git filter-repo`).
 npm 12 blockiert Postinstall-Skripte. Für Prisma, esbuild und `sharp` sind sie
 nötig (native Binaries) und in `package.json` unter `allowScripts` einzeln
 freigegeben — keine pauschale Freigabe.
+
+### T12 — Eigenständiges PDF-Layout statt Vorlagen-Fill
+
+Auf Rückfrage während Phase 6 entschieden: Der DRACO-Papierbogen diente beim
+Aufbau von Datenmodell, Formular und Feldinventar nur der fachlichen
+Orientierung. Er ist fremdes Material und wird **nicht** als Exportvorlage
+befüllt — der ursprüngliche Plan mit `scripts/build-pdf-map.ts`,
+`src/lib/pdf/field-map.json` und einem 316-Felder-AcroForm-Mapping entfällt
+komplett.
+
+Stattdessen zeichnet `src/lib/pdf/builder.ts` ein eigenes Layout direkt mit
+`pdf-lib` (Titel, Abschnitte, Label/Wert-Raster, Tabelle, Fotos) und
+`src/lib/pdf/export.ts` befüllt es mit denselben Feldern in derselben
+Reihenfolge wie die Leseansicht (`aufnahmen/[id]/page.tsx`) — Bildschirm und
+Ausdruck können so nie auseinanderlaufen. Zwei Export-Routen:
+`api/aufnahmen/[id]/pdf` (eine Aufnahme) und `api/wunden/[id]/pdf`
+(gesamter Verlauf, chronologisch mit Übersichtstabelle vorangestellt).
+
+*Umkehrbar:* Betrifft ausschließlich `src/lib/pdf/`. Ein Vorlagen-Fill wäre bei
+Bedarf später nachrüstbar, ohne Formular oder Datenmodell anzufassen.
+
+### T13 — Echte Schriftdatei statt PDF-Standardschrift
+
+`pdf-lib`s eingebaute Standardschriften (`StandardFonts.Helvetica`) kommen
+ohne Unicode-Zuordnung (ToUnicode-CMap). Der erste Verdacht war, dass dadurch
+Umlaute im Export nicht durchsuchbar/kopierbar wären — das erwies sich beim
+genauen Nachprüfen (Byte-Ebene, nicht nur Terminal-Ausgabe) als falscher
+Alarm, die Standardschrift extrahierte bereits korrekt.
+
+Trotzdem entschieden, echte Schriftdateien einzubetten
+(`assets/fonts/NotoSans-{Regular,Bold}.ttf` über `@pdf-lib/fontkit`): Noto Sans
+ist ohnehin schon die Schrift der Anwendung ([T4](#t4--neutraler-hintergrund-statt-der-skill-palette)),
+das macht Bildschirm und Ausdruck auch typografisch konsistent, unabhängig
+vom Standardschriften-Ersatz des jeweiligen PDF-Betrachters. Die Schriftdatei
+ist eine variable Schrift (Google Fonts, OFL-Lizenz); für den Export wurden
+mit `fonttools` statische Regular-/Bold-Instanzen erzeugt und auf
+Latein/Interpunktion eingekürzt (siehe [assets/fonts/README.md](../assets/fonts/README.md)).
 
 ---
 
@@ -189,7 +220,6 @@ freigegeben — keine pauschale Freigabe.
 
 ## Noch zu klären
 
-1. **A2** — Original-PDF als Exportvorlage in Ordnung, oder eigenes Layout?
-2. **A1** — Stimmt „Mäßige bis starke" als vierte Exsudatstufe?
-3. Sollen Patienten nach einer Frist automatisch archiviert werden, und nach
+1. **A1** — Stimmt „Mäßige bis starke" als vierte Exsudatstufe?
+2. Sollen Patienten nach einer Frist automatisch archiviert werden, und nach
    welcher? (Aufbewahrungsfrist für Behandlungsdokumentation: 10 Jahre)

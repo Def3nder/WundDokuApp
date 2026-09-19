@@ -3,8 +3,8 @@
 Arbeitsstand für die Fortsetzung in einer neuen Sitzung. Ergänzt die
 inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
 
-**Stand:** 19.09.2026 · Phase 1 bis 5 fertig
-**Prüfstand:** `npx tsc --noEmit` sauber · `npm test` 39/39 grün · `npm run build` sauber · Browser-Durchgang erfolgreich · noch nichts committet
+**Stand:** 19.09.2026 · Phase 1 bis 5 fertig · Phase 6 PDF-Export und Audit-Log fertig, Feinschliff offen
+**Prüfstand:** `npx tsc --noEmit` sauber · `npm test` 51/51 grün · `npm run build` sauber · Browser-Durchgang erfolgreich (Login, PDF-Export einzeln und Verlauf, Audit-Log-Filter) · noch nichts committet
 
 ---
 
@@ -67,11 +67,37 @@ Aufnahmen. Die Diagramme bleiben über eine Screenreader-Tabelle zugänglich. Im
 Vergleich wird standardmäßig die vorletzte gegen die neueste Aufnahme gezeigt;
 beide Zeitpunkte können unabhängig gewählt und getauscht werden.
 
-## Womit anfangen
+## Phase 6 — PDF-Export & Audit-Log fertig, Feinschliff offen
 
-**Phase 6 — PDF & Feinschliff.** Feldzuordnung für den DRACO-PDF-Export erzeugen
-und prüfen, Einzel- und Verlaufsexport bauen, Audit-Log-Ansicht ergänzen sowie
-Leerzustände, Tastaturbedienung, axe und Dark Mode abschließend kontrollieren.
+| Datei | Inhalt |
+|---|---|
+| `assets/fonts/` | Statische Noto-Sans-Instanzen (Regular/Bold) für den PDF-Export, siehe dortige README |
+| `src/lib/pdf/builder.ts` | Eigenständiges PDF-Layout-Werkzeug auf `pdf-lib` (Titel, Abschnitte, Raster, Tabelle, Fotos, Fußzeile) |
+| `src/lib/pdf/export.ts` | Baut Einzel- und Verlaufs-PDF aus denselben Feldern wie die Leseansicht |
+| `src/app/api/aufnahmen/[id]/pdf/route.ts` | Download einer einzelnen Aufnahme |
+| `src/app/api/wunden/[id]/pdf/route.ts` | Download des gesamten Wundverlaufs |
+| `src/app/(app)/einstellungen/audit-log/page.tsx` | Änderungsprotokoll, admin-only, mit Bereichsfilter |
+
+**Wichtigste Wendung:** Der DRACO-Papierbogen wird **nicht** mehr als
+AcroForm-Exportvorlage befüllt (ursprünglicher Plan mit `build-pdf-map.ts` /
+`field-map.json` verworfen) — er diente nur der fachlichen Orientierung. Siehe
+[T12](docs/ENTSCHEIDUNGEN.md#t12--eigenstaendiges-pdf-layout-statt-vorlagen-fill).
+`assets/vorlage/` bleibt als Referenz, ist aber keine Laufzeit-Abhängigkeit mehr.
+
+Für durchsuchbaren/kopierbaren Text wird eine echte Schriftdatei eingebettet
+(`@pdf-lib/fontkit` + Noto Sans, siehe
+[T13](docs/ENTSCHEIDUNGEN.md#t13--echte-schriftdatei-statt-pdf-standardschrift)) —
+**Vorsicht beim nochmal Nachdenken:** Der ursprüngliche Verdacht, `pdf-lib`s
+Standardschrift mache Umlaute im Export unlesbar/unkopierbar, war ein
+Fehlalarm — siehe [„Terminal zeigt `�` statt Umlaute"](#terminal-zeigt--statt-umlaute-kein-pdf-fehler)
+weiter unten. Die Schrifteinbettung selbst ist trotzdem sinnvoll (Konsistenz
+mit der App-eigenen Schrift) und bleibt.
+
+## Womit anfangen — Feinschliff
+
+Leerzustände durchgehen, Formular und Cockpit komplett mit Tastatur bedienen,
+axe-Durchlauf auf Formular/Cockpit/Audit-Log, Dark Mode auf allen neuen Seiten
+gegenprüfen (PDF-Buttons, Protokoll-Tabelle, Filter-Chips).
 
 ### Die sechs Abschnitte
 
@@ -146,6 +172,33 @@ der Seite. Das ist ein Aufnahmeartefakt, kein Layoutfehler — per DOM geprüft
 
 `Screenshot timed out after 5s`, wenn das Fenster im Hintergrund liegt. Einfach
 wiederholen oder auf `get_page_text` / `find` ausweichen.
+
+### PDF-Layout: `pdf-lib`-Positionsrechnung real rendern, nicht nur typchecken
+
+In `pdf/builder.ts` war `maxHoehe` für Fotos als
+`SEITE_HOEHE - OBEN_START - UNTEN_GRENZE` berechnet — ergibt **-6** statt der
+verfügbaren Höhe, weil `OBEN_START` schon eine y-Koordinate ist (kein Randmaß).
+TypeScript und die Tests fanden das nicht, weil die Rechnung überall intern
+konsistent blieb; erst ein tatsächlich gerenderter Seitenausschnitt
+(`pypdfium2`, siehe unten) zeigte briefmarkengroße statt seitenfüllende Fotos.
+Bei jeder neuen Geometrie-Formel in `builder.ts`: eine Seite mit echtem Inhalt
+rendern und ansehen, nicht nur `tsc`/`vitest` grün sehen.
+
+### Terminal zeigt `�` statt Umlaute — kein PDF-Fehler
+
+`pdftotext`/`pdfplumber`-Ausgabe in diesem Git-Bash/Windows-Terminal zeigt `�`
+für jedes `ä ö ü ß ² ·` — sieht wie eine falsche Unicode-Zuordnung im PDF aus,
+ist aber nur die Terminal-Darstellung. Erst der Byte-Wert bestätigt es:
+`ord(zeichen)` lieferte korrekt `0xe4` (ä) usw., `\ufffd` kam im String gar
+nicht vor. Bei jedem Verdacht auf falsche PDF-Kodierung: Code-Punkt direkt
+prüfen (`hex(ord(ch))`), nicht der gedruckten Zeichen trauen.
+
+### Python-Skripte über Bash: Windows-Pfad, nicht Git-Bash-Pfad
+
+Das lokale Python (`C:\Program Files\Python312\python`) versteht `/c/Users/...`
+(Git-Bash-Schreibweise) nicht — `FileNotFoundError`. Immer die
+Windows-Schreibweise mit Schrägstrichen übergeben (`C:/Users/...`), auch wenn
+der Befehl selbst aus Bash kommt.
 
 ---
 
