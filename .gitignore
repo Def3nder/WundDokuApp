@@ -39,6 +39,8 @@ yarn-error.log*
 .vercel
 *.tsbuildinfo
 coverage/
+playwright-report/
+test-results/
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/

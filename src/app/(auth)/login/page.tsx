@@ -23,7 +23,11 @@ export default async function LoginSeite({
         <ThemeToggle />
       </div>
 
-      <main id="hauptinhalt" className="flex flex-1 items-start justify-center px-4 pb-16 pt-4 sm:items-center sm:pt-0">
+      <main
+        id="hauptinhalt"
+        tabIndex={-1}
+        className="flex flex-1 items-start justify-center px-4 pb-16 pt-4 sm:items-center sm:pt-0"
+      >
         <div className="w-full max-w-sm">
           <div className="mb-8 text-center">
             <Activity className="mx-auto mb-3 size-10 text-primary" aria-hidden="true" />

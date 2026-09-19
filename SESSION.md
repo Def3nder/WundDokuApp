@@ -3,8 +3,8 @@
 Arbeitsstand für die Fortsetzung in einer neuen Sitzung. Ergänzt die
 inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
 
-**Stand:** 19.09.2026 · Phase 1 bis 5 fertig · Phase 6 PDF-Export und Audit-Log fertig, Feinschliff offen
-**Prüfstand:** `npx tsc --noEmit` sauber · `npm test` 51/51 grün · `npm run build` sauber · Browser-Durchgang erfolgreich (Login, PDF-Export einzeln und Verlauf, Audit-Log-Filter) · noch nichts committet
+**Stand:** 19.09.2026 · Phase 1 bis 6 fertig
+**Prüfstand:** `npm run typecheck` sauber · `npm test` 59/59 grün · `npm run test:a11y` 5/5 grün · `npx next build` sauber · Browser-Durchgang erfolgreich (Login, Leerzustände, Tastaturbedienung, Lightbox, mobile Navigation, Hell-/Dark-Mode, PDF-Export einzeln und Verlauf, Audit-Log-Filter) · noch nichts committet
 
 ---
 
@@ -67,7 +67,7 @@ Aufnahmen. Die Diagramme bleiben über eine Screenreader-Tabelle zugänglich. Im
 Vergleich wird standardmäßig die vorletzte gegen die neueste Aufnahme gezeigt;
 beide Zeitpunkte können unabhängig gewählt und getauscht werden.
 
-## Phase 6 — PDF-Export & Audit-Log fertig, Feinschliff offen
+## Phase 6 — fertig
 
 | Datei | Inhalt |
 |---|---|
@@ -77,6 +77,8 @@ beide Zeitpunkte können unabhängig gewählt und getauscht werden.
 | `src/app/api/aufnahmen/[id]/pdf/route.ts` | Download einer einzelnen Aufnahme |
 | `src/app/api/wunden/[id]/pdf/route.ts` | Download des gesamten Wundverlaufs |
 | `src/app/(app)/einstellungen/audit-log/page.tsx` | Änderungsprotokoll, admin-only, mit Bereichsfilter |
+| `tests/accessibility.spec.ts` | Wiederholbarer Playwright-/axe-Durchlauf in Hell und Dunkel sowie Tastatur- und Mobiltests |
+| `playwright.config.ts` | Nutzt lokales Chrome und einen vorhandenen oder automatisch gestarteten Dev-Server |
 
 **Wichtigste Wendung:** Der DRACO-Papierbogen wird **nicht** mehr als
 AcroForm-Exportvorlage befüllt (ursprünglicher Plan mit `build-pdf-map.ts` /
@@ -93,11 +95,16 @@ Fehlalarm — siehe [„Terminal zeigt `�` statt Umlaute"](#terminal-zeigt--st
 weiter unten. Die Schrifteinbettung selbst ist trotzdem sinnvoll (Konsistenz
 mit der App-eigenen Schrift) und bleibt.
 
-## Womit anfangen — Feinschliff
+## Feinschliff — abgeschlossen
 
-Leerzustände durchgehen, Formular und Cockpit komplett mit Tastatur bedienen,
-axe-Durchlauf auf Formular/Cockpit/Audit-Log, Dark Mode auf allen neuen Seiten
-gegenprüfen (PDF-Buttons, Protokoll-Tabelle, Filter-Chips).
+- Leerzustände für Suche, Patienten, Wunden, Aufnahmen, Fotos, Diagramme,
+  Vergleich und Audit-Filter geprüft.
+- Selbstgebaute Radiogruppen unterstützen Pfeiltasten, Pos1 und Ende mit nur
+  einem Tabstopp je Gruppe.
+- Sprunglink und Foto-Lightbox stellen den Fokus zuverlässig wieder her;
+  mobile Admin-Navigation ergänzt.
+- axe prüft Anmeldung und zentrale Seiten in Hell und Dunkel sowie das geöffnete
+  mobile Menü. Dabei gefundene Primär- und Statuskontraste wurden korrigiert.
 
 ### Die sechs Abschnitte
 
@@ -252,8 +259,9 @@ Der Seed läuft mehrfach ohne Schaden (`upsert` auf die Patientennummer).
 
 ```bash
 npm run dev          # Entwicklungsserver
-npm test             # 28 Tests
-npx tsc --noEmit     # Typprüfung
+npm test             # 59 Tests
+npm run test:a11y    # Playwright/axe in Hell und Dunkel (lokales Chrome)
+npm run typecheck    # Typprüfung
 npm run db:studio    # Datenbank ansehen
 npm run db:seed      # Testdaten neu einspielen
 ```

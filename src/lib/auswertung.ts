@@ -7,6 +7,51 @@ export type WundgrundAenderung = {
   entfallen: string[];
 };
 
+type DiagrammTooltipEintrag = {
+  payload?: {
+    datum?: unknown;
+  };
+};
+
+const datumKurzFormatter = new Intl.DateTimeFormat("de-DE", {
+  day: "2-digit",
+  month: "2-digit",
+});
+const datumLangFormatter = new Intl.DateTimeFormat("de-DE", {
+  day: "2-digit",
+  month: "long",
+  year: "numeric",
+});
+
+function diagrammDatum(wert: unknown): Date | null {
+  if (typeof wert !== "string" || !/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(wert)) return null;
+  const datum = new Date(wert);
+  return Number.isNaN(datum.getTime()) ? null : datum;
+}
+
+export function diagrammDatumKurz(wert: unknown): string {
+  const datum = diagrammDatum(wert);
+  return datum ? datumKurzFormatter.format(datum) : "–";
+}
+
+export function diagrammDatumLang(wert: unknown): string {
+  const datum = diagrammDatum(wert);
+  return datum ? datumLangFormatter.format(datum) : "Datum unbekannt";
+}
+
+/**
+ * Recharts kann als Tooltip-Label den numerischen Datenindex liefern. Das
+ * echte Aufnahmedatum steht verlaesslich im Payload des aktiven Datenpunkts.
+ */
+export function diagrammTooltipDatum(
+  label: unknown,
+  eintraege: readonly DiagrammTooltipEintrag[],
+): string {
+  const payloadDatum = eintraege.find((eintrag) => diagrammDatum(eintrag.payload?.datum))?.payload
+    ?.datum;
+  return diagrammDatumLang(payloadDatum ?? label);
+}
+
 /** Zaehlt die dokumentierten Einzelbefunde je klinischer Diagrammgruppe. */
 export function gruppiereWundgrund(
   werte: readonly string[],

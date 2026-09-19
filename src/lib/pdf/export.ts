@@ -83,11 +83,19 @@ async function fotoAlsJpeg(pfad: string): Promise<Uint8Array> {
   return sharp(original).jpeg({ quality: 85 }).toBuffer();
 }
 
-function kopfzeilen(patient: Patient, wunde: Wound): string[] {
+function patientenname(patient: Patient): string {
+  return `${patient.nachname}, ${patient.vorname}`;
+}
+
+function patientenMetadaten(patient: Patient, wunde: Wound): string[] {
   return [
-    `${patient.nachname}, ${patient.vorname} · geb. ${datum(patient.geburtsdatum)} · Pat.-Nr. ${patient.patientennummer}`,
-    `${wunde.bezeichnung} · ${labelVon(DIAGNOSE_TYPEN, wunde.diagnoseTyp)}`,
+    `Geboren: ${datum(patient.geburtsdatum)} · Pat.-Nr. ${patient.patientennummer}`,
+    labelVon(DIAGNOSE_TYPEN, wunde.diagnoseTyp),
   ];
+}
+
+function aufnahmeTitel(typ: string, aufnahmeDatum: Date): string {
+  return `${typ === "ERSTAUFNAHME" ? "Aufnahme" : "Folgeaufnahme"} vom ${datum(aufnahmeDatum)}`;
 }
 
 function renderWundangaben(builder: PdfBuilder, wunde: Wound): void {
@@ -127,8 +135,7 @@ async function renderAufnahme(
     aufnahme.kompressionMass,
   ].filter(Boolean).join(", ");
 
-  builder.abschnitt("Wundbefund");
-  builder.angaben([
+  builder.angabenBlock("Wundbefund", [
     ["Wagner-/Armstrong-Grad", labelVon(WAGNER_GRADE, aufnahme.wagnerArmstrongGrad)],
     ["Dekubitus-Kategorie", labelVon(DEKUBITUS_KATEGORIEN, aufnahme.dekubitusKategorie)],
     ["Wundumgebung", liste(WUNDUMGEBUNG, aufnahme.wundumgebung)],
@@ -137,8 +144,7 @@ async function renderAufnahme(
     ["Sonstiger Wundgrund", aufnahme.wundgrundSonstigesText],
   ]);
 
-  builder.abschnitt("Wundgröße & Exsudation");
-  builder.angaben([
+  builder.angabenBlock("Wundgröße & Exsudation", [
     ["Breite", nummer(aufnahme.breiteMm, " mm")],
     ["Länge", nummer(aufnahme.laengeMm, " mm")],
     ["Tiefe", nummer(aufnahme.tiefeMm, " mm")],
@@ -151,8 +157,7 @@ async function renderAufnahme(
     ["Geruch", jaNein(aufnahme.geruch)],
   ]);
 
-  builder.abschnitt("Entzündung & Infektion");
-  builder.angaben([
+  builder.angabenBlock("Entzündung & Infektion", [
     ["Entzündungszeichen", liste(ENTZUENDUNGSZEICHEN, aufnahme.entzuendungszeichen)],
     ["Lokale Infektzeichen", liste(LOKALE_INFEKTZEICHEN, aufnahme.lokaleInfektzeichen)],
     ["Systemische Zeichen", jaNein(aufnahme.systemischeZeichen)],
@@ -161,8 +166,7 @@ async function renderAufnahme(
     ["Abstrichergebnis", aufnahme.abstrichErgebnis],
   ]);
 
-  builder.abschnitt("Schmerz & Heilungsfaktoren");
-  builder.angaben([
+  builder.angabenBlock("Schmerz & Heilungsfaktoren", [
     ["Schmerzen", jaNein(aufnahme.schmerzen)],
     ["Aktuelle Stärke", aufnahme.schmerzen && aufnahme.schmerzVas != null ? `VAS/NRS ${aufnahme.schmerzVas}/10` : ""],
     ["In der Wunde", schmerzOrt(aufnahme.schmerzWundeModus, aufnahme.schmerzWundeUhr)],
@@ -176,8 +180,7 @@ async function renderAufnahme(
     ["Wundheilungsfaktoren", aufnahme.wundheilungsfaktoren],
   ]);
 
-  builder.abschnitt("Therapieplan");
-  builder.angaben([
+  builder.angabenBlock("Therapieplan", [
     ["Wundspülung", [liste(WUNDSPUELUNG, aufnahme.wundspuelung), aufnahme.wundspuelungSonstiges].filter(Boolean).join(", ")],
     ["Reinigung", [liste(REINIGUNG, aufnahme.reinigung), aufnahme.reinigungSonstiges].filter(Boolean).join(", ")],
     ["Hautpflege", aufnahme.hautpflege],
@@ -190,16 +193,13 @@ async function renderAufnahme(
     ["Allgemeine Anmerkungen", aufnahme.anmerkungen],
   ]);
 
-  builder.abschnitt(`Fotos${aufnahme.fotos.length > 0 ? ` (${aufnahme.fotos.length})` : ""}`);
-  if (aufnahme.fotos.length === 0) {
-    builder.hinweis("Keine Fotos zu dieser Aufnahme.");
-  } else {
-    for (const foto of aufnahme.fotos) {
-      const jpeg = await fotoAlsJpeg(foto.pfad);
-      const beschriftung = [datum(foto.aufgenommenAm), foto.beschreibung].filter(Boolean).join(" · ");
-      await builder.foto(jpeg, beschriftung);
-    }
-  }
+  const fotos = await Promise.all(
+    aufnahme.fotos.map(async (foto) => ({
+      bytes: await fotoAlsJpeg(foto.pfad),
+      beschriftung: [datum(foto.aufgenommenAm), foto.beschreibung].filter(Boolean).join(" · "),
+    })),
+  );
+  await builder.fotoRaster(`Fotos${fotos.length > 0 ? ` (${fotos.length})` : ""}`, fotos);
 }
 
 function pruefeAufnahmeSichtbar(aufnahme: { geloeschtAm: Date | null }, wunde: Wound, patient: Patient): void {
@@ -236,11 +236,13 @@ export async function erzeugeAufnahmePdf(
 
   const builder = await PdfBuilder.erstellen();
   const typLabel = labelVon(AUFNAHME_TYPEN, aufnahme.typ) + (aufnahme.istEntwurf ? " · Entwurf" : "");
-  builder.kopf(`Aufnahme vom ${datum(aufnahme.datum)}`, [
-    typLabel,
-    ...kopfzeilen(aufnahme.wunde.patient, aufnahme.wunde),
-    aufnahme.erstelltVon ? `Dokumentiert von ${aufnahme.erstelltVon.name} (${aufnahme.erstelltVon.handzeichen})` : "",
-  ]);
+  builder.aufnahmeKopf({
+    aufnahme: aufnahmeTitel(aufnahme.typ, aufnahme.datum),
+    befund: aufnahme.wunde.bezeichnung,
+    linksUnten: [typLabel, aufnahme.erstelltVon ? `Handzeichen: ${aufnahme.erstelltVon.handzeichen}` : ""].filter(Boolean).join(" · "),
+    patient: patientenname(aufnahme.wunde.patient),
+    patientMeta: patientenMetadaten(aufnahme.wunde.patient, aufnahme.wunde),
+  });
   renderWundangaben(builder, aufnahme.wunde);
   await renderAufnahme(builder, aufnahme, vorherige ? flaecheMm2(vorherige) : null);
 
@@ -274,35 +276,50 @@ export async function erzeugeVerlaufPdf(
   }
 
   const builder = await PdfBuilder.erstellen();
-  builder.kopf(`Wundverlauf: ${wunde.bezeichnung}`, [
-    `${wunde.aufnahmen.length} Aufnahmen · ${datum(wunde.aufnahmen[0].datum)} bis ${datum(wunde.aufnahmen.at(-1)!.datum)}`,
-    ...kopfzeilen(wunde.patient, wunde),
-  ]);
+  builder.aufnahmeKopf({
+    aufnahme: "Wundverlauf",
+    befund: wunde.bezeichnung,
+    linksUnten: `${wunde.aufnahmen.length} Aufnahmen · ${datum(wunde.aufnahmen[0].datum)} bis ${datum(wunde.aufnahmen.at(-1)!.datum)}`,
+    patient: patientenname(wunde.patient),
+    patientMeta: patientenMetadaten(wunde.patient, wunde),
+  });
   renderWundangaben(builder, wunde);
 
-  builder.abschnitt("Übersicht");
-  builder.tabelle(
-    [
-      { titel: "Datum", breite: 90 },
-      { titel: "Typ", breite: 110 },
-      { titel: "Fläche", breite: 90 },
-      { titel: "Handzeichen", breite: 90 },
-    ],
-    wunde.aufnahmen.map((a) => [
-      datum(a.datum),
-      labelVon(AUFNAHME_TYPEN, a.typ),
-      formatiereMm2(flaecheMm2(a)),
-      a.erstelltVon?.handzeichen ?? "–",
-    ]),
-  );
+  let uebersichtVorherigeFlaeche: number | null = null;
+  builder.verlaufsUebersicht(wunde.aufnahmen.map((a, index) => {
+    const flaeche = flaecheMm2(a);
+    const trend = flaechenTrend(flaeche, uebersichtVorherigeFlaeche);
+    uebersichtVorherigeFlaeche = flaeche;
+    return {
+      nummer: index + 1,
+      datum: datum(a.datum),
+      typ: labelVon(AUFNAHME_TYPEN, a.typ),
+      flaeche: formatiereMm2(flaeche),
+      trend: trend ? formatiereProzent(trend.prozent) : "",
+      fotos: a.fotos.length,
+    };
+  }));
 
   let vorherigeFlaeche: number | null = null;
-  for (const aufnahme of wunde.aufnahmen) {
-    builder.seitenumbruch();
-    builder.kopf(`Aufnahme vom ${datum(aufnahme.datum)}`, [
-      labelVon(AUFNAHME_TYPEN, aufnahme.typ),
-      aufnahme.erstelltVon ? `Dokumentiert von ${aufnahme.erstelltVon.name} (${aufnahme.erstelltVon.handzeichen})` : "",
-    ]);
+  for (const [index, aufnahme] of wunde.aufnahmen.entries()) {
+    const typUndDatum = aufnahmeTitel(aufnahme.typ, aufnahme.datum);
+    const dokumentiertVon = aufnahme.erstelltVon
+      ? `Dokumentiert von ${aufnahme.erstelltVon.name} (${aufnahme.erstelltVon.handzeichen})`
+      : "";
+
+    if (index === 0 && builder.hatPlatz(250)) {
+      builder.aufnahmeBanner(index + 1, typUndDatum, dokumentiertVon);
+    } else {
+      builder.seitenumbruch();
+      builder.aufnahmeKopf({
+        aufnahme: typUndDatum,
+        befund: wunde.bezeichnung,
+        linksUnten: dokumentiertVon,
+        patient: patientenname(wunde.patient),
+        patientMeta: patientenMetadaten(wunde.patient, wunde),
+      });
+      builder.aufnahmeBanner(index + 1, typUndDatum, dokumentiertVon);
+    }
     await renderAufnahme(builder, aufnahme, vorherigeFlaeche);
     vorherigeFlaeche = flaecheMm2(aufnahme);
   }

@@ -107,7 +107,16 @@ export async function fotosHochladen(
       });
     }
 
-    await db.photo.createMany({ data: daten });
+    const angelegteFotos = await db.photo.createManyAndReturn({
+      data: daten,
+      select: { id: true },
+    });
+
+    await Promise.all(
+      angelegteFotos.map((foto) =>
+        protokolliere(sitzung.user.id, "Photo", foto.id, "ANLEGEN"),
+      ),
+    );
   } catch (fehler) {
     await Promise.allSettled(
       angelegtePfade.flatMap((p) => [loescheFotoDatei(p.pfad), loescheFotoDatei(p.thumbnailPfad)]),
@@ -120,13 +129,6 @@ export async function fotosHochladen(
     where: { assessmentId: aufnahmeId, geloeschtAm: null },
     orderBy: [{ reihenfolge: "asc" }, { createdAt: "asc" }],
   });
-  await protokolliere(
-    sitzung.user.id,
-    "Assessment",
-    aufnahmeId,
-    "AENDERN",
-    `${vorbereitete.length} Foto(s) hinzugefügt`,
-  );
   revalidatePath(`/aufnahmen/${aufnahmeId}`);
   revalidatePath(`/wunden/${aufnahme.woundId}`);
   return { erfolg: true, fotos: fotos.map(fotoZuAnsicht) };
@@ -190,7 +192,11 @@ export async function fotosSortieren(
   await db.$transaction(
     fotoIds.map((id, reihenfolge) => db.photo.update({ where: { id }, data: { reihenfolge } })),
   );
-  await protokolliere(sitzung.user.id, "Assessment", aufnahmeId, "AENDERN", "Fotoreihenfolge");
+  await Promise.all(
+    fotoIds.map((fotoId) =>
+      protokolliere(sitzung.user.id, "Photo", fotoId, "AENDERN", "reihenfolge"),
+    ),
+  );
   revalidatePath(`/aufnahmen/${aufnahmeId}`);
   return { erfolg: true };
 }

@@ -27,18 +27,18 @@
   --muted-foreground: #475569;
 
   /* Aktionen */
-  --primary: #0891b2;
-  --primary-hover: #0e7490;
+  --primary: #0e7490;
+  --primary-hover: #155e75;
   --on-primary: #ffffff;
   --secondary: #e0f2fe;
   --on-secondary: #0c4a6e;
 
   /* Semantik */
-  --accent: #059669;
+  --accent: #047857;
   --on-accent: #ffffff;
-  --warning: #b45309;
+  --warning: #92400e;
   --on-warning: #ffffff;
-  --destructive: #dc2626;
+  --destructive: #b91c1c;
   --on-destructive: #ffffff;
   --info: #0369a1;
 
@@ -49,9 +49,9 @@
   --ring: #0891b2;
 
   /* Klinische Statusfarben - immer zusammen mit Icon und Text verwenden */
-  --status-gut: #059669;
-  --status-mittel: #b45309;
-  --status-schlecht: #dc2626;
+  --status-gut: #047857;
+  --status-mittel: #92400e;
+  --status-schlecht: #b91c1c;
   --status-neutral: #64748b;
 
   /* Diagrammserien: in Helligkeit gestaffelt, damit sie auch ohne
@@ -86,7 +86,7 @@
   --on-accent: #052e21;
   --warning: #fbbf24;
   --on-warning: #2b1a02;
-  --destructive: #f87171;
+  --destructive: #fca5a5;
   --on-destructive: #2c0707;
   --info: #7dd3fc;
 
@@ -98,7 +98,7 @@
 
   --status-gut: #34d399;
   --status-mittel: #fbbf24;
-  --status-schlecht: #f87171;
+  --status-schlecht: #fca5a5;
   --status-neutral: #94a3b8;
 
   --chart-1: #38bdf8;

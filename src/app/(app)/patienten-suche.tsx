@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, type KeyboardEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fokussiereRadio, radioZielIndex } from "@/lib/tastatur";
 
 const FILTER = [
   { wert: "alle", label: "Alle" },
@@ -35,6 +36,14 @@ export function PatientenSuche({
     if (filter !== "alle") params.set("filter", filter);
     const query = params.toString();
     starteUebergang(() => router.push(query ? `${pathname}?${query}` : pathname));
+  }
+
+  function filterMitTastatur(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const ziel = radioZielIndex(event.key, index, FILTER.length);
+    if (ziel == null) return;
+    event.preventDefault();
+    fokussiereRadio(event.currentTarget, ziel);
+    navigiere(suche, FILTER[ziel].wert);
   }
 
   // Erst nach einer Tippause suchen - sonst laeuft bei jedem Zeichen eine
@@ -90,7 +99,7 @@ export function PatientenSuche({
         aria-label="Filter"
         className="inline-flex rounded-lg border border-border bg-surface p-1"
       >
-        {FILTER.map((f) => {
+        {FILTER.map((f, index) => {
           const aktiv = standardFilter === f.wert;
           return (
             <button
@@ -98,7 +107,9 @@ export function PatientenSuche({
               type="button"
               role="radio"
               aria-checked={aktiv}
+              tabIndex={aktiv ? 0 : -1}
               onClick={() => navigiere(suche, f.wert)}
+              onKeyDown={(event) => filterMitTastatur(event, index)}
               className={cn(
                 "min-h-9 rounded-md px-3 text-sm font-medium transition-colors duration-200",
                 aktiv
