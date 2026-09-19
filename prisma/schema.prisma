@@ -1,0 +1,240 @@
+// Datenmodell der WundDokuApp.
+//
+// Abgeleitet aus dem DRACO-Wunddokumentationsbogen (assets/vorlage/).
+// SQLite kennt keine Enums und keine Array-Spalten: Einzelauswahlen liegen als
+// String, Mehrfachauswahlen als JSON-Array-String. Geprueft wird beides ueber
+// die Zod-Schemata in src/lib/schema/ gegen die Listen in src/lib/enums.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  /// Kuerzel fuer die Spalte "Handzeichen" auf dem Bogen
+  handzeichen  String
+  passwordHash String
+  rolle        String   @default("PFLEGE") // ADMIN | PFLEGE
+  aktiv        Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  patienten   Patient[]
+  aufnahmen   Assessment[]
+  auditLogs   AuditLog[]
+
+  @@index([email])
+}
+
+model Patient {
+  id                        String    @id @default(cuid())
+  nachname                  String
+  vorname                   String
+  geburtsdatum              DateTime
+  patientennummer           String    @unique
+  /// "Therapieverantwortlicher Arzt" auf dem Bogen
+  arztTherapieverantwortlich String?
+  notizen                   String?
+  geloeschtAm               DateTime?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+
+  angelegtVonId String?
+  angelegtVon   User?   @relation(fields: [angelegtVonId], references: [id], onDelete: SetNull)
+
+  wunden Wound[]
+
+  @@index([nachname, vorname])
+  @@index([geloeschtAm])
+}
+
+model Wound {
+  id          String @id @default(cuid())
+  patientId   String
+  patient     Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  /// Freie Kurzbezeichnung, z.B. "Ulcus links lateral"
+  bezeichnung String
+
+  // --- Diagnose ---
+  /// ULCUS_CRURIS_ARTERIOSUM | ULCUS_CRURIS_VENOSUM | ULCUS_CRURIS_MIXTUM |
+  /// ULCUS_CRURIS_SONSTIGE | DFS | DEKUBITUS | POST_OP | SONSTIGE
+  diagnoseTyp      String
+  diagnoseFreitext String?
+
+  // --- Lokalisation ---
+  lokalisationRegion      String?
+  lokalisationSeite       String? // LINKS | RECHTS
+  lokalisationAusrichtung String? // LATERAL | MEDIAL
+  lokalisationFreitext    String?
+
+  // --- Wunde besteht seit ---
+  bestehtSeitWert    Int?
+  bestehtSeitEinheit String? // TAGE | WOCHEN | MONATE | JAHRE
+
+  // --- Rezidiv ---
+  rezidiv       Boolean @default(false)
+  rezidivAnzahl Int?
+
+  abgeschlossenAm DateTime?
+  geloeschtAm     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  aufnahmen Assessment[]
+
+  @@index([patientId])
+  @@index([geloeschtAm])
+}
+
+model Assessment {
+  id      String @id @default(cuid())
+  woundId String
+  wunde   Wound  @relation(fields: [woundId], references: [id], onDelete: Cascade)
+
+  /// ERSTAUFNAHME | FOLGEAUFNAHME
+  typ        String
+  datum      DateTime
+  istEntwurf Boolean  @default(false)
+
+  erstelltVonId String?
+  erstelltVon   User?   @relation(fields: [erstelltVonId], references: [id], onDelete: SetNull)
+
+  // --- Graduierung (aendert sich im Verlauf, daher hier statt an der Wunde) ---
+  wagnerArmstrongGrad String?
+  dekubitusKategorie  String?
+
+  // --- Befund: Mehrfachauswahlen als JSON-Array-String ---
+  wundumgebung String @default("[]")
+  wundrand     String @default("[]")
+  wundgrund    String @default("[]")
+  wundgrundSonstigesText String?
+
+  // --- Wundgroesse in mm ---
+  breiteMm Float?
+  laengeMm Float?
+  tiefeMm  Float?
+
+  // --- Exsudation ---
+  /// KEINE | KEINE_BIS_SCHWACH | SCHWACH_BIS_MAESSIG | MAESSIG_BIS_STARK
+  exsudatMenge          String?
+  exsudatFarben         String  @default("[]")
+  exsudatFarbeSonstiges String?
+  exsudatKonsistenz     String  @default("[]")
+
+  geruch Boolean @default(false)
+
+  // --- Entzuendung und Infektion ---
+  entzuendungszeichen  String  @default("[]")
+  /// KRITISCHE_KOLONISATION | WUNDINFEKTION
+  lokaleInfektzeichen  String  @default("[]")
+  systemischeZeichen   Boolean @default(false)
+  infektionSonstiges   String?
+
+  abstrichGenommen Boolean @default(false)
+  abstrichErgebnis String?
+
+  // --- Schmerz ---
+  schmerzen Boolean @default(false)
+  schmerzVas Int?
+
+  /// je Ort: GESAMT | UHR ; bei UHR zusaetzlich die Stunde 1-12
+  schmerzWundeModus         String?
+  schmerzWundeUhr           Int?
+  schmerzWundrandModus      String?
+  schmerzWundrandUhr        Int?
+  schmerzWundumgebungModus  String?
+  schmerzWundumgebungUhr    Int?
+
+  schmerzVerbandwechsel    Boolean @default(false)
+  schmerzVerbandwechselVas Int?
+  schmerzDruck             Boolean @default(false)
+  schmerzDruckVas          Int?
+  schmerzUeberall          Boolean @default(false)
+  schmerzUeberallVas       Int?
+  schmerztagebuch          Boolean @default(false)
+  schmerzSonstiges         String?
+
+  wundheilungsfaktoren String?
+
+  // --- Therapieplan ---
+  wundspuelung          String  @default("[]")
+  wundspuelungSonstiges String?
+  reinigung             String  @default("[]")
+  reinigungSonstiges    String?
+  hautpflege            String?
+  wundrandschutz        String?
+
+  wundfuellung          String  @default("[]")
+  wundfuellungGroesseCm Float?
+  wundfuellungSonstiges String?
+
+  wundabdeckung          String  @default("[]")
+  wundabdeckungGroesseCm Float?
+  wundabdeckungSonstiges String?
+
+  fixierung          String  @default("[]")
+  fixierungSonstiges String?
+
+  kompression        String  @default("[]")
+  kompressionBinde1BreiteCm Float?
+  kompressionBinde1Anzahl   Int?
+  kompressionBinde2BreiteCm Float?
+  kompressionBinde2Anzahl   Int?
+  kompressionKlasse  String?
+  kompressionMass    String?
+
+  therapieSonstiges String?
+  anmerkungen       String?
+
+  geloeschtAm DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  fotos Photo[]
+
+  @@index([woundId, datum])
+  @@index([geloeschtAm])
+}
+
+model Photo {
+  id           String @id @default(cuid())
+  assessmentId String
+  aufnahme     Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  dateiname     String
+  /// Relativ zu STORAGE_DIR - niemals unter public/
+  pfad          String
+  thumbnailPfad String
+  breite        Int
+  hoehe         Int
+  mimeType      String
+  groesseBytes  Int
+  beschreibung  String?
+  reihenfolge   Int      @default(0)
+  aufgenommenAm DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@index([assessmentId, reihenfolge])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  entitaet   String   // Patient | Wound | Assessment | Photo
+  entitaetId String
+  aktion     String   // ANLEGEN | AENDERN | LOESCHEN | WIEDERHERSTELLEN | PDF_EXPORT | ANMELDEN
+  details    String?
+  zeitpunkt  DateTime @default(now())
+
+  @@index([entitaet, entitaetId])
+  @@index([zeitpunkt])
+}

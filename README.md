@@ -1,0 +1,117 @@
+# WundDoku
+
+Digitale Wunddokumentation für Praxis und Pflege. Bildet den
+DRACO-Wunddokumentationsbogen ab: pro Patient beliebig viele Wunden, je eine
+Erstaufnahme und unbegrenzt Folgeaufnahmen, mit Wundfotos, Verlaufsdiagrammen
+und Ausdruck im gewohnten Layout.
+
+## Dokumentation
+
+| Datei | Inhalt |
+|---|---|
+| [docs/PLAN.md](docs/PLAN.md) | Vollständiger Umsetzungsplan |
+| [docs/ENTSCHEIDUNGEN.md](docs/ENTSCHEIDUNGEN.md) | Alle Entscheidungen und Annahmen mit Begründung |
+| [docs/FELDINVENTAR.md](docs/FELDINVENTAR.md) | Auswertung des Papierbogens, Feld für Feld |
+| [SESSION.md](SESSION.md) | Arbeitsstand, offene Schritte und Stolpersteine beim Bauen |
+
+## Einrichtung
+
+Voraussetzung: Node.js 20 oder neuer (getestet mit 24).
+
+```bash
+npm install
+cp .env.example .env
+```
+
+Für den PDF-Export die Vorlage bereitlegen — sie liegt bewusst nicht im
+Repository, siehe [assets/vorlage/README.md](assets/vorlage/README.md):
+
+```
+assets/vorlage/draco-wunddokumentationsbogen.pdf
+```
+
+In `.env` ein `AUTH_SECRET` eintragen:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Datenbank anlegen und mit Testdaten füllen:
+
+```bash
+npm run db:migrate
+npm run db:seed
+```
+
+Starten:
+
+```bash
+npm run dev
+```
+
+Die App läuft auf http://localhost:3000. Die Zugangsdaten des ersten Kontos
+stehen in `.env` (`SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`) — **nach der ersten
+Anmeldung ändern.**
+
+## Befehle
+
+| Befehl | Zweck |
+|---|---|
+| `npm run dev` | Entwicklungsserver |
+| `npm run build` / `npm start` | Produktionsbetrieb |
+| `npm run typecheck` | TypeScript prüfen |
+| `npm test` | Tests ausführen |
+| `npm run db:studio` | Datenbank im Browser ansehen |
+| `npm run db:migrate` | Schemaänderung einspielen |
+| `npm run pdf:map` | Feldzuordnung für den PDF-Export neu erzeugen |
+
+## Aufbau
+
+```
+assets/vorlage/    Original-PDF als Exportvorlage
+prisma/            Schema, Migrationen, Testdaten
+storage/           Wundfotos (nicht im Repository)
+src/app/           Seiten und Routen
+src/components/    UI-Bausteine
+src/lib/           Fachlogik: enums, wundmasse, pdf, fotos, auth
+src/actions/       Server Actions
+docs/              Plan, Entscheidungen, Feldinventar
+```
+
+Alle Auswahlwerte und ihre deutschen Beschriftungen stehen ausschließlich in
+[`src/lib/enums.ts`](src/lib/enums.ts). Formular, Ausdruck und Diagramme lesen
+daraus — Bezeichnungen an anderer Stelle zu ändern, würde sie auseinanderlaufen
+lassen.
+
+## Datenschutz und Betrieb
+
+Die App verarbeitet Gesundheitsdaten nach Art. 9 DSGVO. Was die Anwendung
+mitbringt:
+
+- Kein externer Dienst, keine Telemetrie — alles bleibt auf dem Rechner
+- Wundfotos liegen außerhalb von `public/` und werden nur nach Prüfung der
+  Sitzung ausgeliefert
+- EXIF-Daten (inklusive GPS) werden beim Hochladen entfernt
+- Löschen ist immer umkehrbar; jede Änderung landet im Änderungsprotokoll
+- `storage/`, `*.db`, `.env` und die PDF-Vorlage sind von der
+  Versionsverwaltung ausgeschlossen
+
+Was Du zusätzlich sicherstellen musst:
+
+- **Festplattenverschlüsselung** (BitLocker unter Windows). Die SQLite-Datei ist
+  selbst nicht verschlüsselt — wer den Rechner hat, hat die Daten.
+- **Sicherung** von `prisma/dev.db` *und* `storage/` im selben Rhythmus. Getrennt
+  gesicherte Bestände passen nicht mehr zusammen.
+- **Aufbewahrungsfrist:** Behandlungsdokumentation ist zehn Jahre aufzubewahren
+  (§ 630f BGB).
+- Kein Betrieb über das offene Internet ohne HTTPS und vorgeschalteten
+  Zugriffsschutz.
+
+## Stand der Umsetzung
+
+- [x] Phase 1 — Fundament: Projekt, Design-System, Datenmodell, Enums
+- [x] Phase 2 — Patienten und Wunden: Stammdaten, Suche, Wund-Cockpit, Benutzerverwaltung
+- [~] Phase 3 — Aufnahmeformular: Schema, Actions und Bausteine fertig; Formular und Seiten offen
+- [ ] Phase 4 — Wundfotos
+- [ ] Phase 5 — Diagramme und Vergleich
+- [ ] Phase 6 — PDF-Export und Feinschliff
