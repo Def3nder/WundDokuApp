@@ -35,7 +35,8 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       // Wundfotos koennen gross sein.
-      bodySizeLimit: "20mb",
+      // 20 MB Nutzdatei plus Multipart-Metadaten des Formulars.
+      bodySizeLimit: "22mb",
       // Sonst lehnt Next.js Server Actions ab, die ueber die LAN-IP aufgerufen
       // werden (Origin- gegen Host-Pruefung, CSRF-Schutz). Anders als bei
       // allowedDevOrigins gehoert der Port mit in den Eintrag.

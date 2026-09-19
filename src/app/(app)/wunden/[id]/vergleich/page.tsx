@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Assessment, Photo } from "@prisma/client";
-import { ChevronLeft, FileSearch, ImageIcon, Info, MoveDownRight, MoveRight, MoveUpRight } from "lucide-react";
+import { FileSearch, ImageIcon, Info, MoveDownRight, MoveRight, MoveUpRight } from "lucide-react";
 import { db } from "@/lib/db";
 import { VergleichAuswahl } from "@/components/auswertung/vergleich-auswahl";
 import { FotoGalerie } from "@/components/foto/foto-galerie";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { wundgrundAenderung, zahlenDifferenz } from "@/lib/auswertung";
 import { AUFNAHME_TYPEN, EXSUDAT_MENGEN, EXSUDAT_STUFE, WUNDGRUND, labelVon, labelsVon } from "@/lib/enums";
 import { fotoZuAnsicht } from "@/lib/foto-typen";
@@ -96,15 +97,14 @@ export default async function VergleichSeite({
     ) ?? aufnahmen.find((aufnahme) => aufnahme.id !== vergleich?.id);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="max-w-7xl space-y-6">
       <div>
-        <Link
-          href={`/wunden/${id}`}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" aria-hidden="true" />
-          {wunde.bezeichnung}
-        </Link>
+        <Breadcrumb eintraege={[
+          { label: "Patienten", href: "/" },
+          { label: `${wunde.patient.nachname}, ${wunde.patient.vorname}`, href: `/patienten/${wunde.patientId}` },
+          { label: wunde.bezeichnung, href: `/wunden/${id}` },
+          { label: "Aufnahmen vergleichen" },
+        ]} />
         <div className="mt-2">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Auswertung</p>
           <h1 className="mt-1 text-2xl font-semibold">Aufnahmen vergleichen</h1>

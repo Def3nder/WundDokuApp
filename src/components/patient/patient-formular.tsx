@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Field, Input, Textarea } from "@/components/ui/field";
+import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { FehlerUebersicht } from "@/components/ui/fehler-uebersicht";
 import type { FormZustand } from "@/actions/patienten";
 
@@ -15,16 +15,31 @@ export type PatientWerte = {
   vorname: string;
   geburtsdatum: string;
   patientennummer: string;
-  arztTherapieverantwortlich: string;
+  arztId: string;
+  neuerArztName: string;
+  neueArztPraxis: string;
+  pflegedienstId: string;
+  neuerPflegedienstName: string;
+  neuerPflegedienstAnsprechpartner: string;
   notizen: string;
 };
+
+type ArztOption = { id: string; name: string; praxis: string | null };
+type PflegedienstOption = { id: string; name: string };
+
+const NEU = "__NEU__";
 
 const LEER: PatientWerte = {
   nachname: "",
   vorname: "",
   geburtsdatum: "",
   patientennummer: "",
-  arztTherapieverantwortlich: "",
+  arztId: "",
+  neuerArztName: "",
+  neueArztPraxis: "",
+  pflegedienstId: "",
+  neuerPflegedienstName: "",
+  neuerPflegedienstAnsprechpartner: "",
   notizen: "",
 };
 
@@ -33,17 +48,23 @@ export function PatientFormular({
   vorgabe = LEER,
   abbrechenNach,
   absendeText = "Speichern",
+  aerzte,
+  pflegedienste,
 }: {
   action: (zustand: FormZustand, fd: FormData) => Promise<FormZustand>;
   vorgabe?: PatientWerte;
   abbrechenNach: string;
   absendeText?: string;
+  aerzte: ArztOption[];
+  pflegedienste: PflegedienstOption[];
 }) {
   const [zustand, formAction, laeuft] = useActionState(action, START);
 
   // Nach einem Fehler die getippten Werte behalten, sonst die Vorgabe.
   const w = (feld: keyof PatientWerte) => zustand.werte?.[feld] ?? vorgabe[feld];
   const f = (feld: string) => zustand.fehler?.[feld];
+  const [arztAuswahl, setArztAuswahl] = useState(w("arztId"));
+  const [pflegedienstAuswahl, setPflegedienstAuswahl] = useState(w("pflegedienstId"));
 
   return (
     <form action={formAction} className="space-y-6" noValidate>
@@ -60,16 +81,17 @@ export function PatientFormular({
 
       <Card>
         <CardContent className="space-y-5 pt-6">
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field id="nachname" label="Nachname" pflicht fehler={f("nachname")}>
+          <h2 className="text-base font-semibold">Patientendaten</h2>
+          <div className="grid items-start gap-5 sm:grid-cols-2">
+            <Field id="nachname" label="Nachname" pflicht fehler={f("nachname")} className="min-w-0">
               {(p) => (
-                <Input {...p} name="nachname" defaultValue={w("nachname")} autoComplete="family-name" required />
+                <Input {...p} className="h-11" name="nachname" defaultValue={w("nachname")} autoComplete="family-name" required />
               )}
             </Field>
 
-            <Field id="vorname" label="Vorname" pflicht fehler={f("vorname")}>
+            <Field id="vorname" label="Vorname" pflicht fehler={f("vorname")} className="min-w-0">
               {(p) => (
-                <Input {...p} name="vorname" defaultValue={w("vorname")} autoComplete="given-name" required />
+                <Input {...p} className="h-11" name="vorname" defaultValue={w("vorname")} autoComplete="given-name" required />
               )}
             </Field>
 
@@ -78,16 +100,20 @@ export function PatientFormular({
               label="Geburtsdatum"
               pflicht
               fehler={f("geburtsdatum")}
+              className="min-w-0"
             >
               {(p) => (
-                <Input
-                  {...p}
-                  name="geburtsdatum"
-                  type="date"
-                  defaultValue={w("geburtsdatum")}
-                  max={new Date().toISOString().slice(0, 10)}
-                  required
-                />
+                <span className="ipad-datumsrahmen">
+                  <Input
+                    {...p}
+                    className="ipad-datumsfeld"
+                    name="geburtsdatum"
+                    type="date"
+                    defaultValue={w("geburtsdatum")}
+                    max={new Date().toISOString().slice(0, 10)}
+                    required
+                  />
+                </span>
               )}
             </Field>
 
@@ -97,26 +123,64 @@ export function PatientFormular({
               pflicht
               hilfe="Muss eindeutig sein"
               fehler={f("patientennummer")}
+              className="min-w-0"
             >
               {(p) => (
-                <Input {...p} name="patientennummer" defaultValue={w("patientennummer")} required />
+                <Input {...p} className="h-11" name="patientennummer" defaultValue={w("patientennummer")} required />
               )}
             </Field>
           </div>
 
-          <Field
-            id="arztTherapieverantwortlich"
-            label="Therapieverantwortlicher Arzt"
-            fehler={f("arztTherapieverantwortlich")}
-          >
-            {(p) => (
-              <Input
-                {...p}
-                name="arztTherapieverantwortlich"
-                defaultValue={w("arztTherapieverantwortlich")}
-              />
-            )}
-          </Field>
+          <div className="space-y-5 border-t border-border pt-5">
+            <h2 className="text-base font-semibold">Versorgungspartner</h2>
+            <div className="grid items-start gap-5 sm:grid-cols-2">
+            <div className="min-w-0 space-y-3">
+              <Field id="arztId" label="Therapieverantwortlicher Arzt" pflicht fehler={f("arztId")}>
+                {(p) => (
+                  <Select {...p} className="h-11" name="arztId" value={arztAuswahl} onChange={(event) => setArztAuswahl(event.target.value)} required>
+                    <option value="">Bitte auswählen</option>
+                    {aerzte.map((arzt) => <option key={arzt.id} value={arzt.id}>{arzt.name}{arzt.praxis ? ` · ${arzt.praxis}` : ""}</option>)}
+                    <option value={NEU}>＋ Neuen Arzt anlegen</option>
+                  </Select>
+                )}
+              </Field>
+              {arztAuswahl === NEU && (
+                <div className="space-y-3 rounded-lg border border-primary/25 bg-primary/5 p-3">
+                  <p className="text-sm font-medium">Neuen zentralen Arzt anlegen</p>
+                  <Field id="neuerArztName" label="Name" pflicht fehler={f("neuerArztName")}>
+                    {(p) => <Input {...p} className="h-11" name="neuerArztName" defaultValue={w("neuerArztName")} required />}
+                  </Field>
+                  <Field id="neueArztPraxis" label="Praxis" fehler={f("neueArztPraxis")}>
+                    {(p) => <Input {...p} className="h-11" name="neueArztPraxis" defaultValue={w("neueArztPraxis")} />}
+                  </Field>
+                </div>
+              )}
+            </div>
+
+            <div className="min-w-0 space-y-3">
+              <Field id="pflegedienstId" label="Pflegedienst" fehler={f("pflegedienstId")}>
+                {(p) => (
+                  <Select {...p} className="h-11" name="pflegedienstId" value={pflegedienstAuswahl} onChange={(event) => setPflegedienstAuswahl(event.target.value)}>
+                    <option value="">Kein Pflegedienst</option>
+                    {pflegedienste.map((dienst) => <option key={dienst.id} value={dienst.id}>{dienst.name}</option>)}
+                    <option value={NEU}>＋ Neuen Pflegedienst anlegen</option>
+                  </Select>
+                )}
+              </Field>
+              {pflegedienstAuswahl === NEU && (
+                <div className="space-y-3 rounded-lg border border-accent/25 bg-accent/5 p-3">
+                  <p className="text-sm font-medium">Neuen zentralen Pflegedienst anlegen</p>
+                  <Field id="neuerPflegedienstName" label="Name" pflicht fehler={f("neuerPflegedienstName")}>
+                    {(p) => <Input {...p} className="h-11" name="neuerPflegedienstName" defaultValue={w("neuerPflegedienstName")} required />}
+                  </Field>
+                  <Field id="neuerPflegedienstAnsprechpartner" label="Ansprechpartner" fehler={f("neuerPflegedienstAnsprechpartner")}>
+                    {(p) => <Input {...p} className="h-11" name="neuerPflegedienstAnsprechpartner" defaultValue={w("neuerPflegedienstAnsprechpartner")} />}
+                  </Field>
+                </div>
+              )}
+            </div>
+          </div>
+          </div>
 
           <Field
             id="notizen"

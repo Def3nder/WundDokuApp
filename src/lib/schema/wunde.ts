@@ -40,6 +40,9 @@ export const wundeSchema = z
       z.string().trim().max(500, "Höchstens 500 Zeichen").nullable(),
     ),
 
+    arztId: z.preprocess(leerZuNull, z.string().cuid("Ungültiger Arzt").nullable()),
+    pflegedienstId: z.preprocess(leerZuNull, z.string().cuid("Ungültiger Pflegedienst").nullable()),
+
     lokalisationRegion: z.preprocess(
       leerZuNull,
       z.enum(werte(KOERPERREGIONEN)).nullable(),
@@ -97,6 +100,8 @@ export function wundeAusFormData(fd: FormData) {
     bezeichnung: fd.get("bezeichnung"),
     diagnoseTyp: fd.get("diagnoseTyp"),
     diagnoseFreitext: fd.get("diagnoseFreitext"),
+    arztId: fd.get("arztId"),
+    pflegedienstId: fd.get("pflegedienstId"),
     lokalisationRegion: fd.get("lokalisationRegion"),
     lokalisationSeite: fd.get("lokalisationSeite"),
     lokalisationAusrichtung: fd.get("lokalisationAusrichtung"),

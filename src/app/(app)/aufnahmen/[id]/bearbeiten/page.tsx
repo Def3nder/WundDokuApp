@@ -1,11 +1,10 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 import { db } from "@/lib/db";
 import { AufnahmeFormular } from "@/components/formular/aufnahme-formular";
 import { aufnahmeAendern } from "@/actions/aufnahmen";
 import { aufnahmeZuWerten } from "@/lib/schema/aufnahme-vorgabe";
 import { flaecheMm2 } from "@/lib/wundmasse";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { datum } from "@/lib/wundtext";
 import { fotoZuAnsicht } from "@/lib/foto-typen";
 
@@ -47,15 +46,15 @@ export default async function AufnahmeBearbeitenSeite({
   const action = aufnahmeAendern.bind(null, id);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="max-w-5xl space-y-6">
       <div>
-        <Link
-          href={`/aufnahmen/${id}`}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" aria-hidden="true" />
-          Aufnahme vom {datum(aufnahme.datum)}
-        </Link>
+        <Breadcrumb eintraege={[
+          { label: "Patienten", href: "/" },
+          { label: `${aufnahme.wunde.patient.nachname}, ${aufnahme.wunde.patient.vorname}`, href: `/patienten/${aufnahme.wunde.patientId}` },
+          { label: aufnahme.wunde.bezeichnung, href: `/wunden/${aufnahme.woundId}` },
+          { label: `Aufnahme vom ${datum(aufnahme.datum)}`, href: `/aufnahmen/${id}` },
+          { label: "Aufnahme bearbeiten" },
+        ]} />
         <h1 className="mt-2 text-2xl font-semibold">Aufnahme bearbeiten</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {aufnahme.wunde.patient.nachname}, {aufnahme.wunde.patient.vorname} · {aufnahme.wunde.bezeichnung}

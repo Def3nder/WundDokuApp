@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, History, LogOut, Settings, Users } from "lucide-react";
+import { Activity, ContactRound, History, LogOut, Settings, Users } from "lucide-react";
 import { signOut } from "@/lib/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,13 @@ export function AppShell({
                 >
                   <Settings className="size-5" aria-hidden="true" />
                   Benutzer
+                </Link>
+                <Link
+                  href="/einstellungen/stammdaten"
+                  className="tippziel inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-surface-muted hover:text-foreground"
+                >
+                  <ContactRound className="size-5" aria-hidden="true" />
+                  Stammdaten
                 </Link>
                 <Link
                   href="/einstellungen/audit-log"

@@ -106,6 +106,135 @@ mit der App-eigenen Schrift) und bleibt.
 - axe prüft Anmeldung und zentrale Seiten in Hell und Dunkel sowie das geöffnete
   mobile Menü. Dabei gefundene Primär- und Statuskontraste wurden korrigiert.
 
+## Nachtrag — Körperkarte (19.09.2026)
+
+Auf Wunsch ergänzt: eine anklickbare Körperkarte neben den drei
+Lokalisations-Dropdowns im Wund-Formular. Klick auf eine Markierung befüllt
+Region/Seite/Ausrichtung, ohne die Dropdowns zu ersetzen (siehe
+[T14](docs/ENTSCHEIDUNGEN.md#t14--körperkarte-befüllt-die-vorhandenen-lokalisationsfelder-statt-eigene-daten-zu-speichern)).
+
+| Datei | Inhalt |
+|---|---|
+| `public/koerperkarte.webp` | Vorlagenbild (Vorder-/Rückseite, Fußrücken/-sohlen, Bein-Nahaufnahmen), als WebP komprimiert |
+| `src/lib/koerperkarte.ts` | 66 Markierungen als Prozentkoordinaten + Region/Seite/Ausrichtung |
+| `src/lib/koerperkarte.test.ts` | Prüft Koordinaten, Enum-Gültigkeit und Mindestabstand (siehe unten) |
+| `src/components/formular/koerperkarte.tsx` | Bild mit positionierten, tastaturbedienbaren Buttons |
+
+`KOERPERREGIONEN` in `src/lib/enums.ts` wuchs additiv um `LENDE`, `OBERARM`,
+`UNTERARM`, `HANDGELENK`, `BRUSTKORB`, `BAUCH`, `FUSSBALLEN`. `AUSRICHTUNGEN`
+wuchs um `VENTRAL`/`DORSAL` (schlichte Labels, ohne „vorne"/„hinten" im
+Klammerzusatz) — alte Werte bleiben gültig, keine Migration nötig.
+
+Auf Nutzerwunsch bekommen alle Regionen, die auf Vorder- *und* Rückansicht
+denselben Regionswert hätten, zusätzlich Ventral/Dorsal: `KOPF`, `SCHULTER`,
+`OBERARM`, `UNTERARM`, `HANDGELENK`, `OBERSCHENKEL`, `UNTERSCHENKEL`, `KNIE`,
+`KNOECHEL`. Sonst wäre z. B. „Schulter links" oder „Knie links" nicht von
+vorne oder hinten unterscheidbar gewesen. Bei `KNIE` und `KNOECHEL` zunächst
+vergessen (beide blieben testweise auf `null` — reichte nicht, da dieselbe
+Region mit identischer Seite/Ausrichtung auf Vorder- *und* Rückseite
+existierte), auf zwei Nachfragen ergänzt. `BRUSTKORB`/`BAUCH` (nur vorne) und
+`LENDE`/`RUECKEN` (nur hinten) kommen ohnehin nur auf einer Ansicht vor und
+bleiben ohne Ausrichtung.
+
+**Rückseite an Vorderseite angeglichen (mehrere Nachfragen):** Die eigene
+Anatomie-Vermutung für die Rückansicht (Steiß/Sakral → Gesäß → Oberschenkel →
+Unterschenkel, von oben nach unten) war durchgehend falsch. Laut Nutzer,
+jeweils an die gleich hohe Vorderseiten-Markierung angeglichen:
+- Punkt auf Oberschenkelhöhe: `OBERSCHENKEL` (nicht `STEISS_SAKRAL` — der
+  eigentliche Steiß-/Sakralbereich liegt mittig im Gesäß, also auf keinem der
+  bilateralen Punkte dieser Vorlage)
+- Punkt auf Kniehöhe: `KNIE` (nicht `GESAESS`)
+- nächster Punkt: `UNTERSCHENKEL` (nicht `OBERSCHENKEL`)
+- unterster Punkt: `KNOECHEL` (nicht `UNTERSCHENKEL`)
+
+`STEISS_SAKRAL` und `GESAESS` bleiben im Enum für die manuelle Auswahl.
+`GESAESS` hat keine eigene Markierung mehr; für `STEISS_SAKRAL` siehe unten.
+
+**Steiß-/Sakralbereich nachträglich mit eigenem Bildpunkt (19.09.2026):** Der
+Nutzer hat die Vorlage um genau die fehlende Markierung ergänzt
+(`Wundlokalisation_neu_2.png`) — ein einzelner Punkt mittig über der
+Gesäßfalte, kein Links/Rechts-Paar. Per Koordinatenvergleich gegen die
+vorherige Bildversion gefunden (ein Punkt neu, zwei alte Fußrücken-Punkte
+fehlen jetzt — passend zum weiter oben beschriebenen Entfernen). `koerperkarte.ts`
+hat seither wieder eine `STEISS_SAKRAL`-Markierung, mit `seite: null` (kein
+Links/Rechts, da mittig) und `ausrichtung: null` (nur Rückseite, kein
+Gegenstück vorne). 67 statt 66 Markierungen; `public/koerperkarte.webp` neu
+exportiert.
+
+### Marker in Safari daneben, in Chrome (auch mobil) nicht
+
+Nutzer meldete per Screenshot: Auf einem echten iPhone sitzen alle
+Klick-Marker sichtbar neben statt auf den roten Punkten im Bild - der
+Versatz wächst mit dem Abstand von der oberen linken Ecke. Vom Nutzer
+bestätigt: reines Safari/WebKit-Problem, unabhängig von der Bildschirmgröße
+(Chrome rendert auch mobil korrekt, DevTools-Mobilemulation in Chrome zeigt
+ebenfalls korrekt - keine Frage der Skalierung).
+
+**Erster Fix (nicht ausreichend):** Vermutet als Lade-Wettlauf - Container
+bekam `aspect-ratio` per Inline-Style, damit seine Höhe schon vor dem
+Laden des Bildes feststeht. Half laut Nutzer **nicht**. Grund vermutlich: In
+älteren/manchen WebKit-Versionen lösen absolut positionierte Kind-Elemente
+ihre Prozent-`top`-Position nachweislich nicht zuverlässig gegen eine nur
+über `aspect-ratio` hergestellte Containerhöhe auf (bekannte WebKit-Lücke,
+nicht gegen ein reales Gerät nachprüfbar in dieser Umgebung - kein Safari
+verfügbar).
+
+**Zweiter Fix:** `aspect-ratio` ersetzt durch den klassischen
+„Padding-Top-Trick" (ein leeres Kind-`div` mit
+`padding-top: <Höhe/Breite>·100 %`, das die Containerhöhe über den ganz
+normalen Textfluss erzwingt - keine neuere CSS-Eigenschaft, seit den
+2010ern browserübergreifend für responsive Bild-Einbettungen verwendet).
+Bild und Marker liegen `absolute inset-0` darüber. Noch nicht auf echtem
+Safari zurückgemeldet.
+
+**Fußpanels feiner unterteilt:** Fußrücken hatte drei Punkte je Fuß (Zehen,
+Mitte, unten nahe der Ferse) — der unterste entfällt auf Nutzerwunsch
+ersatzlos. Fußsohle hatte drei Punkte, die oberen zwei teilten sich
+`FUSSSOHLE` — der oberste (Ballen) bekommt jetzt den eigenen Wert
+`FUSSBALLEN`. Macht zusammen 66 statt 68 Markierungen.
+
+### Immer höchstens eine Markierung aktiv
+
+`KNIE` kommt jetzt bewusst auf Vorder- *und* Rückansicht mit identischer
+Region/Seite/Ausrichtung (`null`) vor. Damit trotzdem nie zwei Markierungen
+gleichzeitig aktiv erscheinen, merkt sich `KoerperKarte` seit diesem Nachtrag
+den **Index** der zuletzt geklickten Markierung statt nur ihrer Werte
+(`useState<number|null>` + `useEffect`, das bei externen Dropdown-Änderungen
+die erste passende Markierung nachzieht). Damit ist „nur eine Markierung
+aktiv" strukturell garantiert, nicht nur zufällig durch eindeutige Daten.
+
+### axe verlangt 24px *Abstand* zwischen Markierungen, nicht nur 24px Eigengröße
+
+Erster Durchlauf mit 20px-Markern: axe (`target-size`, SC 2.5.8) schlug bei
+zehn Markierungen an. 24px-Buttons allein reichten nicht — zwei Buttons, die
+selbst je 24px groß sind, aber deren *Mittelpunkte* weniger als 24px
+auseinanderliegen, gelten weiterhin als Verstoß. Für die meisten Marker genügte
+eine breitere Karte (420px → 480px). Die beiden Kopf-Punkte pro Ansicht
+(vorne/hinten) liegen in der Vorlage aber nur 44px auseinander.
+
+Erster Fix: Kopf-Links/-Rechts je Ansicht zu einer seitenlosen Markierung
+zusammengefasst. **Auf Nutzerwunsch zurückgenommen** — Kopf soll weiter nach
+Seite *und* vorne/hinten unterscheidbar sein. Stattdessen die Karte auf
+max. 720px verbreitert (bei 1280px Testviewport wird das auch erreicht); bei
+der Breite liegen selbst die Kopf-Punkte über dem 24px-Mindestabstand.
+`koerperkarte.test.ts` prüft das rechnerisch gegen genau diese 720px-Vorgabe,
+damit eine künftige Koordinaten- oder Breitenänderung nicht unbemerkt wieder
+darunter fällt. **Wichtig:** Bei einer deutlich schmaleren Kartenbreite als
+720px (z. B. ein sehr schmales Tablet) unterschreiten die Kopf-Punkte den
+24px-Abstand wieder — die drei Dropdowns bleiben deshalb bewusst die
+vollständig gleichwertige, von der Kartenbreite unabhängige Eingabe.
+
+**Beim Testen entstandene Testwunde wieder entfernt:** Der Browser-Durchgang
+legte testweise eine Wunde bei „Berger, Hannelore" an. Das hätte
+`tests/accessibility.spec.ts` gebrochen, weil dessen `anwendungsRouten()`
+ungeprüft die *erste* Wunde der *ersten* Patientin nimmt und deren erste
+Aufnahme braucht — eine Testwunde ohne Aufnahme lässt den Test in einem
+Timeout laufen, nicht in einer klaren Fehlermeldung. Wieder weich gelöscht
+(`geloeschtAm` gesetzt, Audit-Eintrag geschrieben), Testlauf danach wieder
+grün. **Merke:** Bei jedem Browser-Durchgang, der Patientendaten anlegt,
+vor dem nächsten `npm run test:a11y` prüfen, ob Testdaten bei der zuerst
+gelisteten Patientin/Wunde liegen geblieben sind.
+
 ### Die sechs Abschnitte
 
 1. Wundbefund — Wundumgebung, Wundrand, Wundgrund
@@ -227,11 +356,11 @@ Was beim Weiterbauen am ehesten stolpern lässt:
 - **Wagner-Grad und Dekubitus-Kategorie hängen an der Aufnahme** (A3), nicht an
   der Wunde — sie ändern sich im Verlauf.
 
-### Zwei Punkte warten auf Rückmeldung
+### Rückmeldung erhalten (19.09.2026)
 
-1. Stimmt „Mäßige bis starke" als vierte Exsudatstufe? (A1)
-2. Sollen Patienten nach einer Frist automatisch archiviert werden?
-   (Aufbewahrungsfrist: 10 Jahre, § 630f BGB)
+1. „Mäßige bis starke" als vierte Exsudatstufe (A1) — **bestätigt korrekt.**
+2. Automatische Archivierung nach Aufbewahrungsfrist (§ 630f BGB, 10 Jahre) —
+   **bleibt offen, To-Do für später.**
 
 ---
 

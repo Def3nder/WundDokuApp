@@ -15,6 +15,9 @@ const ENTITAETEN = [
   { wert: "Wound", label: "Wunde" },
   { wert: "Assessment", label: "Aufnahme" },
   { wert: "Photo", label: "Foto" },
+  { wert: "PatientDocument", label: "Dokument" },
+  { wert: "Doctor", label: "Arzt" },
+  { wert: "CareService", label: "Pflegedienst" },
   { wert: "User", label: "Benutzer" },
 ] as const;
 

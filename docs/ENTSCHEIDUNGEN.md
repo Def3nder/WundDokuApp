@@ -45,8 +45,7 @@ Keine · Keine bis Schwache · Schwache bis Mäßige · Mäßige bis Schwache
 Die vierte Stufe ergibt als Steigerung keinen Sinn. Ich dokumentiere
 **„Mäßige bis starke"** (`MAESSIG_BIS_STARK`).
 
-*Wenn das falsch ist:* eine Zeile in `src/lib/enums.ts` ändern. Bereits erfasste
-Daten bleiben gültig, da der gespeicherte Schlüssel derselbe bleibt.
+**Bestätigt (19.09.2026):** „Mäßige bis starke" ist korrekt.
 
 ### A2 — PDF-Export nutzt das Original als Vorlage — **verworfen, siehe T12**
 
@@ -66,8 +65,13 @@ nicht an der *Wunde* — sonst ginge die Historie verloren.
 
 Der Bogen hat ein anatomisches Beinschema mit rund 40 kleinen Ankreuzfeldern
 (links/rechts × lateral/medial × Höhe). Ich bilde das ab als: Region aus einer
-Liste + Seite + Ausrichtung + Freitext, dazu ein klickbares SVG-Schema. Das ist
-strukturiert auswertbar, während die Papierversion es nicht ist.
+Liste + Seite + Ausrichtung + Freitext. Das ist strukturiert auswertbar,
+während die Papierversion es nicht ist.
+
+Das hier geplante „klickbare SVG-Schema" wurde in Phase 3 nicht umgesetzt
+(nur die vier Textfelder). Nachträglich als klickbare Körperkarte ergänzt,
+siehe [T14](#t14--körperkarte-befüllt-die-vorhandenen-lokalisationsfelder-statt-eigene-daten-zu-speichern) —
+technisch ein Bild mit positionierten Buttons, kein Inline-SVG.
 
 ### A5 — Betrieb on-premise
 
@@ -203,6 +207,102 @@ ist eine variable Schrift (Google Fonts, OFL-Lizenz); für den Export wurden
 mit `fonttools` statische Regular-/Bold-Instanzen erzeugt und auf
 Latein/Interpunktion eingekürzt (siehe [assets/fonts/README.md](../assets/fonts/README.md)).
 
+### T14 — Körperkarte befüllt die vorhandenen Lokalisationsfelder, statt eigene Daten zu speichern
+
+Auf Wunsch des Nutzers ergänzt eine anklickbare Körperkarte
+(`src/components/formular/koerperkarte.tsx`, Bild `public/koerperkarte.webp`)
+die drei Lokalisations-Dropdowns um eine optische Auswahl. Zwei Varianten
+standen zur Wahl: ein zusätzliches Datenbankfeld für die exakte
+Markierungs-ID, oder Klick befüllt die vorhandenen Felder Region/Seite/
+Ausrichtung. Entschieden für **Letzteres** (keine Migration, PDF-Export und
+Vergleichsansicht funktionieren unverändert weiter).
+
+Die Vorlage (`assets/vorlage/Wundlokalisation_neu.png`) hat mehr Markierungen
+(ursprünglich 68) als Körperregionen im Enum (18). Der Nutzer entschied sich
+für **Erweiterung** statt grober Zuordnung: `KOERPERREGIONEN` in
+`src/lib/enums.ts` wuchs um `LENDE`, `OBERARM`, `UNTERARM`, `HANDGELENK`,
+`BRUSTKORB`, `BAUCH` (rein additiv, alte Werte/Daten bleiben gültig).
+
+Die Pixel-Koordinaten der Markierungen wurden **nicht** von Hand abgelesen,
+sondern per Bildverarbeitung (Farbschwellwert auf die roten Kreise,
+`PIL`/`numpy`, Connected-Component-Analyse) exakt vermessen und in
+`src/lib/koerperkarte.ts` als Prozentwerte abgelegt — das Bild lässt sich so
+beliebig skalieren, ohne dass Markierungen wandern.
+
+**Zielgröße (WCAG 2.5.8):** axe verlangt nicht nur 24px große Zielflächen,
+sondern auch 24px Abstand zwischen ihren Mittelpunkten. Die beiden
+Kopf-Punkte je Ansicht liegen im Original nur 44px auseinander und
+unterschreiten das bei einer schmalen Kartenbreite. Erster Versuch: beide zu
+einer seitenlosen Markierung zusammenfassen. Auf Nutzerwunsch **zurückgenommen**
+— rechts/links (und zusätzlich vorne/hinten über `AUSRICHTUNG.VENTRAL`/`DORSAL`,
+siehe unten) sollen wählbar bleiben. Stattdessen wuchs die maximale Kartenbreite
+auf 720px (`koerperkarte.tsx`), bei der auch der Kopf-Abstand den
+24px-Mindestwert einhält. `koerperkarte.test.ts` prüft das rechnerisch gegen
+genau diese Breite, damit eine künftige Änderung der Koordinaten oder der
+Kartenbreite nicht unbemerkt wieder darunter fällt.
+
+**Ventral/Dorsal ergänzt Lateral/Medial:** `AUSRICHTUNGEN` in `src/lib/enums.ts`
+wuchs um `VENTRAL` und `DORSAL`, zusätzlich zu den schon vorhandenen
+`LATERAL`/`MEDIAL` (Labels bewusst schlicht, ohne „(vorne)"/„(hinten)" —
+Nutzerwunsch). Gesetzt für alle Regionen, die auf Vorder- *und* Rückansicht
+denselben Regionswert hätten (`KOPF`, `SCHULTER`, `OBERARM`, `UNTERARM`,
+`HANDGELENK`, `OBERSCHENKEL`, `UNTERSCHENKEL`, `KNIE`, `KNOECHEL`) — ohne das
+wüsste man bei z. B. „Schulter links" oder „Knie links" nicht, ob der Klick
+von vorne oder hinten kam. `KNIE` und `KNOECHEL` fehlte das zunächst
+(Erstversuch: `null` auf beiden Ansichten reichte nicht, weil dieselbe Region
+mit derselben Seite/Ausrichtung auf Vorder- *und* Rückseite existierte), auf
+Nachfrage nachgezogen. `BRUSTKORB`/`BAUCH` (nur vorne) und `LENDE`/`RUECKEN`
+(nur hinten) kommen ohnehin nur auf einer Ansicht vor und bleiben ohne
+Ausrichtung.
+
+**Rückseiten-Beine an die Vorderseite angeglichen:** Erste Zuordnung der
+Rückansicht folgte der eigenen Anatomie-Vermutung (Steiß/Sakral, Gesäß,
+Oberschenkel, Unterschenkel von oben nach unten). Der Nutzer korrigierte das
+anhand der tatsächlichen Bildhöhen, jeweils an die gleich hohe
+Vorderseiten-Markierung angeglichen:
+- Punkt auf Oberschenkelhöhe: `OBERSCHENKEL` (vorher `STEISS_SAKRAL` — der
+  eigentliche Steiß-/Sakralbereich liegt laut Nutzer mittig im Gesäß, also
+  auf keinem der bilateralen Links/Rechts-Punkte dieser Vorlage)
+- Punkt auf Kniehöhe: `KNIE` (vorher `GESAESS`)
+- nächster Punkt: `UNTERSCHENKEL` (vorher fälschlich `OBERSCHENKEL`)
+- unterster Punkt: `KNOECHEL` (vorher fälschlich `UNTERSCHENKEL`)
+
+**Steiß-/Sakralbereich nachträglich mit eigenem Bildpunkt:** Der Nutzer hat
+die Vorlage um genau die fehlende Markierung ergänzt
+(`assets/vorlage/Wundlokalisation_neu_2.png`) — ein einzelner Punkt mittig
+über der Gesäßfalte, kein Links/Rechts-Paar. Per Bilddiff gegen die vorherige
+Version identifiziert (ein Punkt neu bei x=77.20 %, y=34.98 %; zwei alte
+Fußrücken-Punkte fehlen jetzt im Bild, passend zum weiter oben beschriebenen
+Entfernen des unteren Fußrücken-Punkts). `STEISS_SAKRAL` hat seither wieder
+eine eigene Markierung, mit `seite: null` (kein Links/Rechts) und
+`ausrichtung: null` (nur auf der Rückseite vorhanden, kein Gegenstück vorne).
+67 statt 66 Markierungen; `public/koerperkarte.webp` neu aus der Vorlage
+exportiert.
+
+**Fußrücken/Fußsohlen-Panels feiner unterteilt:** Ursprünglich hatte
+Fußrücken drei Punkte je Fuß (Zehen, Mitte, unterer Punkt nahe der Ferse) und
+Fußsohle drei (alle zwei oberen als `FUSSSOHLE`, unterster `FERSE`). Auf
+Nutzerwunsch: der unterste Fußrücken-Punkt entfällt ganz (nur noch `ZEHEN` und
+`FUSSRUECKEN`), und der oberste Fußsohlen-Punkt (Ballen) bekommt einen
+eigenen Regionswert `FUSSBALLEN`, statt sich `FUSSSOHLE` mit dem mittleren
+Punkt zu teilen. Macht die Körperkarte 66 statt 68 Markierungen.
+
+**Immer höchstens eine Markierung aktiv:** `KNIE` kommt jetzt bewusst auf
+Vorder- *und* Rückansicht ohne Ausrichtung vor (siehe oben) - zwei
+Markierungen mit identischer Region/Seite/Ausrichtung. Damit trotzdem nie
+mehr als eine gleichzeitig aktiv erscheint, merkt sich `KoerperKarte` den
+**genauen Index** der zuletzt geklickten Markierung (nicht nur deren Werte):
+ein Klick kann so nie mehr als eine Markierung gleichzeitig aktiv zeigen,
+auch wenn mehrere Punkte dieselben Daten liefern. Ändern sich die Dropdowns
+von aussen (z. B. beim Laden einer gespeicherten Wunde), zieht ein Effekt die
+erste passende Markierung nach.
+
+**Seiten-Konvention:** Auf der Vorderansicht ist die Patientenseite
+gespiegelt (Bildlinks = Patient rechts), auf der Rückansicht nicht — das
+entspricht der medizinischen Konvention für anteriore/posteriore
+Körperkarten und wurde beim Klicktest gegen die bekannte Anatomie
+(Schulter, dann Knöchel/lateral) geprüft.
+
 ---
 
 ## Bewusst nicht umgesetzt
@@ -220,6 +320,6 @@ Latein/Interpunktion eingekürzt (siehe [assets/fonts/README.md](../assets/fonts
 
 ## Noch zu klären
 
-1. **A1** — Stimmt „Mäßige bis starke" als vierte Exsudatstufe?
-2. Sollen Patienten nach einer Frist automatisch archiviert werden, und nach
-   welcher? (Aufbewahrungsfrist für Behandlungsdokumentation: 10 Jahre)
+1. Sollen Patienten nach einer Frist automatisch archiviert werden, und nach
+   welcher? (Aufbewahrungsfrist für Behandlungsdokumentation: 10 Jahre) —
+   **bleibt offen, To-Do für später** (Rückmeldung 19.09.2026).

@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, FileDown, Pencil } from "lucide-react";
+import { FileDown, Pencil } from "lucide-react";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { AufnahmeLoeschen } from "@/components/formular/aufnahme-loeschen";
 import { FotoGalerie } from "@/components/foto/foto-galerie";
 import { aufnahmeLoeschen } from "@/actions/aufnahmen";
@@ -102,15 +103,14 @@ export default async function AufnahmeSeite({ params }: { params: Promise<{ id: 
   ].filter(Boolean).join(" · ");
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="max-w-5xl space-y-6">
       <div>
-        <Link
-          href={`/wunden/${aufnahme.woundId}`}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" aria-hidden="true" />
-          {aufnahme.wunde.bezeichnung}
-        </Link>
+        <Breadcrumb eintraege={[
+          { label: "Patienten", href: "/" },
+          { label: `${aufnahme.wunde.patient.nachname}, ${aufnahme.wunde.patient.vorname}`, href: `/patienten/${aufnahme.wunde.patientId}` },
+          { label: aufnahme.wunde.bezeichnung, href: `/wunden/${aufnahme.woundId}` },
+          { label: `Aufnahme vom ${datum(aufnahme.datum)}` },
+        ]} />
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold">Aufnahme vom {datum(aufnahme.datum)}</h1>
           <span className="rounded-full bg-surface-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">

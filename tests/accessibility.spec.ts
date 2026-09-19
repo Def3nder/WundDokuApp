@@ -46,10 +46,16 @@ async function anwendungsRouten(page: Page): Promise<string[]> {
     "/?q=kein-treffer-a11y",
     "/patienten/neu",
     "/einstellungen/benutzer",
+    "/einstellungen/benutzer/neu",
+    "/einstellungen/stammdaten",
     "/einstellungen/audit-log",
     patientHref,
     `${patientHref}/bearbeiten`,
     `${patientHref}/wunden/neu`,
+    `${patientHref}/dokumente?typ=REZEPT`,
+    `${patientHref}/dokumente?typ=ARZTBRIEF`,
+    `${patientHref}/dokumente/neu?typ=REZEPT`,
+    `${patientHref}/dokumente/neu?typ=ARZTBRIEF`,
     wundeHref,
     `${wundeHref}/bearbeiten`,
     `${wundeHref}/aufnahmen/neu`,
@@ -148,6 +154,7 @@ test("mobile Hauptnavigation ist sichtbar und per Escape schließbar", async ({ 
   await menue.click();
   await expect(page.getByRole("menuitem", { name: "Patienten" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Benutzer" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Stammdaten" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Protokoll" })).toBeVisible();
   const axeErgebnis = await new AxeBuilder({ page })
     .exclude("nextjs-portal")

@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 import { db } from "@/lib/db";
 import { WundeFormular } from "@/components/wunde/wunde-formular";
 import { wundeAnlegen } from "@/actions/wunden";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 export const metadata = { title: "Wunde anlegen" };
 
@@ -15,19 +14,21 @@ export default async function NeueWundeSeite({
   const { id } = await params;
   const patient = await db.patient.findUnique({ where: { id } });
   if (!patient || patient.geloeschtAm) notFound();
+  const [aerzte, pflegedienste] = await Promise.all([
+    db.doctor.findMany({ where: { geloeschtAm: null }, orderBy: { name: "asc" }, select: { id: true, name: true, praxis: true } }),
+    db.careService.findMany({ where: { geloeschtAm: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+  ]);
 
   const action = wundeAnlegen.bind(null, id);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="max-w-3xl space-y-6">
       <div>
-        <Link
-          href={`/patienten/${id}`}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" aria-hidden="true" />
-          {patient.nachname}, {patient.vorname}
-        </Link>
+        <Breadcrumb eintraege={[
+          { label: "Patienten", href: "/" },
+          { label: `${patient.nachname}, ${patient.vorname}`, href: `/patienten/${id}` },
+          { label: "Wunde anlegen" },
+        ]} />
         <h1 className="mt-2 text-2xl font-semibold">Wunde anlegen</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Diese Angaben beschreiben die Wunde dauerhaft. Befund und Therapie
@@ -39,6 +40,8 @@ export default async function NeueWundeSeite({
         action={action}
         abbrechenNach={`/patienten/${id}`}
         absendeText="Wunde anlegen"
+        aerzte={aerzte}
+        pflegedienste={pflegedienste}
       />
     </div>
   );

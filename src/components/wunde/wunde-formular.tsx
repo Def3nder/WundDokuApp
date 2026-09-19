@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { FehlerUebersicht } from "@/components/ui/fehler-uebersicht";
 import { Label } from "@/components/ui/label";
+import { KoerperKarte, type LokalisationWahl } from "@/components/formular/koerperkarte";
 import {
   AUSRICHTUNGEN,
   DIAGNOSE_TYPEN,
@@ -22,6 +23,8 @@ export type WundeWerte = {
   bezeichnung: string;
   diagnoseTyp: string;
   diagnoseFreitext: string;
+  arztId: string;
+  pflegedienstId: string;
   lokalisationRegion: string;
   lokalisationSeite: string;
   lokalisationAusrichtung: string;
@@ -36,6 +39,8 @@ const LEER: WundeWerte = {
   bezeichnung: "",
   diagnoseTyp: "",
   diagnoseFreitext: "",
+  arztId: "",
+  pflegedienstId: "",
   lokalisationRegion: "",
   lokalisationSeite: "",
   lokalisationAusrichtung: "",
@@ -51,11 +56,15 @@ export function WundeFormular({
   vorgabe = LEER,
   abbrechenNach,
   absendeText = "Speichern",
+  aerzte = [],
+  pflegedienste = [],
 }: {
   action: (zustand: FormZustand, fd: FormData) => Promise<FormZustand>;
   vorgabe?: WundeWerte;
   abbrechenNach: string;
   absendeText?: string;
+  aerzte?: { id: string; name: string; praxis: string | null }[];
+  pflegedienste?: { id: string; name: string }[];
 }) {
   const [zustand, formAction, laeuft] = useActionState(action, START);
   const [rezidiv, setRezidiv] = useState(vorgabe.rezidiv);
@@ -63,6 +72,12 @@ export function WundeFormular({
   const w = (feld: keyof WundeWerte) =>
     (zustand.werte?.[feld] as string | undefined) ?? String(vorgabe[feld] ?? "");
   const f = (feld: string) => zustand.fehler?.[feld];
+
+  const [lokalisation, setLokalisation] = useState<LokalisationWahl>({
+    region: w("lokalisationRegion"),
+    seite: w("lokalisationSeite"),
+    ausrichtung: w("lokalisationAusrichtung"),
+  });
 
   return (
     <form action={formAction} className="space-y-6" noValidate>
@@ -119,12 +134,39 @@ export function WundeFormular({
 
       <Card>
         <CardContent className="space-y-5 pt-6">
+          <h2 className="text-base font-semibold">Versorgungspartner</h2>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field id="arztId" label="Arzt" fehler={f("arztId")}>
+              {(p) => <Select {...p} name="arztId" defaultValue={w("arztId")}>
+                <option value="">Kein Arzt ausgewählt</option>
+                {aerzte.map((arzt) => <option key={arzt.id} value={arzt.id}>{arzt.name}{arzt.praxis ? ` · ${arzt.praxis}` : ""}</option>)}
+              </Select>}
+            </Field>
+            <Field id="pflegedienstId" label="Pflegedienst" fehler={f("pflegedienstId")}>
+              {(p) => <Select {...p} name="pflegedienstId" defaultValue={w("pflegedienstId")}>
+                <option value="">Kein Pflegedienst ausgewählt</option>
+                {pflegedienste.map((dienst) => <option key={dienst.id} value={dienst.id}>{dienst.name}</option>)}
+              </Select>}
+            </Field>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="space-y-5 pt-6">
           <h2 className="text-base font-semibold">Lokalisation</h2>
 
           <div className="grid gap-5 sm:grid-cols-3">
             <Field id="lokalisationRegion" label="Körperregion" fehler={f("lokalisationRegion")}>
               {(p) => (
-                <Select {...p} name="lokalisationRegion" defaultValue={w("lokalisationRegion")}>
+                <Select
+                  {...p}
+                  name="lokalisationRegion"
+                  value={lokalisation.region}
+                  onChange={(e) =>
+                    setLokalisation((l) => ({ ...l, region: e.target.value }))
+                  }
+                >
                   <option value="">Keine Angabe</option>
                   {KOERPERREGIONEN.map((r) => (
                     <option key={r.wert} value={r.wert}>
@@ -137,7 +179,14 @@ export function WundeFormular({
 
             <Field id="lokalisationSeite" label="Seite" fehler={f("lokalisationSeite")}>
               {(p) => (
-                <Select {...p} name="lokalisationSeite" defaultValue={w("lokalisationSeite")}>
+                <Select
+                  {...p}
+                  name="lokalisationSeite"
+                  value={lokalisation.seite}
+                  onChange={(e) =>
+                    setLokalisation((l) => ({ ...l, seite: e.target.value }))
+                  }
+                >
                   <option value="">Keine Angabe</option>
                   {SEITEN.map((s) => (
                     <option key={s.wert} value={s.wert}>
@@ -157,7 +206,10 @@ export function WundeFormular({
                 <Select
                   {...p}
                   name="lokalisationAusrichtung"
-                  defaultValue={w("lokalisationAusrichtung")}
+                  value={lokalisation.ausrichtung}
+                  onChange={(e) =>
+                    setLokalisation((l) => ({ ...l, ausrichtung: e.target.value }))
+                  }
                 >
                   <option value="">Keine Angabe</option>
                   {AUSRICHTUNGEN.map((a) => (
@@ -169,6 +221,8 @@ export function WundeFormular({
               )}
             </Field>
           </div>
+
+          <KoerperKarte wert={lokalisation} onWahl={setLokalisation} />
 
           <Field
             id="lokalisationFreitext"

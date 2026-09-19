@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, ClipboardList, Columns2, FileDown, Pencil, Plus } from "lucide-react";
+import { ClipboardList, Columns2, FileDown, Pencil, Plus } from "lucide-react";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Verlaufsdiagramme } from "@/components/auswertung/verlaufsdiagramme";
 import { WundeKopf } from "@/components/wunde/wunde-kopf";
 import { Zeitleiste } from "@/components/wunde/zeitleiste";
@@ -29,6 +30,8 @@ export default async function WundeSeite({
     where: { id },
     include: {
       patient: true,
+      arzt: true,
+      pflegedienst: true,
       aufnahmen: {
         where: { geloeschtAm: null },
         orderBy: { datum: "desc" },
@@ -88,13 +91,11 @@ export default async function WundeSeite({
   return (
     <div className="space-y-6">
       <div>
-        <Link
-          href={`/patienten/${wunde.patientId}`}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" aria-hidden="true" />
-          {wunde.patient.nachname}, {wunde.patient.vorname}
-        </Link>
+        <Breadcrumb eintraege={[
+          { label: "Patienten", href: "/" },
+          { label: `${wunde.patient.nachname}, ${wunde.patient.vorname}`, href: `/patienten/${wunde.patientId}` },
+          { label: wunde.bezeichnung },
+        ]} />
       </div>
 
       <WundeKopf wunde={wunde} anzahlAufnahmen={eintraege.length} />

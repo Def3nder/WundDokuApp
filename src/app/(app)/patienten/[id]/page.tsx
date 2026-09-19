@@ -2,16 +2,18 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   CalendarDays,
-  ChevronLeft,
   ChevronRight,
   CircleCheck,
+  FileText,
   Pencil,
   Plus,
+  ReceiptText,
   Stethoscope,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { alterJahre } from "@/lib/schema/patient";
 import { beschreibeLokalisation, beschreibeDauer } from "@/lib/wundtext";
 import { DIAGNOSE_TYPEN, labelVon } from "@/lib/enums";
@@ -32,6 +34,12 @@ export default async function PatientSeite({
   const patient = await db.patient.findUnique({
     where: { id },
     include: {
+      arzt: true,
+      pflegedienst: true,
+      dokumente: {
+        where: { geloeschtAm: null },
+        orderBy: { createdAt: "desc" },
+      },
       wunden: {
         where: { geloeschtAm: null },
         orderBy: [{ abgeschlossenAm: "asc" }, { createdAt: "desc" }],
@@ -56,13 +64,7 @@ export default async function PatientSeite({
   return (
     <div className="space-y-6">
       <div>
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" aria-hidden="true" />
-          Patienten
-        </Link>
+        <Breadcrumb eintraege={[{ label: "Patienten", href: "/" }]} />
       </div>
 
       {/* Kopfzeile: alles, was beim Verbandwechsel griffbereit sein muss */}
@@ -86,15 +88,35 @@ export default async function PatientSeite({
                   {alterJahre(patient.geburtsdatum)} Jahre)
                 </dd>
               </div>
-              {patient.arztTherapieverantwortlich && (
+              {(patient.arzt || patient.arztTherapieverantwortlich) && (
                 <div className="flex gap-1.5">
                   <dt>Arzt</dt>
                   <dd className="font-medium text-foreground">
-                    {patient.arztTherapieverantwortlich}
+                    {patient.arzt?.name ?? patient.arztTherapieverantwortlich}
                   </dd>
                 </div>
               )}
+              {patient.pflegedienst && (
+                <div className="flex gap-1.5">
+                  <dt>Pflegedienst</dt>
+                  <dd className="font-medium text-foreground">{patient.pflegedienst.name}</dd>
+                </div>
+              )}
             </dl>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <DokumentVerweis
+                href={`/patienten/${id}/dokumente?typ=REZEPT`}
+                icon={ReceiptText}
+                bezeichnung="Rezepte"
+                anzahl={patient.dokumente.filter((dokument) => dokument.typ === "REZEPT").length}
+              />
+              <DokumentVerweis
+                href={`/patienten/${id}/dokumente?typ=ARZTBRIEF`}
+                icon={FileText}
+                bezeichnung="Arztbriefe"
+                anzahl={patient.dokumente.filter((dokument) => dokument.typ === "ARZTBRIEF").length}
+              />
+            </div>
           </div>
 
           <Button variant="outline" asChild>
@@ -167,7 +189,31 @@ export default async function PatientSeite({
           </>
         )}
       </section>
+
     </div>
+  );
+}
+
+function DokumentVerweis({
+  href,
+  icon: Icon,
+  bezeichnung,
+  anzahl,
+}: {
+  href: string;
+  icon: typeof FileText;
+  bezeichnung: string;
+  anzahl: number;
+}) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-border bg-surface-muted/40 px-3 py-1.5 text-sm transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Icon className="size-4 text-primary" aria-hidden="true" />
+      <span>{bezeichnung}: <span className="font-semibold tabular">{anzahl}</span></span>
+      <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+    </Link>
   );
 }
 

@@ -1,11 +1,11 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, CopyCheck } from "lucide-react";
+import { CopyCheck } from "lucide-react";
 import { db } from "@/lib/db";
 import { AufnahmeFormular } from "@/components/formular/aufnahme-formular";
 import { aufnahmeAnlegen } from "@/actions/aufnahmen";
 import { aufnahmeZuWerten, vorbefuellungAus } from "@/lib/schema/aufnahme-vorgabe";
 import { flaecheMm2 } from "@/lib/wundmasse";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { datum } from "@/lib/wundtext";
 import { fotoZuAnsicht } from "@/lib/foto-typen";
 
@@ -51,15 +51,14 @@ export default async function NeueAufnahmeSeite({
   const vorherigeFlaeche = letzte ? flaecheMm2(letzte) : null;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="max-w-5xl space-y-6">
       <div>
-        <Link
-          href={`/wunden/${id}`}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" aria-hidden="true" />
-          {wunde.bezeichnung}
-        </Link>
+        <Breadcrumb eintraege={[
+          { label: "Patienten", href: "/" },
+          { label: `${wunde.patient.nachname}, ${wunde.patient.vorname}`, href: `/patienten/${wunde.patientId}` },
+          { label: wunde.bezeichnung, href: `/wunden/${id}` },
+          { label: letzte ? "Folgeaufnahme erfassen" : "Erstaufnahme erfassen" },
+        ]} />
         <h1 className="mt-2 text-2xl font-semibold">
           {letzte ? "Folgeaufnahme erfassen" : "Erstaufnahme erfassen"}
         </h1>

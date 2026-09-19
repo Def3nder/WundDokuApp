@@ -1,4 +1,4 @@
-import { CircleCheck, MapPin, RotateCcw } from "lucide-react";
+import { BriefcaseMedical, CircleCheck, MapPin, RotateCcw, Truck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { DIAGNOSE_TYPEN, labelVon } from "@/lib/enums";
 import {
@@ -20,6 +20,8 @@ type Wunde = {
   rezidiv: boolean;
   rezidivAnzahl: number | null;
   abgeschlossenAm: Date | null;
+  arzt?: { name: string; praxis: string | null } | null;
+  pflegedienst?: { name: string } | null;
 };
 
 /**
@@ -98,6 +100,20 @@ export function WundeKopf({
             </dt>
             <dd className="tabular mt-0.5 text-sm font-medium">{anzahlAufnahmen}</dd>
           </div>
+
+          {wunde.arzt && (
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Arzt</dt>
+              <dd className="mt-0.5 flex items-start gap-1.5 text-sm font-medium"><BriefcaseMedical className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />{wunde.arzt.name}{wunde.arzt.praxis ? ` · ${wunde.arzt.praxis}` : ""}</dd>
+            </div>
+          )}
+
+          {wunde.pflegedienst && (
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Pflegedienst</dt>
+              <dd className="mt-0.5 flex items-start gap-1.5 text-sm font-medium"><Truck className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />{wunde.pflegedienst.name}</dd>
+            </div>
+          )}
         </dl>
 
         {wunde.diagnoseFreitext && (
