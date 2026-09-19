@@ -1,0 +1,41 @@
+# Zeilenenden vereinheitlichen.
+#
+# Ohne diese Datei richtet sich Git nach der lokalen core.autocrlf-Einstellung.
+# Unter Windows fuehrt das dazu, dass Dateien beim Auschecken CRLF bekommen -
+# arbeitet spaeter jemand unter Linux oder macOS mit, erscheint jede Datei als
+# komplett geaendert, obwohl sich nur die Zeilenenden unterscheiden.
+#
+# eol=lf legt fest: im Repository und im Arbeitsverzeichnis immer LF,
+# unabhaengig vom Betriebssystem.
+* text=auto eol=lf
+
+# Windows-Skripte brauchen CRLF, sonst bricht die Ausfuehrung.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binaerdateien nie anfassen.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+*.node binary
+
+# Erzeugte Dateien: aus Diffs und Sprachstatistik heraushalten, damit
+# Codeuebersichten nicht von der Lockfile dominiert werden.
+package-lock.json linguist-generated=true -diff
+graft/manifest.json linguist-generated=true -diff
+
+# Prisma-Migrationen sind Text, werden aber nie von Hand geaendert.
+prisma/migrations/**/*.sql linguist-generated=true
