@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
+import { fokussiereRadio, radioZielIndex } from "@/lib/tastatur";
 
 /**
  * Uhrzeit-Auswahl fuer die Schmerzlokalisation.
@@ -24,6 +25,14 @@ export function Zifferblatt({
   const groesse = 180;
   const mitte = groesse / 2;
   const radius = 66;
+
+  function mitTastatur(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const ziel = radioZielIndex(event.key, index, 12);
+    if (ziel == null) return;
+    event.preventDefault();
+    setStunde(ziel + 1);
+    fokussiereRadio(event.currentTarget, ziel);
+  }
 
   return (
     <div className="space-y-2">
@@ -77,7 +86,9 @@ export function Zifferblatt({
               role="radio"
               aria-checked={aktiv}
               aria-label={`${h} Uhr`}
+              tabIndex={aktiv || (stunde == null && h === 1) ? 0 : -1}
               onClick={() => setStunde(aktiv ? null : h)}
+              onKeyDown={(event) => mitTastatur(event, h - 1)}
               // Sichtbar 32 px, aber mit 44 px Tippflaeche - sonst waeren die
               // Zahlen am Tablet nicht treffsicher.
               className={cn(

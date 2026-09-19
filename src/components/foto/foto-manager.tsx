@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -21,6 +21,7 @@ import {
   fotosHochladen,
   fotosSortieren,
 } from "@/actions/fotos";
+import { erzeugeClientId } from "@/lib/client-id";
 import { FOTO_MAX_BYTES, type FotoAnsicht } from "@/lib/foto-typen";
 
 type NeueDatei = {
@@ -34,17 +35,22 @@ function istVorschaubar(datei: File): boolean {
   return ["image/jpeg", "image/png", "image/webp"].includes(datei.type);
 }
 
-export function FotoManager({
-  aufnahmeId,
-  initialFotos,
-  entwurfSicherstellen,
-  onAufnahmeId,
-}: {
+export type FotoManagerHandle = {
+  anzahlAusstehend: () => number;
+  hochladen: () => Promise<boolean>;
+};
+
+export const FotoManager = forwardRef<FotoManagerHandle, {
   aufnahmeId: string | null;
   initialFotos: FotoAnsicht[];
   entwurfSicherstellen: () => Promise<string | null>;
   onAufnahmeId: (id: string) => void;
-}) {
+}>(function FotoManager({
+  aufnahmeId,
+  initialFotos,
+  entwurfSicherstellen,
+  onAufnahmeId,
+}, ref) {
   const [fotos, setFotos] = useState(initialFotos);
   const [auswahl, setAuswahl] = useState<NeueDatei[]>([]);
   const [fehler, setFehler] = useState<string | null>(null);
@@ -72,7 +78,7 @@ export function FotoManager({
       const vorschau = istVorschaubar(datei) ? URL.createObjectURL(datei) : null;
       if (vorschau) objektUrls.current.add(vorschau);
       gueltig.push({
-        id: crypto.randomUUID(),
+        id: erzeugeClientId(),
         datei,
         vorschau,
         beschreibung: "",
@@ -102,8 +108,8 @@ export function FotoManager({
     });
   }
 
-  async function hochladen() {
-    if (auswahl.length === 0) return;
+  async function hochladen(): Promise<boolean> {
+    if (auswahl.length === 0) return true;
     setLaedt(true);
     setFehler(null);
 
@@ -111,7 +117,7 @@ export function FotoManager({
     if (!zielId) {
       setFehler("Der Aufnahmeentwurf konnte nicht angelegt werden.");
       setLaedt(false);
-      return;
+      return false;
     }
     onAufnahmeId(zielId);
 
@@ -124,7 +130,7 @@ export function FotoManager({
     setLaedt(false);
     if (!ergebnis.erfolg) {
       setFehler(ergebnis.fehler);
-      return;
+      return false;
     }
 
     for (const eintrag of auswahl) {
@@ -135,7 +141,13 @@ export function FotoManager({
     }
     setAuswahl([]);
     setFotos(ergebnis.fotos);
+    return true;
   }
+
+  useImperativeHandle(ref, () => ({
+    anzahlAusstehend: () => auswahl.length,
+    hochladen,
+  }));
 
   async function beschreibungSpeichern(fotoId: string, wert: string) {
     const vorher = fotos.find((foto) => foto.id === fotoId)?.beschreibung ?? "";
@@ -204,6 +216,8 @@ export function FotoManager({
           accept="image/jpeg,image/png,image/webp,image/heic"
           multiple
           className="sr-only"
+          tabIndex={-1}
+          aria-label="Fotos auswählen"
           onChange={(event) => dateienHinzufuegen(Array.from(event.target.files ?? []))}
         />
         <input
@@ -212,6 +226,8 @@ export function FotoManager({
           accept="image/jpeg,image/png,image/webp,image/heic"
           capture="environment"
           className="sr-only"
+          tabIndex={-1}
+          aria-label="Foto mit der Kamera aufnehmen"
           onChange={(event) => dateienHinzufuegen(Array.from(event.target.files ?? []))}
         />
       </div>
@@ -296,4 +312,4 @@ export function FotoManager({
       )}
     </div>
   );
-}
+});

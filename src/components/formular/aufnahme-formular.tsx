@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Check, Cloud, CloudOff } from "lucide-react";
 import { Abschnitt, AbschnittsNavigation, type AbschnittDef } from "./abschnitt";
@@ -10,7 +10,7 @@ import { AbschnittInfektion } from "./abschnitt-infektion";
 import { AbschnittSchmerz } from "./abschnitt-schmerz";
 import { AbschnittTherapie } from "./abschnitt-therapie";
 import { useAutosave } from "./use-autosave";
-import { FotoManager } from "@/components/foto/foto-manager";
+import { FotoManager, type FotoManagerHandle } from "@/components/foto/foto-manager";
 import { Button } from "@/components/ui/button";
 import { FehlerUebersicht } from "@/components/ui/fehler-uebersicht";
 import type { AufnahmeWerte } from "@/lib/schema/aufnahme-vorgabe";
@@ -87,6 +87,9 @@ export function AufnahmeFormular({
 }) {
   const [zustand, formAction, laeuft] = useActionState(action, START);
   const formularRef = useRef<HTMLFormElement>(null);
+  const fotoManagerRef = useRef<FotoManagerHandle>(null);
+  const erneutAbsenden = useRef(false);
+  const [fotosWerdenHochgeladen, setFotosWerdenHochgeladen] = useState(false);
   const autosave = useAutosave({
     formularRef,
     wundeId: autosaveWundeId,
@@ -111,8 +114,45 @@ export function AufnahmeFormular({
     ? new Date(autosave.zeitpunkt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })
     : null;
 
+  async function vorAbsenden(event: FormEvent<HTMLFormElement>) {
+    if (erneutAbsenden.current) {
+      erneutAbsenden.current = false;
+      return;
+    }
+
+    const anzahl = fotoManagerRef.current?.anzahlAusstehend() ?? 0;
+    if (anzahl === 0) return;
+
+    event.preventDefault();
+    // Der Autosave-Listener pausiert bei jedem Submit. Da dieser erste Submit
+    // abgefangen wird, muss er fuer das Anlegen eines Foto-Entwurfs weiterlaufen.
+    autosave.fortsetzen();
+    const sollHochladen = window.confirm(
+      anzahl === 1
+        ? "Das ausgewählte Foto wurde noch nicht hochgeladen. Soll es vor dem Speichern hochgeladen werden?"
+        : `${anzahl} ausgewählte Fotos wurden noch nicht hochgeladen. Sollen sie vor dem Speichern hochgeladen werden?`,
+    );
+    if (!sollHochladen) return;
+
+    const formular = event.currentTarget;
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    setFotosWerdenHochgeladen(true);
+    const erfolgreich = await fotoManagerRef.current?.hochladen();
+    setFotosWerdenHochgeladen(false);
+    if (!erfolgreich) return;
+
+    erneutAbsenden.current = true;
+    setTimeout(() => {
+      formular.requestSubmit(
+        submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement
+          ? submitter
+          : undefined,
+      );
+    }, 0);
+  }
+
   return (
-    <form ref={formularRef} action={formAction} className="space-y-6" noValidate>
+    <form ref={formularRef} action={formAction} onSubmit={(event) => void vorAbsenden(event)} className="space-y-6" noValidate>
       {autosave.entwurfId && <input type="hidden" name="entwurfId" value={autosave.entwurfId} />}
 
       <FehlerUebersicht fehler={zustand.fehler} />
@@ -164,6 +204,7 @@ export function AufnahmeFormular({
 
       <Abschnitt nummer={6} def={ABSCHNITTE[5]} offenVorgabe={false} hatFehler={false}>
         <FotoManager
+          ref={fotoManagerRef}
           aufnahmeId={aufnahmeId ?? autosave.entwurfId}
           initialFotos={initialFotos}
           entwurfSicherstellen={async () => aufnahmeId ?? autosave.speichernJetzt()}
@@ -174,7 +215,9 @@ export function AufnahmeFormular({
       </Abschnitt>
 
       <div className="sticky bottom-0 z-20 -mx-4 flex flex-wrap gap-3 border-t border-border bg-background/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6">
-        <Button type="submit" laedt={laeuft}>{absendeText}</Button>
+        <Button type="submit" laedt={laeuft || fotosWerdenHochgeladen}>
+          {fotosWerdenHochgeladen ? "Fotos werden hochgeladen …" : absendeText}
+        </Button>
         <Button type="button" variant="outline" asChild>
           <Link href={abbrechenNach}>Abbrechen</Link>
         </Button>

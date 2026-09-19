@@ -1,8 +1,9 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, type KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
 import type { Option } from "@/lib/enums";
+import { fokussiereRadio, radioZielIndex } from "@/lib/tastatur";
 
 /**
  * Einfachauswahl als Chips. Ein erneuter Tipp auf die aktive Option hebt die
@@ -39,6 +40,16 @@ export function RadioChips({
     onChange?.(neu);
   }
 
+  function mitTastatur(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const ziel = radioZielIndex(event.key, index, optionen.length);
+    if (ziel == null) return;
+    event.preventDefault();
+    const neu = optionen[ziel].wert;
+    setGewaehlt(neu);
+    onChange?.(neu);
+    fokussiereRadio(event.currentTarget, ziel);
+  }
+
   return (
     <fieldset
       id={name}
@@ -55,7 +66,7 @@ export function RadioChips({
       )}
 
       <div className="flex flex-wrap gap-2">
-        {optionen.map((o) => {
+        {optionen.map((o, index) => {
           const aktiv = gewaehlt === o.wert;
           return (
             <button
@@ -63,7 +74,9 @@ export function RadioChips({
               type="button"
               role="radio"
               aria-checked={aktiv}
+              tabIndex={aktiv || (gewaehlt == null && index === 0) ? 0 : -1}
               onClick={() => waehlen(o.wert)}
+              onKeyDown={(event) => mitTastatur(event, index)}
               className={cn(
                 "tippziel rounded-lg border px-3 py-2 text-sm font-medium transition-colors duration-200 cursor-pointer",
                 aktiv
@@ -122,6 +135,16 @@ export function JaNein({
     onChange?.(ergebnis);
   }
 
+  function mitTastatur(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const ziel = radioZielIndex(event.key, index, 2);
+    if (ziel == null) return;
+    event.preventDefault();
+    const neu = ziel === 1;
+    setWert(neu);
+    onChange?.(neu);
+    fokussiereRadio(event.currentTarget, ziel);
+  }
+
   return (
     <div className="space-y-3">
       <fieldset id={name} tabIndex={-1} role="radiogroup" aria-describedby={hilfeId}>
@@ -137,13 +160,15 @@ export function JaNein({
           {[
             { v: false, label: "Nein" },
             { v: true, label: "Ja" },
-          ].map(({ v, label }) => (
+          ].map(({ v, label }, index) => (
             <button
               key={label}
               type="button"
               role="radio"
               aria-checked={wert === v}
+              tabIndex={wert === v || (wert == null && index === 0) ? 0 : -1}
               onClick={() => waehlen(v)}
+              onKeyDown={(event) => mitTastatur(event, index)}
               className={cn(
                 "tippziel min-w-20 rounded-lg border px-4 py-2 text-sm font-medium transition-colors duration-200 cursor-pointer",
                 wert === v

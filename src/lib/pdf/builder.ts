@@ -33,6 +33,9 @@ const FARBE_TEXT = rgb(0.06, 0.09, 0.16);
 const FARBE_GRAU = rgb(0.39, 0.45, 0.55);
 const FARBE_PRIMAER = rgb(0.03, 0.44, 0.52);
 const FARBE_LINIE = rgb(0.85, 0.88, 0.92);
+const FARBE_FLAECHE = rgb(0.95, 0.98, 0.98);
+const FARBE_ZEBRA = rgb(0.97, 0.98, 0.99);
+const FARBE_WEISS = rgb(1, 1, 1);
 
 const GROESSE_TITEL = 17;
 const GROESSE_UNTERTITEL = 10;
@@ -74,8 +77,17 @@ export function umbrechen(text: string, font: PDFFont, groesse: number, maxBreit
   return zeilen;
 }
 
-export type Angabe = readonly [label: string, wert: string | null | undefined];
+export type Angabe = readonly [label: string, wert: string | null | undefined, span?: 1 | 2 | 3];
 export type Spalte = { titel: string; breite: number };
+export type PdfFoto = { bytes: Uint8Array; beschriftung?: string };
+export type VerlaufZeile = {
+  nummer: number;
+  datum: string;
+  typ: string;
+  flaeche: string;
+  trend: string;
+  fotos: number;
+};
 
 export class PdfBuilder {
   private doc!: PDFDocument;
@@ -103,6 +115,11 @@ export class PdfBuilder {
   neueSeite(): void {
     this.page = this.doc.addPage([SEITE_BREITE, SEITE_HOEHE]);
     this.y = OBEN_START;
+  }
+
+  /** Erlaubt dem Export, einen groesseren zusammengehoerigen Block vorab einzuplanen. */
+  hatPlatz(hoehe: number): boolean {
+    return this.y - hoehe >= UNTEN_GRENZE;
   }
 
   private sicherstellenPlatz(hoehe: number): void {
@@ -146,6 +163,69 @@ export class PdfBuilder {
     this.y -= 4;
     this.linie(this.y, FARBE_PRIMAER, 1.5);
     this.y -= 18;
+  }
+
+  /** Praesenter Dokumentkopf mit Patient und Wunde als erster visueller Ebene. */
+  identitaetsKopf(patient: string, wunde: string, metadaten: string[]): void {
+    const sichtbar = metadaten.filter(Boolean);
+    this.sicherstellenPlatz(66 + sichtbar.length * 14);
+    this.text(patient, RAND, this.y, { font: this.schriftFett, size: 20, color: FARBE_TEXT });
+    this.y -= 25;
+    this.text(wunde, RAND, this.y, { font: this.schriftFett, size: 14, color: FARBE_PRIMAER });
+    this.y -= 19;
+    for (const zeile of sichtbar) {
+      this.text(zeile, RAND, this.y, { size: GROESSE_UNTERTITEL, color: FARBE_GRAU });
+      this.y -= 14;
+    }
+    this.y -= 2;
+    this.linie(this.y, FARBE_PRIMAER, 1.5);
+    this.y -= 14;
+  }
+
+  /** Zweispaltiger Kopf: Aufnahme/Befund links, Patientendaten rechts. */
+  aufnahmeKopf({
+    aufnahme,
+    befund,
+    linksUnten,
+    patient,
+    patientMeta,
+  }: {
+    aufnahme: string;
+    befund: string;
+    linksUnten?: string;
+    patient: string;
+    patientMeta: string[];
+  }): void {
+    const luecke = 24;
+    const spaltenBreite = (INHALT_BREITE - luecke) / 2;
+    const rechts = RAND + spaltenBreite + luecke;
+    const titelGroesse = 14;
+    const linkerTitel = umbrechen(aufnahme, this.schriftFett, titelGroesse, spaltenBreite);
+    const rechterTitel = umbrechen(patient, this.schriftFett, titelGroesse, spaltenBreite);
+    const titelZeilen = Math.max(linkerTitel.length, rechterTitel.length);
+    const hoehe = 58 + titelZeilen * 17 + Math.max(linksUnten ? 1 : 0, patientMeta.filter(Boolean).length) * 14;
+    this.sicherstellenPlatz(hoehe);
+
+    linkerTitel.forEach((zeile, index) =>
+      this.text(zeile, RAND, this.y - index * 17, { font: this.schriftFett, size: titelGroesse, color: FARBE_PRIMAER }),
+    );
+    rechterTitel.forEach((zeile, index) =>
+      this.text(zeile, rechts, this.y - index * 17, { font: this.schriftFett, size: titelGroesse, color: FARBE_TEXT }),
+    );
+    this.y -= titelZeilen * 17 + 6;
+    this.text(`Befund: ${befund}`, RAND, this.y, { font: this.schriftFett, size: 11, color: FARBE_TEXT });
+    if (patientMeta[0]) this.text(patientMeta[0], rechts, this.y, { size: GROESSE_UNTERTITEL, color: FARBE_GRAU });
+    this.y -= 16;
+    if (linksUnten) this.text(linksUnten, RAND, this.y, { size: GROESSE_UNTERTITEL, color: FARBE_GRAU });
+    if (patientMeta[1]) this.text(patientMeta[1], rechts, this.y, { size: GROESSE_UNTERTITEL, color: FARBE_GRAU });
+    this.y -= 16;
+    for (const zeile of patientMeta.slice(2).filter(Boolean)) {
+      this.text(zeile, rechts, this.y, { size: GROESSE_UNTERTITEL, color: FARBE_GRAU });
+      this.y -= 14;
+    }
+    this.y -= 2;
+    this.linie(this.y, FARBE_PRIMAER, 1.5);
+    this.y -= 14;
   }
 
   /** Abschnittsueberschrift, wie die Karten-Titel im Formular ("Wundbefund" usw.). */
@@ -194,6 +274,145 @@ export class PdfBuilder {
       });
       this.y -= hoehe;
     }
+  }
+
+  /** Haelt Ueberschrift und alle Angaben nach Moeglichkeit auf derselben Seite. */
+  angabenBlock(titel: string, paare: readonly Angabe[]): void {
+    const sichtbar = paare.filter(
+      (p): p is [string, string, (1 | 2 | 3)?] => p[1] != null && p[1].toString().trim() !== "",
+    );
+    if (sichtbar.length === 0) return;
+
+    const innenRand = 10;
+    const luecke = 12;
+    const innenBreite = INHALT_BREITE - innenRand * 2;
+    const einheit = (innenBreite - luecke * 2) / 3;
+    const zeilenHoehe = 12.5;
+    const zellen = sichtbar.map(([label, wert, vorgegebenerSpan]) => {
+      const laenge = Math.max(label.length, wert.length);
+      const span = vorgegebenerSpan ?? (laenge > 58 ? 3 : laenge > 25 ? 2 : 1);
+      const breite = einheit * span + luecke * (span - 1);
+      return { label, wert, span, breite, zeilen: umbrechen(wert, this.schrift, GROESSE_WERT, breite) };
+    });
+    const zeilen: typeof zellen[] = [];
+    let aktuell: typeof zellen = [];
+    let belegt = 0;
+    for (const zelle of zellen) {
+      if (belegt + zelle.span > 3) {
+        zeilen.push(aktuell);
+        aktuell = [];
+        belegt = 0;
+      }
+      aktuell.push(zelle);
+      belegt += zelle.span;
+    }
+    if (aktuell.length) zeilen.push(aktuell);
+
+    const zeilenHoehen = zeilen.map((zeile) =>
+      Math.max(...zeile.map((zelle) => 13 + zelle.zeilen.length * zeilenHoehe)) + 8,
+    );
+    const kopfHoehe = 27;
+    const kartenHoehe = kopfHoehe + 10 + zeilenHoehen.reduce((summe, hoehe) => summe + hoehe, 0) + 6;
+
+    this.sicherstellenPlatz(kartenHoehe + 10);
+    const oben = this.y;
+    this.page.drawRectangle({
+      x: RAND,
+      y: oben - kartenHoehe,
+      width: INHALT_BREITE,
+      height: kartenHoehe,
+      borderColor: FARBE_LINIE,
+      borderWidth: 0.75,
+    });
+    this.page.drawRectangle({
+      x: RAND,
+      y: oben - kopfHoehe,
+      width: INHALT_BREITE,
+      height: kopfHoehe,
+      color: FARBE_FLAECHE,
+    });
+    this.text(titel, RAND + innenRand, oben - 18, {
+      font: this.schriftFett,
+      size: GROESSE_ABSCHNITT,
+      color: FARBE_PRIMAER,
+    });
+
+    let cy = oben - kopfHoehe - 10;
+    zeilen.forEach((zeile, zeilenIndex) => {
+      let verwendeteSpalten = 0;
+      for (const zelle of zeile) {
+        const x = RAND + innenRand + verwendeteSpalten * (einheit + luecke);
+        this.text(zelle.label, x, cy, { size: GROESSE_LABEL, color: FARBE_GRAU });
+        let wertY = cy - 13;
+        for (const text of zelle.zeilen) {
+          this.text(text, x, wertY, { font: this.schriftFett, size: GROESSE_WERT });
+          wertY -= zeilenHoehe;
+        }
+        verwendeteSpalten += zelle.span;
+      }
+      cy -= zeilenHoehen[zeilenIndex];
+    });
+    this.y = oben - kartenHoehe - 10;
+  }
+
+  /** Auffaellige, nummerierte Uebersicht aller Aufnahmen im Verlauf. */
+  verlaufsUebersicht(zeilen: readonly VerlaufZeile[]): void {
+    this.abschnitt("Aufnahmen im Verlauf");
+    const kopfHoehe = 22;
+    const zeilenHoehe = 28;
+    const spalten = [34, 76, 128, 78, 95, 54];
+    const titel = ["Nr.", "Datum", "Aufnahmetyp", "Fläche", "Veränderung", "Fotos"];
+
+    const kopf = () => {
+      this.sicherstellenPlatz(kopfHoehe + zeilenHoehe);
+      this.page.drawRectangle({ x: RAND, y: this.y - kopfHoehe + 5, width: INHALT_BREITE, height: kopfHoehe, color: FARBE_FLAECHE });
+      let x = RAND + 7;
+      titel.forEach((wert, index) => {
+        this.text(wert, x, this.y - 9, { font: this.schriftFett, size: GROESSE_LABEL, color: FARBE_GRAU });
+        x += spalten[index];
+      });
+      this.y -= kopfHoehe;
+    };
+
+    kopf();
+    zeilen.forEach((zeile, index) => {
+      if (!this.hatPlatz(zeilenHoehe)) {
+        this.neueSeite();
+        kopf();
+      }
+      if (index % 2 === 1) {
+        this.page.drawRectangle({ x: RAND, y: this.y - zeilenHoehe + 5, width: INHALT_BREITE, height: zeilenHoehe, color: FARBE_ZEBRA });
+      }
+      this.page.drawRectangle({ x: RAND + 6, y: this.y - 20, width: 22, height: 19, color: FARBE_PRIMAER });
+      const nr = String(zeile.nummer).padStart(2, "0");
+      const nrBreite = this.schriftFett.widthOfTextAtSize(nr, GROESSE_LABEL);
+      this.text(nr, RAND + 17 - nrBreite / 2, this.y - 14, { font: this.schriftFett, size: GROESSE_LABEL, color: FARBE_WEISS });
+      const werte = [zeile.datum, zeile.typ, zeile.flaeche, zeile.trend || "–", String(zeile.fotos)];
+      let x = RAND + spalten[0] + 7;
+      werte.forEach((wert, wertIndex) => {
+        this.text(wert, x, this.y - 14, {
+          font: wertIndex < 2 ? this.schriftFett : this.schrift,
+          size: wertIndex === 1 ? GROESSE_LABEL : GROESSE_WERT,
+        });
+        x += spalten[wertIndex + 1];
+      });
+      this.y -= zeilenHoehe;
+    });
+    this.y -= 8;
+  }
+
+  /** Wiedererkennbare Nummer vor jedem Detailbefund. */
+  aufnahmeBanner(nummer: number, titel: string, untertitel?: string): void {
+    const hoehe = untertitel ? 47 : 35;
+    this.sicherstellenPlatz(hoehe + 12);
+    this.page.drawRectangle({ x: RAND, y: this.y - hoehe, width: INHALT_BREITE, height: hoehe, color: FARBE_FLAECHE, borderColor: FARBE_LINIE, borderWidth: 0.75 });
+    this.page.drawRectangle({ x: RAND, y: this.y - hoehe, width: 38, height: hoehe, color: FARBE_PRIMAER });
+    const nr = String(nummer).padStart(2, "0");
+    const nrBreite = this.schriftFett.widthOfTextAtSize(nr, 12);
+    this.text(nr, RAND + 19 - nrBreite / 2, this.y - 23, { font: this.schriftFett, size: 12, color: FARBE_WEISS });
+    this.text(titel, RAND + 50, this.y - 19, { font: this.schriftFett, size: GROESSE_ABSCHNITT, color: FARBE_PRIMAER });
+    if (untertitel) this.text(untertitel, RAND + 50, this.y - 35, { size: GROESSE_LABEL, color: FARBE_GRAU });
+    this.y -= hoehe + 10;
   }
 
   /** Fliesstext ueber die volle Breite, z.B. laengere Freitextfelder. */
@@ -260,6 +479,61 @@ export class PdfBuilder {
       this.y -= beschriftungHoehe;
     }
     this.y -= 8;
+  }
+
+  /** Zwei kompakte Fotos je Zeile; Bild und Beschriftung bleiben stets zusammen. */
+  async fotoRaster(titel: string, fotos: readonly PdfFoto[]): Promise<void> {
+    if (fotos.length === 0) {
+      this.abschnitt(titel);
+      this.hinweis("Keine Fotos zu dieser Aufnahme.");
+      return;
+    }
+
+    const eingebettet = await Promise.all(
+      fotos.map(async (foto) => ({ ...foto, bild: await this.doc.embedJpg(foto.bytes) })),
+    );
+    const luecke = 14;
+    const spaltenBreite = (INHALT_BREITE - luecke) / 2;
+    const maxBildHoehe = 220;
+
+    for (let i = 0; i < eingebettet.length; i += 2) {
+      const zeile = eingebettet.slice(i, i + 2).map((foto) => {
+        const skala = Math.min(spaltenBreite / foto.bild.width, maxBildHoehe / foto.bild.height);
+        const breite = foto.bild.width * skala;
+        const hoehe = foto.bild.height * skala;
+        const beschriftung = foto.beschriftung
+          ? umbrechen(foto.beschriftung, this.schrift, GROESSE_LABEL, spaltenBreite)
+          : [];
+        return { ...foto, breite, hoehe, beschriftung };
+      });
+      const zeilenHoehe = Math.max(
+        ...zeile.map((foto) => foto.hoehe + (foto.beschriftung.length ? 8 + foto.beschriftung.length * 10 : 0)),
+      ) + 12;
+
+      if (i === 0) {
+        this.sicherstellenPlatz(34 + zeilenHoehe);
+        this.abschnitt(titel);
+      } else {
+        this.sicherstellenPlatz(zeilenHoehe);
+      }
+
+      zeile.forEach((foto, index) => {
+        const spaltenX = RAND + index * (spaltenBreite + luecke);
+        const x = spaltenX + (spaltenBreite - foto.breite) / 2;
+        this.page.drawImage(foto.bild, {
+          x,
+          y: this.y - foto.hoehe,
+          width: foto.breite,
+          height: foto.hoehe,
+        });
+        let beschriftungY = this.y - foto.hoehe - 10;
+        for (const text of foto.beschriftung) {
+          this.text(text, spaltenX, beschriftungY, { size: GROESSE_LABEL, color: FARBE_GRAU });
+          beschriftungY -= 10;
+        }
+      });
+      this.y -= zeilenHoehe;
+    }
   }
 
   /** Erzwingt einen Seitenumbruch, z.B. zwischen zwei Aufnahmen im Verlauf. */

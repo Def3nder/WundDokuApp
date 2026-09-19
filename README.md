@@ -54,6 +54,7 @@ Anmeldung ändern.**
 | `npm run build` / `npm start` | Produktionsbetrieb |
 | `npm run typecheck` | TypeScript prüfen |
 | `npm test` | Tests ausführen |
+| `npm run test:a11y` | Playwright-/axe-Prüfung in Hell und Dunkel (lokales Chrome) |
 | `npm run db:studio` | Datenbank im Browser ansehen |
 | `npm run db:migrate` | Schemaänderung einspielen |
 
@@ -107,4 +108,4 @@ Was Du zusätzlich sicherstellen musst:
 - [x] Phase 3 — Aufnahmeformular
 - [x] Phase 4 — Wundfotos
 - [x] Phase 5 — Diagramme und Vergleich
-- [~] Phase 6 — PDF-Export und Audit-Log fertig; Feinschliff (Leerzustände, Tastaturbedienung, axe, Dark Mode) offen
+- [x] Phase 6 — PDF-Export, Audit-Log und Feinschliff (Leerzustände, Tastaturbedienung, axe, Dark Mode)

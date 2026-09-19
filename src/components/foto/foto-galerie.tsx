@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ChevronLeft, ChevronRight, Expand, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ function bildtext(foto: FotoAnsicht, index: number): string {
 
 export function FotoGalerie({ fotos, kompakt = false }: { fotos: FotoAnsicht[]; kompakt?: boolean }) {
   const [aktiv, setAktiv] = useState<number | null>(null);
+  const ausloeser = useRef<HTMLButtonElement | null>(null);
   const foto = aktiv == null ? null : fotos[aktiv];
 
   if (fotos.length === 0) return null;
@@ -24,7 +25,10 @@ export function FotoGalerie({ fotos, kompakt = false }: { fotos: FotoAnsicht[]; 
           <figure key={eintrag.id} className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
             <button
               type="button"
-              onClick={() => setAktiv(index)}
+              onClick={(event) => {
+                ausloeser.current = event.currentTarget;
+                setAktiv(index);
+              }}
               className="group relative block w-full cursor-zoom-in overflow-hidden bg-surface-muted"
               style={{ aspectRatio: `${eintrag.breite}/${eintrag.hoehe}` }}
               aria-label={`${bildtext(eintrag, index)} vergrößern`}
@@ -53,7 +57,13 @@ export function FotoGalerie({ fotos, kompakt = false }: { fotos: FotoAnsicht[]; 
       <Dialog.Root open={aktiv != null} onOpenChange={(offen) => !offen && setAktiv(null)}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm" />
-          <Dialog.Content className="fixed inset-3 z-50 flex flex-col overflow-hidden rounded-xl border border-white/15 bg-slate-950 text-white shadow-2xl sm:inset-8">
+          <Dialog.Content
+            className="fixed inset-3 z-50 flex flex-col overflow-hidden rounded-xl border border-white/15 bg-slate-950 text-white shadow-2xl sm:inset-8"
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              ausloeser.current?.focus();
+            }}
+          >
             <Dialog.Title className="sr-only">Wundfoto vergrößert</Dialog.Title>
             <Dialog.Description className="sr-only">
               Vergrößerte Ansicht mit Navigation zwischen den Fotos

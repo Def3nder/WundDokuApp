@@ -3,6 +3,7 @@ import { Activity, History, LogOut, Settings, Users } from "lucide-react";
 import { signOut } from "@/lib/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { MobileNavigation } from "@/components/layout/mobile-navigation";
 
 /**
  * Rahmen aller angemeldeten Seiten.
@@ -24,10 +25,11 @@ export function AppShell({
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
           <Link
             href="/"
+            aria-label="WundDoku – Patientenübersicht"
             className="flex items-center gap-2 rounded-lg font-heading text-lg font-semibold text-heading"
           >
             <Activity className="size-6 text-primary" aria-hidden="true" />
-            WundDoku
+            <span className="max-[430px]:hidden">WundDoku</span>
           </Link>
 
           <nav aria-label="Hauptnavigation" className="ml-2 hidden items-center gap-1 sm:flex">
@@ -60,6 +62,7 @@ export function AppShell({
 
           <div className="ml-auto flex items-center gap-3">
             <ThemeToggle />
+            <MobileNavigation istAdmin={benutzer.rolle === "ADMIN"} />
             <div className="hidden text-right md:block">
               <p className="text-sm font-medium leading-tight">{benutzer.name}</p>
               <p className="text-xs text-muted-foreground">Handzeichen {benutzer.handzeichen}</p>
@@ -78,7 +81,11 @@ export function AppShell({
         </div>
       </header>
 
-      <main id="hauptinhalt" className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+      <main
+        id="hauptinhalt"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8"
+      >
         {children}
       </main>
 

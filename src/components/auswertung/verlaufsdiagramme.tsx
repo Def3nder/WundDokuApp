@@ -17,7 +17,12 @@ import {
 import { Activity, Droplets, Ruler, Sparkles } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { WUNDGRUND_GRUPPEN } from "@/lib/enums";
-import type { WundgrundGruppeId } from "@/lib/auswertung";
+import {
+  diagrammDatumKurz,
+  diagrammDatumLang,
+  diagrammTooltipDatum,
+  type WundgrundGruppeId,
+} from "@/lib/auswertung";
 import { flaechenTrend, formatiereMm2, formatiereProzent } from "@/lib/wundmasse";
 
 export type Verlaufspunkt = {
@@ -42,20 +47,6 @@ const gruppenFarben = [
   "var(--chart-4)",
 ];
 
-function datumKurz(wert: string): string {
-  return new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit" }).format(
-    new Date(wert),
-  );
-}
-
-function datumLang(wert: string): string {
-  return new Intl.DateTimeFormat("de-DE", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(wert));
-}
-
 function tooltipStil() {
   return {
     backgroundColor: "var(--surface)",
@@ -73,7 +64,7 @@ function Achsen({ einheit }: { einheit?: string }) {
       <CartesianGrid stroke="var(--border)" strokeDasharray="3 4" vertical={false} />
       <XAxis
         dataKey="datum"
-        tickFormatter={datumKurz}
+        tickFormatter={diagrammDatumKurz}
         tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
         tickLine={false}
         axisLine={{ stroke: "var(--border-strong)" }}
@@ -157,7 +148,7 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
             {formatiereMm2(letzter)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {letzterPunkt ? `Stand ${datumLang(letzterPunkt.datum)}` : "Keine Messung"}
+            {letzterPunkt ? `Stand ${diagrammDatumLang(letzterPunkt.datum)}` : "Keine Messung"}
           </p>
         </div>
         <div className="border-t border-border p-5 sm:border-r sm:border-t-0">
@@ -208,7 +199,7 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
                   <Achsen />
                   <Tooltip
                     contentStyle={tooltipStil()}
-                    labelFormatter={(label) => datumLang(String(label))}
+                    labelFormatter={diagrammTooltipDatum}
                     formatter={(wert) => [`${deutscheZahl.format(Number(wert))} mm²`, "Fläche"]}
                   />
                   <Area
@@ -241,7 +232,7 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
                   <Achsen />
                   <Tooltip
                     contentStyle={tooltipStil()}
-                    labelFormatter={(label) => datumLang(String(label))}
+                    labelFormatter={diagrammTooltipDatum}
                     formatter={(wert, name) => [
                       `${deutscheZahl.format(Number(wert))} mm`,
                       String(name),
@@ -269,12 +260,12 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={daten} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke="var(--border)" strokeDasharray="3 4" vertical={false} />
-                  <XAxis dataKey="datum" tickFormatter={datumKurz} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border-strong)" }} minTickGap={18} />
+                  <XAxis dataKey="datum" tickFormatter={diagrammDatumKurz} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border-strong)" }} minTickGap={18} />
                   <YAxis yAxisId="vas" domain={[0, 10]} width={30} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} tickLine={false} axisLine={false} />
                   <YAxis yAxisId="exsudat" orientation="right" domain={[0, 3]} ticks={[0, 1, 2, 3]} width={24} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} tickLine={false} axisLine={false} />
                   <Tooltip
                     contentStyle={tooltipStil()}
-                    labelFormatter={(label) => datumLang(String(label))}
+                    labelFormatter={diagrammTooltipDatum}
                     formatter={(wert, name, eintrag) => [
                       name === "Exsudat" ? (eintrag.payload?.exsudatLabel || "–") : `${wert}/10`,
                       String(name),
@@ -304,7 +295,7 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
                   <Achsen />
                   <Tooltip
                     contentStyle={tooltipStil()}
-                    labelFormatter={(label) => datumLang(String(label))}
+                    labelFormatter={diagrammTooltipDatum}
                     formatter={(wert, name) => [
                       `${wert} ${Number(wert) === 1 ? "Befund" : "Befunde"}`,
                       String(name),
@@ -340,7 +331,7 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
         <tbody>
           {daten.map((punkt) => (
             <tr key={punkt.id}>
-              <td>{datumLang(punkt.datum)}</td><td>{punkt.flaeche ?? "–"}</td><td>{punkt.breiteMm ?? "–"}</td><td>{punkt.laengeMm ?? "–"}</td><td>{punkt.tiefeMm ?? "–"}</td><td>{punkt.schmerzVas ?? "–"}</td><td>{punkt.exsudatLabel || "–"}</td>
+              <td>{diagrammDatumLang(punkt.datum)}</td><td>{punkt.flaeche ?? "–"}</td><td>{punkt.breiteMm ?? "–"}</td><td>{punkt.laengeMm ?? "–"}</td><td>{punkt.tiefeMm ?? "–"}</td><td>{punkt.schmerzVas ?? "–"}</td><td>{punkt.exsudatLabel || "–"}</td>
             </tr>
           ))}
         </tbody>

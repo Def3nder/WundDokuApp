@@ -13,6 +13,8 @@ import { fotoZuAnsicht } from "@/lib/foto-typen";
 import { flaecheMm2, flaechenTrend, formatiereMm, formatiereMm2, formatiereProzent } from "@/lib/wundmasse";
 import { leseAuswahl } from "@/lib/utils";
 
+export const metadata = { title: "Aufnahmen vergleichen" };
+
 type Suchparameter = Promise<Record<string, string | string[] | undefined>>;
 
 function datum(wert: Date): string {

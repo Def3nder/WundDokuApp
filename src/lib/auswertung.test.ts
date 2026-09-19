@@ -1,5 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { gruppiereWundgrund, wundgrundAenderung, zahlenDifferenz } from "./auswertung";
+import {
+  diagrammDatumKurz,
+  diagrammDatumLang,
+  diagrammTooltipDatum,
+  gruppiereWundgrund,
+  wundgrundAenderung,
+  zahlenDifferenz,
+} from "./auswertung";
+
+describe("Diagrammdatum", () => {
+  const aufnahmedatum = "2026-09-19T00:00:00.000Z";
+
+  it("formatiert ISO-Aufnahmedaten kurz und lang", () => {
+    expect(diagrammDatumKurz(aufnahmedatum)).toBe("19.09.");
+    expect(diagrammDatumLang(aufnahmedatum)).toBe("19. September 2026");
+  });
+
+  it("bezieht das Aufnahmedatum aus dem Tooltip-Payload statt aus dem Datenindex", () => {
+    expect(
+      diagrammTooltipDatum(1, [{ payload: { datum: aufnahmedatum } }]),
+    ).toBe("19. September 2026");
+  });
+
+  it("stellt einen numerischen Index ohne Payload nicht als Scheindatum dar", () => {
+    expect(diagrammTooltipDatum(1, [])).toBe("Datum unbekannt");
+  });
+});
 
 describe("gruppiereWundgrund", () => {
   it("ordnet Einzelbefunde den fuenf klinischen Gruppen zu", () => {
