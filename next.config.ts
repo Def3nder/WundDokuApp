@@ -27,7 +27,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["sharp", "@prisma/client", "bcryptjs"],
+  serverExternalPackages: ["sharp", "heic-convert", "@prisma/client", "bcryptjs"],
   experimental: {
     serverActions: {
       // Wundfotos koennen gross sein.

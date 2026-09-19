@@ -3,22 +3,18 @@
 Arbeitsstand für die Fortsetzung in einer neuen Sitzung. Ergänzt die
 inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
 
-**Stand:** 19.09.2026 · Phase 1 und 2 fertig, Phase 3 etwa zur Hälfte
-**Prüfstand:** `npx tsc --noEmit` sauber · `npm test` 28/28 grün · noch nichts committet
+**Stand:** 19.09.2026 · Phase 1 bis 5 fertig
+**Prüfstand:** `npx tsc --noEmit` sauber · `npm test` 39/39 grün · `npm run build` sauber · Browser-Durchgang erfolgreich · noch nichts committet
 
 ---
 
-## Womit anfangen
-
-Phase 3 (Aufnahmeformular) ist angefangen. **Nächster Schritt: der Werte-Mapper
-`src/lib/schema/aufnahme-vorgabe.ts`.**
-
-### Fertig in Phase 3
+## Phase 3 — fertig
 
 | Datei | Inhalt |
 |---|---|
 | `src/lib/schema/aufnahme.ts` | Zod-Schema aller Aufnahmefelder inkl. `superRefine` |
 | `src/lib/schema/aufnahme-formdata.ts` | FormData → geprüfte Daten → Datensatz |
+| `src/lib/schema/aufnahme-vorgabe.ts` | Datensatz → Formularwerte und sichere Vorbefüllung ohne alte Messwerte |
 | `src/actions/aufnahmen.ts` | Anlegen, Ändern, Entwurf speichern, Löschen |
 | `src/components/formular/chip-group.tsx` | Mehrfachauswahl als Chips, mit Exklusiv-Option |
 | `src/components/formular/radio-chips.tsx` | Einfachauswahl + `JaNein` |
@@ -26,29 +22,56 @@ Phase 3 (Aufnahmeformular) ist angefangen. **Nächster Schritt: der Werte-Mapper
 | `src/components/formular/zifferblatt.tsx` | Uhrzeit-Auswahl für die Schmerzlage |
 | `src/components/formular/abschnitt.tsx` | Aufklappbarer Abschnitt + Sprungleiste |
 | `src/components/formular/wundgroesse.tsx` | Maße mit Live-Fläche und Trendvergleich |
+| `src/components/formular/aufnahme-formular.tsx` | Orchestrierung der sechs Abschnitte, Fehlernavigation und Speicherleiste |
+| `src/components/formular/abschnitt-*.tsx` | Befund, Größe, Infektion, Schmerz und Therapie als Teildateien |
+| `src/components/formular/use-autosave.ts` | Verzögertes Entwurf-Speichern mit versteckter `entwurfId` |
+| `src/app/(app)/wunden/[id]/aufnahmen/neu/page.tsx` | Erst-/Folgeaufnahme mit Vorbefüllung und Entwurfwiederaufnahme |
+| `src/app/(app)/aufnahmen/[id]/page.tsx` | Vollständige Leseansicht |
+| `src/app/(app)/aufnahmen/[id]/bearbeiten/page.tsx` | Korrekturansicht |
 
-### Fehlt noch in Phase 3
+Breite, Länge und Tiefe werden bei Folgeaufnahmen bewusst **nicht**
+vorbefüllt. Genau diese Werte müssen bei jedem Verbandwechsel neu gemessen
+werden, damit kein stehengebliebener Wert die Verlaufskurve verfälscht.
 
-1. **`src/lib/schema/aufnahme-vorgabe.ts`** — Datensatz → Formularwerte.
-   Braucht zwei Funktionen: `aufnahmeZuWerten(a)` für das Bearbeiten und
-   `vorbefuellungAus(letzte)` für „Von letzter Aufnahme übernehmen".
-   *Wichtige Festlegung:* Breite, Länge und Tiefe werden **nicht** vorbefüllt.
-   Genau die müssen bei jedem Verbandwechsel neu gemessen werden; ein
-   stehengebliebener Wert wäre eine falsche Verlaufskurve.
-2. **`src/components/formular/aufnahme-formular.tsx`** — das Formular, das die
-   sechs Abschnitte zusammensetzt. Wegen der Größe besser in Teildateien
-   (`abschnitt-befund.tsx`, `-groesse.tsx`, `-infektion.tsx`, `-schmerz.tsx`,
-   `-therapie.tsx`) und eine Datei, die sie orchestriert.
-3. **Autosave-Hook** — ruft `entwurfSpeichern` aus `src/actions/aufnahmen.ts`
-   mit Verzögerung auf und merkt sich die zurückgegebene `entwurfId` in einem
-   versteckten Feld `entwurfId`. Die Action ist fertig und wartet darauf.
-4. **Drei Seiten:**
-   - `src/app/(app)/wunden/[id]/aufnahmen/neu/page.tsx`
-   - `src/app/(app)/aufnahmen/[id]/page.tsx` (Leseansicht)
-   - `src/app/(app)/aufnahmen/[id]/bearbeiten/page.tsx`
+## Phase 4 — fertig
 
-   Die Zeitleiste verlinkt bereits auf `/aufnahmen/[id]`, das Cockpit auf
-   `/wunden/[id]/aufnahmen/neu` — beide Ziele sind noch 404.
+| Datei | Inhalt |
+|---|---|
+| `src/lib/fotos.ts` | Magic-Byte-Prüfung, Größenlimit, WebP-Konvertierung, EXIF-Entfernung, Thumbnail und sichere Speicherpfade |
+| `src/types/heic-convert.d.ts` | Server-seitiger HEIC-Fallback für Plattformen, auf denen `sharp`/libvips HEIC nicht direkt dekodiert |
+| `src/actions/fotos.ts` | Upload, Beschriftung, Sortierung und Soft Delete mit Audit-Protokoll |
+| `src/app/api/photos/[id]/route.ts` | Nur angemeldet erreichbare Original- und Thumbnail-Auslieferung ohne Browser-Cache |
+| `src/components/foto/foto-manager.tsx` | Drag-and-drop, Kamera, Mehrfachupload, Beschriftung und Sortierung |
+| `src/components/foto/foto-galerie.tsx` | Responsive Galerie und tastaturbedienbare Lightbox |
+| `src/lib/fotos.test.ts` | Format-, Größen-, EXIF- und Pfad-Traversal-Tests |
+
+Originaldateien werden nie gespeichert. Ablage: zwei EXIF-freie WebP-Dateien
+unter `storage/photos/<patientId>/<woundId>/` (max. 2000 px und Thumbnail mit
+max. 400 px). Der Foto-Upload einer neuen Aufnahme erzwingt zuerst denselben
+Autosave-Entwurf, der später finalisiert wird; dadurch entstehen keine
+verwaisten Fotos oder doppelten Aufnahmen.
+
+## Phase 5 — fertig
+
+| Datei | Inhalt |
+|---|---|
+| `src/lib/auswertung.ts` | Gruppierung der Wundgrund-Befunde sowie gerichtete Änderungen und Zahlendifferenzen |
+| `src/components/auswertung/verlaufsdiagramme.tsx` | Recharts-Diagramme für Fläche, Abmessungen, Schmerz/Exsudat und Wundgrund-Zusammensetzung |
+| `src/components/auswertung/vergleich-auswahl.tsx` | Barrierearme Auswahl und Tausch der beiden Vergleichszeitpunkte |
+| `src/app/(app)/wunden/[id]/vergleich/page.tsx` | Fotovergleich und Differenztabelle für Maße, Fläche, Exsudat, Schmerz-VAS und Wundgrund |
+| `src/app/(app)/wunden/[id]/page.tsx` | Auswertungsbereich im Wund-Cockpit und Einstieg in den Vergleich |
+| `src/lib/auswertung.test.ts` | Tests für Gruppierung, Befundänderungen und gerichtete Differenzen |
+
+Auswertungen berücksichtigen ausschließlich abgeschlossene, nicht gelöschte
+Aufnahmen. Die Diagramme bleiben über eine Screenreader-Tabelle zugänglich. Im
+Vergleich wird standardmäßig die vorletzte gegen die neueste Aufnahme gezeigt;
+beide Zeitpunkte können unabhängig gewählt und getauscht werden.
+
+## Womit anfangen
+
+**Phase 6 — PDF & Feinschliff.** Feldzuordnung für den DRACO-PDF-Export erzeugen
+und prüfen, Einzel- und Verlaufsexport bauen, Audit-Log-Ansicht ergänzen sowie
+Leerzustände, Tastaturbedienung, axe und Dark Mode abschließend kontrollieren.
 
 ### Die sechs Abschnitte
 
@@ -57,16 +80,7 @@ Phase 3 (Aufnahmeformular) ist angefangen. **Nächster Schritt: der Werte-Mapper
 3. Entzündung & Infektion (inkl. Abstrich)
 4. Schmerz
 5. Therapieplan
-6. Fotos (erst in Phase 4, Abschnitt vorerst als Platzhalter)
-
----
-
-## Danach
-
-- **Phase 4** — Wundfotos: Upload mit `sharp`, EXIF entfernen, Thumbnails,
-  geschützte Auslieferung über `src/app/api/photos/[id]/route.ts`
-- **Phase 5** — Verlaufsdiagramme (Recharts) und Foto-Vergleich
-- **Phase 6** — PDF-Export, Änderungsprotokoll-Ansicht, Feinschliff
+6. Fotos (in Phase 4 vollständig umgesetzt)
 
 ---
 

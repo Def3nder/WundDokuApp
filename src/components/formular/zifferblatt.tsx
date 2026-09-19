@@ -28,6 +28,8 @@ export function Zifferblatt({
   return (
     <div className="space-y-2">
       <div
+        id={name}
+        tabIndex={-1}
         role="radiogroup"
         aria-label="Lage am Zifferblatt der Wunde"
         className="relative"

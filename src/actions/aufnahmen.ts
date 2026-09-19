@@ -49,17 +49,34 @@ export async function aufnahmeAnlegen(
 
   if (entwurfId) {
     // Der Autosave hat bereits einen Entwurf angelegt - den fertigstellen,
-    // statt einen zweiten Datensatz zu erzeugen.
-    const aktualisiert = await db.assessment.update({
-      where: { id: entwurfId },
-      data: {
-        ...aufnahmeZuDatensatz(geprueft.data),
-        typ,
-        istEntwurf: false,
-        erstelltVonId: sitzung.user.id,
-      },
+    // statt einen zweiten Datensatz zu erzeugen. Die Wund-ID wird mitgeprüft,
+    // damit eine manipulierte versteckte ID keine fremde Aufnahme überschreibt.
+    const entwurf = await db.assessment.findFirst({
+      where: { id: entwurfId, woundId: wundeId, istEntwurf: true, geloeschtAm: null },
     });
-    aufnahmeId = aktualisiert.id;
+    if (entwurf) {
+      const aktualisiert = await db.assessment.update({
+        where: { id: entwurf.id },
+        data: {
+          ...aufnahmeZuDatensatz(geprueft.data),
+          typ,
+          istEntwurf: false,
+          erstelltVonId: sitzung.user.id,
+        },
+      });
+      aufnahmeId = aktualisiert.id;
+    } else {
+      const neu = await db.assessment.create({
+        data: {
+          ...aufnahmeZuDatensatz(geprueft.data),
+          woundId: wundeId,
+          typ,
+          istEntwurf: false,
+          erstelltVonId: sitzung.user.id,
+        },
+      });
+      aufnahmeId = neu.id;
+    }
   } else {
     const neu = await db.assessment.create({
       data: {
@@ -151,15 +168,24 @@ export async function entwurfSpeichern(
   };
 
   if (entwurfId) {
-    const bestehend = await db.assessment.findUnique({ where: { id: entwurfId } });
-    if (bestehend?.istEntwurf) {
+    const bestehend = await db.assessment.findFirst({
+      where: { id: entwurfId, woundId: wundeId, istEntwurf: true, geloeschtAm: null },
+    });
+    if (bestehend) {
       await db.assessment.update({ where: { id: entwurfId }, data: daten });
       return { entwurfId, zeitpunkt: new Date().toISOString() };
     }
   }
 
+  const anzahl = await db.assessment.count({
+    where: { woundId: wundeId, geloeschtAm: null, istEntwurf: false },
+  });
   const neu = await db.assessment.create({
-    data: { ...daten, woundId: wundeId, typ: "FOLGEAUFNAHME" },
+    data: {
+      ...daten,
+      woundId: wundeId,
+      typ: anzahl === 0 ? "ERSTAUFNAHME" : "FOLGEAUFNAHME",
+    },
   });
   return { entwurfId: neu.id, zeitpunkt: new Date().toISOString() };
 }
