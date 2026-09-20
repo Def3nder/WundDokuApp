@@ -69,8 +69,8 @@ export default async function PatientSeite({
 
       {/* Kopfzeile: alles, was beim Verbandwechsel griffbereit sein muss */}
       <Card>
-        <CardContent className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6">
-          <div>
+        <CardContent className="flex items-start justify-between gap-4 p-5 sm:p-6">
+          <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-semibold">
               {patient.nachname}, {patient.vorname}
             </h1>
@@ -119,7 +119,7 @@ export default async function PatientSeite({
             </div>
           </div>
 
-          <Button variant="outline" asChild>
+          <Button variant="outline" asChild className="shrink-0">
             <Link href={`/patienten/${id}/bearbeiten`}>
               <Pencil aria-hidden="true" />
               Bearbeiten

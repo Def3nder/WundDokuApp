@@ -80,13 +80,17 @@ export function StammdatenSuche({
     requestAnimationFrame(() => fokussiereRadio(ausloeser, ziel));
   }
 
+  function fokussiereErsteOption() {
+    document
+      .getElementById(ergebnisId)
+      ?.querySelector<HTMLElement>('[role="radio"]')
+      ?.focus();
+  }
+
   function sucheMitTastatur(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown" && auswahlOptionen.length > 0) {
       event.preventDefault();
-      document
-        .getElementById(ergebnisId)
-        ?.querySelector<HTMLElement>('[role="radio"]')
-        ?.focus();
+      fokussiereErsteOption();
       return;
     }
 
@@ -97,6 +101,13 @@ export function StammdatenSuche({
     }
 
     if (event.key !== "Tab" || event.shiftKey) return;
+
+    if (auswahlOptionen.length > 1) {
+      event.preventDefault();
+      fokussiereErsteOption();
+      return;
+    }
+
     const naechstesFeld = naechstesFormularfeld(event.currentTarget);
     if (!naechstesFeld) return;
     event.preventDefault();
@@ -146,7 +157,7 @@ export function StammdatenSuche({
             ? "Keine Treffer"
             : gefiltert.length === 1
               ? "1 Treffer · Enter wählt aus, Tab übernimmt und geht weiter"
-              : `${gefiltert.length} Treffer · Pfeil nach unten öffnet die Auswahl`}
+              : `${gefiltert.length} Treffer · Tab oder Pfeil nach unten öffnet die Auswahl`}
         </span>
         {wert === NEUER_STAMMDATENSATZ ? (
           <span className="font-medium text-primary">Neuer Eintrag</span>

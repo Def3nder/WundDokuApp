@@ -140,6 +140,23 @@ export class PdfBuilder {
   private y = OBEN_START;
   private erzeugtAm = new Date();
 
+  /**
+   * Interne PDF-Links (z.B. von der Verlaufsuebersicht zur jeweiligen
+   * Aufnahme): Sprungziele werden gesetzt, sobald die Zielstelle gezeichnet
+   * wird; anklickbare Bereiche koennen aber schon vorher entstehen (die
+   * Uebersichtstabelle steht vor den Aufnahmen). Beide Listen werden erst in
+   * `fertig()` zusammengefuehrt, wenn alle Sprungziele bekannt sind.
+   */
+  private sprungziele = new Map<string, { seite: PDFPage; y: number }>();
+  private ausstehendeLinks: {
+    seite: PDFPage;
+    x: number;
+    y: number;
+    breite: number;
+    hoehe: number;
+    zielId: string;
+  }[] = [];
+
   private constructor() {}
 
   static async erstellen(): Promise<PdfBuilder> {
@@ -191,6 +208,32 @@ export class PdfBuilder {
       thickness: dicke,
       color: farbe,
     });
+  }
+
+  /** Merkt sich die aktuelle Position als Sprungziel fuer interne PDF-Links. */
+  private setzeSprungziel(id: string, y: number): void {
+    this.sprungziele.set(id, { seite: this.page, y });
+  }
+
+  /** Reserviert einen anklickbaren Bereich, der in `fertig()` mit seinem Sprungziel verknuepft wird. */
+  private merkeLink(zielId: string, rect: { x: number; y: number; breite: number; hoehe: number }): void {
+    this.ausstehendeLinks.push({ seite: this.page, zielId, ...rect });
+  }
+
+  /** Baut aus den gemerkten Bereichen und Sprungzielen echte PDF-Link-Annotationen. */
+  private verknuepfeLinks(): void {
+    for (const link of this.ausstehendeLinks) {
+      const ziel = this.sprungziele.get(link.zielId);
+      if (!ziel) continue;
+      const annotation = this.doc.context.obj({
+        Type: "Annot",
+        Subtype: "Link",
+        Rect: [link.x, link.y, link.x + link.breite, link.y + link.hoehe],
+        Border: [0, 0, 0],
+        Dest: [ziel.seite.ref, "XYZ", null, ziel.y, null],
+      });
+      link.seite.node.addAnnot(this.doc.context.register(annotation));
+    }
   }
 
   /** Kopfblock: Titel, Untertitel und eine trennende Linie. */
@@ -401,6 +444,11 @@ export class PdfBuilder {
   /** Auffaellige, nummerierte Uebersicht aller Aufnahmen im Verlauf. */
   verlaufsUebersicht(zeilen: readonly VerlaufZeile[]): void {
     this.abschnitt("Aufnahmen im Verlauf");
+    this.text("Klick auf eine Zeile springt zur passenden Aufnahme im Dokument.", RAND, this.y, {
+      size: GROESSE_LABEL,
+      color: FARBE_GRAU,
+    });
+    this.y -= 16;
     const kopfHoehe = 22;
     const zeilenHoehe = 28;
     const spalten = [34, 76, 128, 78, 95, 54];
@@ -438,6 +486,12 @@ export class PdfBuilder {
           size: wertIndex === 1 ? GROESSE_LABEL : GROESSE_WERT,
         });
         x += spalten[wertIndex + 1];
+      });
+      this.merkeLink(String(zeile.nummer), {
+        x: RAND,
+        y: this.y - zeilenHoehe + 5,
+        breite: INHALT_BREITE,
+        hoehe: zeilenHoehe,
       });
       this.y -= zeilenHoehe;
     });
@@ -708,6 +762,7 @@ export class PdfBuilder {
   aufnahmeBanner(nummer: number, titel: string, untertitel?: string): void {
     const hoehe = untertitel ? 47 : 35;
     this.sicherstellenPlatz(hoehe + 12);
+    this.setzeSprungziel(String(nummer), Math.min(this.y + 14, SEITE_HOEHE - 12));
     this.page.drawRectangle({ x: RAND, y: this.y - hoehe, width: INHALT_BREITE, height: hoehe, color: FARBE_FLAECHE, borderColor: FARBE_LINIE, borderWidth: 0.75 });
     this.page.drawRectangle({ x: RAND, y: this.y - hoehe, width: 38, height: hoehe, color: FARBE_PRIMAER });
     const nr = String(nummer).padStart(2, "0");
@@ -852,6 +907,7 @@ export class PdfBuilder {
 
   /** Stempelt Fusszeilen auf alle Seiten und liefert die fertigen Bytes. */
   async fertig(): Promise<Uint8Array> {
+    this.verknuepfeLinks();
     const seiten = this.doc.getPages();
     const zeitstempel = this.erzeugtAm.toLocaleString("de-DE", {
       day: "2-digit",
