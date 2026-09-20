@@ -1,7 +1,1 @@
-in der Anzeige der Wunde sollte der Pfad "< Patienten < [Nachname, Name]" sein und nicht auch noch den Namen der Wunde enthalten.
-
-In der Anzeige der Aufnahme selbst, sollte der Name der Wunde der letzte Punkt in Pfad sein.
-
-Genauso beim Anlegen einer neuen Wunde / Bearbeiten einer Wunde: dort sollte der Letzte Eintrag im Pfad [Nachname, Name] des Patienten sein.
-
--->>> der Pfad zeigt die übergeordneten Dinge an, nicht den Eintrag selbst - dieser wird je stets direkt darunter angezeigt.
+Beim Anlegen einer Wunde darf der behandelnde Arzt auf leer sein.

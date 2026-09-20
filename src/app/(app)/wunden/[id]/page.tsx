@@ -7,8 +7,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Verlaufsdiagramme } from "@/components/auswertung/verlaufsdiagramme";
 import { WundeKopf } from "@/components/wunde/wunde-kopf";
+import { WundeLoeschen } from "@/components/wunde/wunde-loeschen";
 import { Zeitleiste } from "@/components/wunde/zeitleiste";
+import { wundeLoeschen } from "@/actions/wunden";
 import { gruppiereWundgrund } from "@/lib/auswertung";
+import { verlangeSitzung } from "@/lib/auth";
 import { EXSUDAT_MENGEN, EXSUDAT_STUFE, labelVon } from "@/lib/enums";
 import { flaecheMm2 } from "@/lib/wundmasse";
 import { leseAuswahl } from "@/lib/utils";
@@ -26,22 +29,25 @@ export default async function WundeSeite({
 }) {
   const { id } = await params;
 
-  const wunde = await db.wound.findUnique({
-    where: { id },
-    include: {
-      patient: true,
-      arzt: true,
-      pflegedienst: true,
-      aufnahmen: {
-        where: { geloeschtAm: null },
-        orderBy: { datum: "desc" },
-        include: {
-          erstelltVon: { select: { name: true, handzeichen: true } },
-          _count: { select: { fotos: { where: { geloeschtAm: null } } } },
+  const [sitzung, wunde] = await Promise.all([
+    verlangeSitzung(),
+    db.wound.findUnique({
+      where: { id },
+      include: {
+        patient: true,
+        arzt: true,
+        pflegedienst: true,
+        aufnahmen: {
+          where: { geloeschtAm: null },
+          orderBy: { datum: "desc" },
+          include: {
+            erstelltVon: { select: { name: true, handzeichen: true } },
+            _count: { select: { fotos: { where: { geloeschtAm: null } } } },
+          },
         },
       },
-    },
-  });
+    }),
+  ]);
 
   if (!wunde || wunde.geloeschtAm) notFound();
 
@@ -112,6 +118,12 @@ export default async function WundeSeite({
             Wunde bearbeiten
           </Link>
         </Button>
+        {sitzung.user.rolle === "ADMIN" && (
+          <WundeLoeschen
+            action={wundeLoeschen.bind(null, id)}
+            bezeichnung={wunde.bezeichnung}
+          />
+        )}
       </div>
 
       {!hatAufnahmen ? (

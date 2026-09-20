@@ -296,6 +296,16 @@ sind über „Alle" sichtbar, nur der eigene Filter-Chip dafür ist weg.
 
 ---
 
+## Nachtrag — Wunden löschen nur für Administratoren (19.09.2026)
+
+Wunden können im Wund-Cockpit nach einer Sicherheitsabfrage weich gelöscht
+werden. Der Löschbutton wird nur für Benutzer mit der Rolle `ADMIN` gerendert;
+`wundeLoeschen()` prüft dieselbe Berechtigung mit `verlangeAdmin()` nochmals
+serverseitig, damit ein direkter Aufruf der Server Action die UI-Regel nicht
+umgehen kann. Aufnahmen, Fotos und Audit-Daten bleiben erhalten.
+
+---
+
 ## Nachtrag — Freihand-Marker als zweite Lokalisationsart (19.09.2026)
 
 Auf Wunsch ergänzt: zweite, umschaltbare Eingabeart für die Wund-Lokalisation
@@ -310,7 +320,6 @@ Lokalisations-Dropdowns.
 |---|---|
 | `public/koerperkarte-leer.webp` | Vorlage ohne Markierungen (`Wundlokalisation_ohne_Marker.png`), als WebP |
 | `src/components/formular/freihand-karte.tsx` | Zeichnen/Verschieben/Löschen per Pointer-Events |
-| `src/components/wunde/freihand-marker-vorschau.tsx` | Reine Lese-Ansicht desselben Markers fürs Wund-Cockpit |
 
 **Datenmodell (Migration `20260919163629_lokalisation_freihand`):**
 - `Wound.lokalisationMarkerX/Y/Radius` (`Float?`, Prozent der Bildbreite) -
@@ -329,9 +338,11 @@ Lokalisations-Dropdowns.
 Der Radius wird als Prozent der Bild*breite* gespeichert (gleiche Einheit wie
 x). Für die *Höhe* des Kreises (CSS `height`, löst gegen die Containerhöhe
 auf) muss der Wert mit `KOERPERKARTE_BREITE / KOERPERKARTE_HOEHE`
-umgerechnet werden, sonst wird aus dem Kreis eine Ellipse. Betrifft sowohl
-das Zeichnen (`freihand-karte.tsx`) als auch die Lese-Ansicht
-(`freihand-marker-vorschau.tsx`) - beide benutzen dieselbe Konstante.
+umgerechnet werden, sonst wird aus dem Kreis eine Ellipse.
+
+**Keine Vorschau im Wund-Cockpit:** Die Freihand-Markierung bleibt gespeichert
+und ist beim Bearbeiten der Wunde weiterhin sichtbar, wird beim bloßen Öffnen
+der Wunde aber bewusst nicht als Körperbild angezeigt.
 
 **Bekannte Einschränkung:** Das Zeichnen selbst ist reine Zeigegeräte-Bedienung
 (Maus/Touch), ohne Tastatur-Äquivalent - wie bei den meisten
@@ -370,8 +381,10 @@ Prüfung macht das Format-Constraint ohnehin überflüssig.
 `src/lib/schema/patient.ts` hatte für dasselbe Feld nie ein `.cuid()`,
 daher funktionierte die Arztauswahl dort schon immer.
 
-**Fix:** `.cuid()` entfernt, nur noch `z.string().trim().min(1, "Ungültiger Arzt")`
-- die echte Prüfung bleibt die Datenbankabfrage.
+**Fix:** `.cuid()` entfernt. Eine leere Auswahl wird als `null` gespeichert;
+nur eine tatsächlich gewählte ID wird als String validiert und anschließend
+gegen die Datenbank geprüft. Das Formular kennzeichnet den behandelnden Arzt
+ausdrücklich als optional.
 
 ### Bug 2 — Formular verliert Dropdown-Werte nach jedem Absenden
 

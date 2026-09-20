@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { verlangeSitzung } from "@/lib/auth";
+import { verlangeAdmin, verlangeSitzung } from "@/lib/auth";
 import { geaenderteFelder, protokolliere } from "@/lib/audit";
 import { wundeAusFormData } from "@/lib/schema/wunde";
 import type { FormZustand } from "./patienten";
@@ -144,7 +144,7 @@ export async function lokalisationsAnzeigeSetzen(modus: string): Promise<void> {
 }
 
 export async function wundeLoeschen(wundeId: string): Promise<void> {
-  const sitzung = await verlangeSitzung();
+  const sitzung = await verlangeAdmin();
 
   const wunde = await db.wound.update({
     where: { id: wundeId },

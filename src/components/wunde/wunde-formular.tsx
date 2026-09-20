@@ -197,9 +197,9 @@ export function WundeFormular({
         <CardContent className="space-y-5 pt-6">
           <h2 className="text-base font-semibold">Versorgungspartner</h2>
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field id="arztId" label="Arzt" fehler={f("arztId")}>
+            <Field id="arztId" label="Behandelnder Arzt (optional)" fehler={f("arztId")}>
               {(p) => <Select {...p} name="arztId" value={auswahl.arztId} onChange={waehle("arztId")}>
-                <option value="">Kein Arzt ausgewählt</option>
+                <option value="">Kein behandelnder Arzt</option>
                 {aerzte.map((arzt) => <option key={arzt.id} value={arzt.id}>{arzt.name}{arzt.praxis ? ` · ${arzt.praxis}` : ""}</option>)}
               </Select>}
             </Field>
