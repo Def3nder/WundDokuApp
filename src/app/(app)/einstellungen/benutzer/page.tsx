@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
-import { Lock, LockOpen, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { Lock, LockOpen, Plus, ShieldCheck } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { NeuerBenutzer } from "./neuer-benutzer";
 import { benutzerAktivSetzen } from "@/actions/benutzer";
 import { ROLLEN, labelVon } from "@/lib/enums";
 
@@ -30,12 +30,20 @@ export default async function BenutzerSeite() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Benutzer</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Konten werden gesperrt statt gelöscht, damit die Zuordnung von
-          Aufnahmen zum Handzeichen erhalten bleibt.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Benutzer</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Konten werden gesperrt statt gelöscht, damit die Zuordnung von
+            Aufnahmen zum Handzeichen erhalten bleibt.
+          </p>
+        </div>
+        <Button asChild>
+          <Link href="/einstellungen/benutzer/neu">
+            <Plus aria-hidden="true" />
+            Benutzer anlegen
+          </Link>
+        </Button>
       </div>
 
       <ul className="space-y-3">
@@ -104,8 +112,6 @@ export default async function BenutzerSeite() {
           );
         })}
       </ul>
-
-      <NeuerBenutzer />
     </div>
   );
 }

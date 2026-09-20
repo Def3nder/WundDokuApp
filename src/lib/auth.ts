@@ -56,10 +56,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!benutzer || !benutzer.aktiv || !passt) return null;
 
-        await db.auditLog.create({
-          data: { userId: benutzer.id, entitaet: "User", entitaetId: benutzer.id, aktion: "ANMELDEN" },
-        });
-
         return {
           id: benutzer.id,
           email: benutzer.email,

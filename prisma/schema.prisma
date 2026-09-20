@@ -23,42 +23,59 @@ model User {
   passwordHash String
   rolle        String   @default("PFLEGE") // ADMIN | PFLEGE
   aktiv        Boolean  @default(true)
+  /// Bevorzugte Eingabeart fuer die Wund-Lokalisation: KARTE (anklickbare
+  /// Markierungen) | FREIHAND (Marker frei auf leeres Bild einzeichnen).
+  /// Pro Benutzer gemerkt, nicht pro Wunde.
+  lokalisationsAnzeige String @default("KARTE")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  patienten   Patient[]
-  aufnahmen   Assessment[]
-  auditLogs   AuditLog[]
+  patienten Patient[]
+  aufnahmen Assessment[]
+  dokumente PatientDocument[]
+  auditLogs AuditLog[]
 
   @@index([email])
 }
 
 model Patient {
-  id                        String    @id @default(cuid())
-  nachname                  String
-  vorname                   String
-  geburtsdatum              DateTime
-  patientennummer           String    @unique
+  id                         String       @id @default(cuid())
+  nachname                   String
+  vorname                    String
+  geburtsdatum               DateTime
+  patientennummer            String       @unique
   /// "Therapieverantwortlicher Arzt" auf dem Bogen
   arztTherapieverantwortlich String?
-  notizen                   String?
-  geloeschtAm               DateTime?
-  createdAt                 DateTime  @default(now())
-  updatedAt                 DateTime  @updatedAt
+  arztId                     String?
+  arzt                       Doctor?      @relation(fields: [arztId], references: [id], onDelete: SetNull)
+  pflegedienstId             String?
+  pflegedienst               CareService? @relation(fields: [pflegedienstId], references: [id], onDelete: SetNull)
+  notizen                    String?
+  geloeschtAm                DateTime?
+  createdAt                  DateTime     @default(now())
+  updatedAt                  DateTime     @updatedAt
 
   angelegtVonId String?
   angelegtVon   User?   @relation(fields: [angelegtVonId], references: [id], onDelete: SetNull)
 
-  wunden Wound[]
+  wunden    Wound[]
+  dokumente PatientDocument[]
 
   @@index([nachname, vorname])
+  @@index([arztId])
+  @@index([pflegedienstId])
   @@index([geloeschtAm])
 }
 
 model Wound {
-  id          String @id @default(cuid())
-  patientId   String
-  patient     Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  arztId         String?
+  arzt           Doctor?      @relation(fields: [arztId], references: [id], onDelete: SetNull)
+  pflegedienstId String?
+  pflegedienst   CareService? @relation(fields: [pflegedienstId], references: [id], onDelete: SetNull)
 
   /// Freie Kurzbezeichnung, z.B. "Ulcus links lateral"
   bezeichnung String
@@ -74,6 +91,13 @@ model Wound {
   lokalisationSeite       String? // LINKS | RECHTS
   lokalisationAusrichtung String? // LATERAL | MEDIAL
   lokalisationFreitext    String?
+  /// Frei eingezeichneter Marker auf dem unmarkierten Körperbild (Alternative
+  /// zur Karte mit vorgegebenen Punkten). x/y = Mittelpunkt, radius = Radius,
+  /// alle drei in Prozent der Bildgröße. Unabhängig von den drei Feldern
+  /// oben - beeinflusst sie nicht und wird nicht aus ihnen abgeleitet.
+  lokalisationMarkerX      Float?
+  lokalisationMarkerY      Float?
+  lokalisationMarkerRadius Float?
 
   // --- Wunde besteht seit ---
   bestehtSeitWert    Int?
@@ -91,6 +115,62 @@ model Wound {
   aufnahmen Assessment[]
 
   @@index([patientId])
+  @@index([arztId])
+  @@index([pflegedienstId])
+  @@index([geloeschtAm])
+}
+
+model Doctor {
+  id          String    @id @default(cuid())
+  name        String
+  praxis      String?
+  telefon     String?
+  email       String?
+  geloeschtAm DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  wunden    Wound[]
+  patienten Patient[]
+
+  @@index([name])
+  @@index([geloeschtAm])
+}
+
+model CareService {
+  id              String    @id @default(cuid())
+  name            String
+  ansprechpartner String?
+  telefon         String?
+  email           String?
+  geloeschtAm     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  wunden    Wound[]
+  patienten Patient[]
+
+  @@index([name])
+  @@index([geloeschtAm])
+}
+
+model PatientDocument {
+  id               String  @id @default(cuid())
+  patientId        String
+  patient          Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  hochgeladenVonId String?
+  hochgeladenVon   User?   @relation(fields: [hochgeladenVonId], references: [id], onDelete: SetNull)
+
+  typ          String // REZEPT | ARZTBRIEF
+  titel        String
+  dateiname    String
+  pfad         String
+  mimeType     String
+  groesseBytes Int
+  geloeschtAm  DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([patientId, typ, createdAt])
   @@index([geloeschtAm])
 }
 
@@ -112,9 +192,9 @@ model Assessment {
   dekubitusKategorie  String?
 
   // --- Befund: Mehrfachauswahlen als JSON-Array-String ---
-  wundumgebung String @default("[]")
-  wundrand     String @default("[]")
-  wundgrund    String @default("[]")
+  wundumgebung           String  @default("[]")
+  wundrand               String  @default("[]")
+  wundgrund              String  @default("[]")
   wundgrundSonstigesText String?
 
   // --- Wundgroesse in mm ---
@@ -132,26 +212,26 @@ model Assessment {
   geruch Boolean @default(false)
 
   // --- Entzuendung und Infektion ---
-  entzuendungszeichen  String  @default("[]")
+  entzuendungszeichen String  @default("[]")
   /// KRITISCHE_KOLONISATION | WUNDINFEKTION
-  lokaleInfektzeichen  String  @default("[]")
-  systemischeZeichen   Boolean @default(false)
-  infektionSonstiges   String?
+  lokaleInfektzeichen String  @default("[]")
+  systemischeZeichen  Boolean @default(false)
+  infektionSonstiges  String?
 
   abstrichGenommen Boolean @default(false)
   abstrichErgebnis String?
 
   // --- Schmerz ---
-  schmerzen Boolean @default(false)
+  schmerzen  Boolean @default(false)
   schmerzVas Int?
 
   /// je Ort: GESAMT | UHR ; bei UHR zusaetzlich die Stunde 1-12
-  schmerzWundeModus         String?
-  schmerzWundeUhr           Int?
-  schmerzWundrandModus      String?
-  schmerzWundrandUhr        Int?
-  schmerzWundumgebungModus  String?
-  schmerzWundumgebungUhr    Int?
+  schmerzWundeModus        String?
+  schmerzWundeUhr          Int?
+  schmerzWundrandModus     String?
+  schmerzWundrandUhr       Int?
+  schmerzWundumgebungModus String?
+  schmerzWundumgebungUhr   Int?
 
   schmerzVerbandwechsel    Boolean @default(false)
   schmerzVerbandwechselVas Int?
@@ -183,13 +263,13 @@ model Assessment {
   fixierung          String  @default("[]")
   fixierungSonstiges String?
 
-  kompression        String  @default("[]")
+  kompression               String  @default("[]")
   kompressionBinde1BreiteCm Float?
   kompressionBinde1Anzahl   Int?
   kompressionBinde2BreiteCm Float?
   kompressionBinde2Anzahl   Int?
-  kompressionKlasse  String?
-  kompressionMass    String?
+  kompressionKlasse         String?
+  kompressionMass           String?
 
   therapieSonstiges String?
   anmerkungen       String?
@@ -205,7 +285,7 @@ model Assessment {
 }
 
 model Photo {
-  id           String @id @default(cuid())
+  id           String     @id @default(cuid())
   assessmentId String
   aufnahme     Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
 
@@ -218,10 +298,10 @@ model Photo {
   mimeType      String
   groesseBytes  Int
   beschreibung  String?
-  reihenfolge   Int      @default(0)
-  aufgenommenAm DateTime @default(now())
+  reihenfolge   Int       @default(0)
+  aufgenommenAm DateTime  @default(now())
   geloeschtAm   DateTime?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
 
   @@index([assessmentId, reihenfolge])
   @@index([geloeschtAm])
@@ -231,9 +311,9 @@ model AuditLog {
   id         String   @id @default(cuid())
   userId     String?
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  entitaet   String   // Patient | Wound | Assessment | Photo
+  entitaet   String // Patient | Wound | Assessment | Photo
   entitaetId String
-  aktion     String   // ANLEGEN | AENDERN | LOESCHEN | WIEDERHERSTELLEN | PDF_EXPORT | ANMELDEN
+  aktion     String // ANLEGEN | AENDERN | LOESCHEN | WIEDERHERSTELLEN | PDF_EXPORT | ANMELDEN
   details    String?
   zeitpunkt  DateTime @default(now())
 

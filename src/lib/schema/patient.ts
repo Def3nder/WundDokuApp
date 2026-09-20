@@ -34,10 +34,12 @@ export const patientSchema = z.object({
     .min(1, "Patientennummer ist erforderlich")
     .max(50, "Höchstens 50 Zeichen"),
 
-  arztTherapieverantwortlich: z.preprocess(
-    leerZuNull,
-    z.string().trim().max(150, "Höchstens 150 Zeichen").nullable(),
-  ),
+  arztId: z.string().trim().min(1, "Bitte einen Arzt auswählen"),
+  neuerArztName: z.preprocess(leerZuNull, z.string().trim().max(150, "Höchstens 150 Zeichen").nullable()),
+  neueArztPraxis: z.preprocess(leerZuNull, z.string().trim().max(150, "Höchstens 150 Zeichen").nullable()),
+  pflegedienstId: z.preprocess(leerZuNull, z.string().trim().nullable()),
+  neuerPflegedienstName: z.preprocess(leerZuNull, z.string().trim().max(150, "Höchstens 150 Zeichen").nullable()),
+  neuerPflegedienstAnsprechpartner: z.preprocess(leerZuNull, z.string().trim().max(150, "Höchstens 150 Zeichen").nullable()),
 
   notizen: z.preprocess(
     leerZuNull,
@@ -54,7 +56,12 @@ export function patientAusFormData(fd: FormData) {
     vorname: fd.get("vorname"),
     geburtsdatum: fd.get("geburtsdatum"),
     patientennummer: fd.get("patientennummer"),
-    arztTherapieverantwortlich: fd.get("arztTherapieverantwortlich"),
+    arztId: fd.get("arztId"),
+    neuerArztName: fd.get("neuerArztName"),
+    neueArztPraxis: fd.get("neueArztPraxis"),
+    pflegedienstId: fd.get("pflegedienstId"),
+    neuerPflegedienstName: fd.get("neuerPflegedienstName"),
+    neuerPflegedienstAnsprechpartner: fd.get("neuerPflegedienstAnsprechpartner"),
     notizen: fd.get("notizen"),
   });
 }

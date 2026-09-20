@@ -106,6 +106,135 @@ mit der App-eigenen Schrift) und bleibt.
 - axe prüft Anmeldung und zentrale Seiten in Hell und Dunkel sowie das geöffnete
   mobile Menü. Dabei gefundene Primär- und Statuskontraste wurden korrigiert.
 
+## Nachtrag — Körperkarte (19.09.2026)
+
+Auf Wunsch ergänzt: eine anklickbare Körperkarte neben den drei
+Lokalisations-Dropdowns im Wund-Formular. Klick auf eine Markierung befüllt
+Region/Seite/Ausrichtung, ohne die Dropdowns zu ersetzen (siehe
+[T14](docs/ENTSCHEIDUNGEN.md#t14--körperkarte-befüllt-die-vorhandenen-lokalisationsfelder-statt-eigene-daten-zu-speichern)).
+
+| Datei | Inhalt |
+|---|---|
+| `public/koerperkarte.webp` | Vorlagenbild (Vorder-/Rückseite, Fußrücken/-sohlen, Bein-Nahaufnahmen), als WebP komprimiert |
+| `src/lib/koerperkarte.ts` | 66 Markierungen als Prozentkoordinaten + Region/Seite/Ausrichtung |
+| `src/lib/koerperkarte.test.ts` | Prüft Koordinaten, Enum-Gültigkeit und Mindestabstand (siehe unten) |
+| `src/components/formular/koerperkarte.tsx` | Bild mit positionierten, tastaturbedienbaren Buttons |
+
+`KOERPERREGIONEN` in `src/lib/enums.ts` wuchs additiv um `LENDE`, `OBERARM`,
+`UNTERARM`, `HANDGELENK`, `BRUSTKORB`, `BAUCH`, `FUSSBALLEN`. `AUSRICHTUNGEN`
+wuchs um `VENTRAL`/`DORSAL` (schlichte Labels, ohne „vorne"/„hinten" im
+Klammerzusatz) — alte Werte bleiben gültig, keine Migration nötig.
+
+Auf Nutzerwunsch bekommen alle Regionen, die auf Vorder- *und* Rückansicht
+denselben Regionswert hätten, zusätzlich Ventral/Dorsal: `KOPF`, `SCHULTER`,
+`OBERARM`, `UNTERARM`, `HANDGELENK`, `OBERSCHENKEL`, `UNTERSCHENKEL`, `KNIE`,
+`KNOECHEL`. Sonst wäre z. B. „Schulter links" oder „Knie links" nicht von
+vorne oder hinten unterscheidbar gewesen. Bei `KNIE` und `KNOECHEL` zunächst
+vergessen (beide blieben testweise auf `null` — reichte nicht, da dieselbe
+Region mit identischer Seite/Ausrichtung auf Vorder- *und* Rückseite
+existierte), auf zwei Nachfragen ergänzt. `BRUSTKORB`/`BAUCH` (nur vorne) und
+`LENDE`/`RUECKEN` (nur hinten) kommen ohnehin nur auf einer Ansicht vor und
+bleiben ohne Ausrichtung.
+
+**Rückseite an Vorderseite angeglichen (mehrere Nachfragen):** Die eigene
+Anatomie-Vermutung für die Rückansicht (Steiß/Sakral → Gesäß → Oberschenkel →
+Unterschenkel, von oben nach unten) war durchgehend falsch. Laut Nutzer,
+jeweils an die gleich hohe Vorderseiten-Markierung angeglichen:
+- Punkt auf Oberschenkelhöhe: `OBERSCHENKEL` (nicht `STEISS_SAKRAL` — der
+  eigentliche Steiß-/Sakralbereich liegt mittig im Gesäß, also auf keinem der
+  bilateralen Punkte dieser Vorlage)
+- Punkt auf Kniehöhe: `KNIE` (nicht `GESAESS`)
+- nächster Punkt: `UNTERSCHENKEL` (nicht `OBERSCHENKEL`)
+- unterster Punkt: `KNOECHEL` (nicht `UNTERSCHENKEL`)
+
+`STEISS_SAKRAL` und `GESAESS` bleiben im Enum für die manuelle Auswahl.
+`GESAESS` hat keine eigene Markierung mehr; für `STEISS_SAKRAL` siehe unten.
+
+**Steiß-/Sakralbereich nachträglich mit eigenem Bildpunkt (19.09.2026):** Der
+Nutzer hat die Vorlage um genau die fehlende Markierung ergänzt
+(`Wundlokalisation_neu_2.png`) — ein einzelner Punkt mittig über der
+Gesäßfalte, kein Links/Rechts-Paar. Per Koordinatenvergleich gegen die
+vorherige Bildversion gefunden (ein Punkt neu, zwei alte Fußrücken-Punkte
+fehlen jetzt — passend zum weiter oben beschriebenen Entfernen). `koerperkarte.ts`
+hat seither wieder eine `STEISS_SAKRAL`-Markierung, mit `seite: null` (kein
+Links/Rechts, da mittig) und `ausrichtung: null` (nur Rückseite, kein
+Gegenstück vorne). 67 statt 66 Markierungen; `public/koerperkarte.webp` neu
+exportiert.
+
+### Marker in Safari daneben, in Chrome (auch mobil) nicht
+
+Nutzer meldete per Screenshot: Auf einem echten iPhone sitzen alle
+Klick-Marker sichtbar neben statt auf den roten Punkten im Bild - der
+Versatz wächst mit dem Abstand von der oberen linken Ecke. Vom Nutzer
+bestätigt: reines Safari/WebKit-Problem, unabhängig von der Bildschirmgröße
+(Chrome rendert auch mobil korrekt, DevTools-Mobilemulation in Chrome zeigt
+ebenfalls korrekt - keine Frage der Skalierung).
+
+**Erster Fix (nicht ausreichend):** Vermutet als Lade-Wettlauf - Container
+bekam `aspect-ratio` per Inline-Style, damit seine Höhe schon vor dem
+Laden des Bildes feststeht. Half laut Nutzer **nicht**. Grund vermutlich: In
+älteren/manchen WebKit-Versionen lösen absolut positionierte Kind-Elemente
+ihre Prozent-`top`-Position nachweislich nicht zuverlässig gegen eine nur
+über `aspect-ratio` hergestellte Containerhöhe auf (bekannte WebKit-Lücke,
+nicht gegen ein reales Gerät nachprüfbar in dieser Umgebung - kein Safari
+verfügbar).
+
+**Zweiter Fix:** `aspect-ratio` ersetzt durch den klassischen
+„Padding-Top-Trick" (ein leeres Kind-`div` mit
+`padding-top: <Höhe/Breite>·100 %`, das die Containerhöhe über den ganz
+normalen Textfluss erzwingt - keine neuere CSS-Eigenschaft, seit den
+2010ern browserübergreifend für responsive Bild-Einbettungen verwendet).
+Bild und Marker liegen `absolute inset-0` darüber. Noch nicht auf echtem
+Safari zurückgemeldet.
+
+**Fußpanels feiner unterteilt:** Fußrücken hatte drei Punkte je Fuß (Zehen,
+Mitte, unten nahe der Ferse) — der unterste entfällt auf Nutzerwunsch
+ersatzlos. Fußsohle hatte drei Punkte, die oberen zwei teilten sich
+`FUSSSOHLE` — der oberste (Ballen) bekommt jetzt den eigenen Wert
+`FUSSBALLEN`. Macht zusammen 66 statt 68 Markierungen.
+
+### Immer höchstens eine Markierung aktiv
+
+`KNIE` kommt jetzt bewusst auf Vorder- *und* Rückansicht mit identischer
+Region/Seite/Ausrichtung (`null`) vor. Damit trotzdem nie zwei Markierungen
+gleichzeitig aktiv erscheinen, merkt sich `KoerperKarte` seit diesem Nachtrag
+den **Index** der zuletzt geklickten Markierung statt nur ihrer Werte
+(`useState<number|null>` + `useEffect`, das bei externen Dropdown-Änderungen
+die erste passende Markierung nachzieht). Damit ist „nur eine Markierung
+aktiv" strukturell garantiert, nicht nur zufällig durch eindeutige Daten.
+
+### axe verlangt 24px *Abstand* zwischen Markierungen, nicht nur 24px Eigengröße
+
+Erster Durchlauf mit 20px-Markern: axe (`target-size`, SC 2.5.8) schlug bei
+zehn Markierungen an. 24px-Buttons allein reichten nicht — zwei Buttons, die
+selbst je 24px groß sind, aber deren *Mittelpunkte* weniger als 24px
+auseinanderliegen, gelten weiterhin als Verstoß. Für die meisten Marker genügte
+eine breitere Karte (420px → 480px). Die beiden Kopf-Punkte pro Ansicht
+(vorne/hinten) liegen in der Vorlage aber nur 44px auseinander.
+
+Erster Fix: Kopf-Links/-Rechts je Ansicht zu einer seitenlosen Markierung
+zusammengefasst. **Auf Nutzerwunsch zurückgenommen** — Kopf soll weiter nach
+Seite *und* vorne/hinten unterscheidbar sein. Stattdessen die Karte auf
+max. 720px verbreitert (bei 1280px Testviewport wird das auch erreicht); bei
+der Breite liegen selbst die Kopf-Punkte über dem 24px-Mindestabstand.
+`koerperkarte.test.ts` prüft das rechnerisch gegen genau diese 720px-Vorgabe,
+damit eine künftige Koordinaten- oder Breitenänderung nicht unbemerkt wieder
+darunter fällt. **Wichtig:** Bei einer deutlich schmaleren Kartenbreite als
+720px (z. B. ein sehr schmales Tablet) unterschreiten die Kopf-Punkte den
+24px-Abstand wieder — die drei Dropdowns bleiben deshalb bewusst die
+vollständig gleichwertige, von der Kartenbreite unabhängige Eingabe.
+
+**Beim Testen entstandene Testwunde wieder entfernt:** Der Browser-Durchgang
+legte testweise eine Wunde bei „Berger, Hannelore" an. Das hätte
+`tests/accessibility.spec.ts` gebrochen, weil dessen `anwendungsRouten()`
+ungeprüft die *erste* Wunde der *ersten* Patientin nimmt und deren erste
+Aufnahme braucht — eine Testwunde ohne Aufnahme lässt den Test in einem
+Timeout laufen, nicht in einer klaren Fehlermeldung. Wieder weich gelöscht
+(`geloeschtAm` gesetzt, Audit-Eintrag geschrieben), Testlauf danach wieder
+grün. **Merke:** Bei jedem Browser-Durchgang, der Patientendaten anlegt,
+vor dem nächsten `npm run test:a11y` prüfen, ob Testdaten bei der zuerst
+gelisteten Patientin/Wunde liegen geblieben sind.
+
 ### Die sechs Abschnitte
 
 1. Wundbefund — Wundumgebung, Wundrand, Wundgrund
@@ -114,6 +243,221 @@ mit der App-eigenen Schrift) und bleibt.
 4. Schmerz
 5. Therapieplan
 6. Fotos (in Phase 4 vollständig umgesetzt)
+
+---
+
+## Nachtrag — Breadcrumb zeigt nur Übergeordnetes (19.09.2026)
+
+Regel vom Nutzer: Der Pfad (`Breadcrumb`) zeigt ausschließlich Übergeordnetes,
+nie den aktuellen Eintrag selbst — der steht ja immer direkt darunter als
+Überschrift. Betraf alle 12 Seiten, die `<Breadcrumb>` nutzen; die letzte
+Zeile (der bisherige selbstreferenzierende, unverlinkte Eintrag) entfiel
+überall. Zwei Regionen brauchten dabei eine Sonderregel statt der wörtlichen
+„direkter URL-Elternteil":
+
+- **Wunde ansehen/anlegen/bearbeiten:** Pfad endet immer beim Patienten
+  (`Patienten / [Nachname, Vorname]`) — die Wunde selbst (auch beim
+  Bearbeiten, technisch eine Unterseite `/wunden/[id]/bearbeiten`) gilt als
+  „der Eintrag", nicht als eigene Pfad-Ebene. `wunden/[id]/bearbeiten/page.tsx`
+  bekam dafür eine neue Unterzeile mit `wunde.bezeichnung` unter der
+  Überschrift, sonst wäre nirgends mehr sichtbar gewesen, welche Wunde
+  bearbeitet wird.
+- **Aufnahme ansehen/anlegen/bearbeiten/vergleichen:** Pfad endet bei der
+  Wunde (`… / [Wundname]`), analog dazu.
+
+Einfache Formulare ohne Zwischenebene (Patient anlegen, Benutzer anlegen,
+Stammdaten bearbeiten) verloren einfach ihre letzte Pfad-Zeile.
+`patienten/[id]/dokumente/page.tsx` und `patienten/[id]/page.tsx` folgten der
+Regel bereits vorher richtig und blieben unverändert.
+
+## Nachtrag — An-/Abmelden nicht mehr im Protokoll (19.09.2026)
+
+Auf Nutzerwunsch entfernt: `src/lib/auth.ts`s `authorize()` schrieb bei jeder
+erfolgreichen Anmeldung einen `ANMELDEN`-Eintrag (`db.auditLog.create`,
+direkt dort statt über `protokolliere()`, da `authorize` ausserhalb des
+sitzungsgebundenen Server-Action-Kontexts läuft). Dieser Aufruf entfiel
+ersatzlos. Eine „Abgemeldet"-Protokollierung gab es nie (nur `signOut()` in
+`app-shell.tsx`, ohne Audit-Aufruf) - das betraf also nur das Anmelden.
+
+Der Enum-Wert `ANMELDEN` (`src/lib/enums.ts`, Label „Angemeldet") und der Typ
+in `src/lib/audit.ts` blieben bewusst bestehen, damit bereits gespeicherte
+alte Einträge im Protokoll weiterhin ein Label statt des rohen Codes zeigen -
+nur das *Schreiben* neuer Einträge wurde gestoppt.
+
+**Nachfrage:** Die schon vorhandenen alten `ANMELDEN`-Einträge sollten auch
+nicht mehr *angezeigt* werden. `einstellungen/audit-log/page.tsx`s Abfrage
+filtert sie jetzt serverseitig heraus (`aktion: { not: "ANMELDEN" }`, auch im
+"Alle"-Filter, kombiniert per Spread mit dem optionalen Bereichsfilter). Die
+Zeilen bleiben in der Datenbank, tauchen aber nirgends mehr im Protokoll auf.
+Zusätzlich flog der Bereichs-Filter „Benutzer" (`entitaet: "User"`) aus der
+Filterleiste (`ENTITAETEN`) - echte Benutzer-Aktionen wie Anlegen/Passwort
+zurücksetzen (`src/actions/benutzer.ts`) werden weiterhin protokolliert und
+sind über „Alle" sichtbar, nur der eigene Filter-Chip dafür ist weg.
+
+---
+
+## Nachtrag — Wunden löschen nur für Administratoren (19.09.2026)
+
+Wunden können im Wund-Cockpit nach einer Sicherheitsabfrage weich gelöscht
+werden. Der Löschbutton wird nur für Benutzer mit der Rolle `ADMIN` gerendert;
+`wundeLoeschen()` prüft dieselbe Berechtigung mit `verlangeAdmin()` nochmals
+serverseitig, damit ein direkter Aufruf der Server Action die UI-Regel nicht
+umgehen kann. Aufnahmen, Fotos und Audit-Daten bleiben erhalten.
+
+---
+
+## Nachtrag — Freihand-Marker als zweite Lokalisationsart (19.09.2026)
+
+Auf Wunsch ergänzt: zweite, umschaltbare Eingabeart für die Wund-Lokalisation
+neben der Körperkarte (siehe oben) - freies Einzeichnen eines roten Kreises
+auf einem unmarkierten Körperbild. Klicken+Ziehen legt Mittelpunkt und Größe
+fest; ein weiterer Zug auf dem bereits gezeichneten Marker verschiebt ihn
+(Größe bleibt), ein Zug daneben zeichnet ihn neu. Ein „Marker löschen"-Button
+setzt ihn zurück. Die Position hat **bewusst keine Verbindung** zu den drei
+Lokalisations-Dropdowns.
+
+| Datei | Inhalt |
+|---|---|
+| `public/koerperkarte-leer.webp` | Vorlage ohne Markierungen (`Wundlokalisation_ohne_Marker.png`), als WebP |
+| `src/components/formular/freihand-karte.tsx` | Zeichnen/Verschieben/Löschen per Pointer-Events |
+
+**Datenmodell (Migration `20260919163629_lokalisation_freihand`):**
+- `Wound.lokalisationMarkerX/Y/Radius` (`Float?`, Prozent der Bildbreite) -
+  alle drei zusammen gesetzt oder keins (`wundeSchema`s `superRefine` prüft
+  das). Wird unverändert mitgespeichert, unabhängig davon, welcher Modus
+  gerade angezeigt wird - ein Wechsel der Anzeige löscht nichts, nur der
+  eigene Button tut das.
+- `User.lokalisationsAnzeige` (`String`, `"KARTE"` | `"FREIHAND"`,
+  Default `"KARTE"`) - die Vorliebe ist **pro Benutzer**, nicht pro Browser
+  oder Gerät gespeichert (wichtig, weil hier oft vom Tablet *und* vom
+  Stationsrechner gearbeitet wird). Eigene Server-Action
+  `lokalisationsAnzeigeSetzen()` in `src/actions/wunden.ts`, ohne
+  Audit-Eintrag (reine Anzeige-Vorliebe, kein Wunddatum).
+
+**Kreis bleibt rund, obwohl Breite/Höhe der Vorlage unterschiedlich skalieren:**
+Der Radius wird als Prozent der Bild*breite* gespeichert (gleiche Einheit wie
+x). Für die *Höhe* des Kreises (CSS `height`, löst gegen die Containerhöhe
+auf) muss der Wert mit `KOERPERKARTE_BREITE / KOERPERKARTE_HOEHE`
+umgerechnet werden, sonst wird aus dem Kreis eine Ellipse.
+
+**Keine Vorschau im Wund-Cockpit:** Die Freihand-Markierung bleibt gespeichert
+und ist beim Bearbeiten der Wunde weiterhin sichtbar, wird beim bloßen Öffnen
+der Wunde aber bewusst nicht als Körperbild angezeigt.
+
+**Bekannte Einschränkung:** Das Zeichnen selbst ist reine Zeigegeräte-Bedienung
+(Maus/Touch), ohne Tastatur-Äquivalent - wie bei den meisten
+Freihand-Zeichenwerkzeugen praktisch nicht sinnvoll nachzubilden. Die drei
+Dropdowns bleiben die vollständig tastatur- und screenreaderbediente
+Standardeingabe; das Einzeichnen ist eine rein ergänzende, optische
+Markierung.
+
+**Migration bei laufendem Dev-Server:** `npm run db:migrate` legt zwar die
+SQL-Migration an, aber `prisma generate` scheitert am selben
+DLL-Lock-Problem wie `npx next build` (siehe unten) - Server beenden,
+`npx prisma generate` erneut laufen lassen, danach neu starten.
+
+---
+
+## Nachtrag — Zwei Formular-Bugs beim Wunde-Anlegen (19.09.2026)
+
+Nutzer meldete: Beim Anlegen einer neuen Wunde erscheint andauernd
+„Ungültiger Arzt", und bei jedem Validierungsfehler werden die übrigen
+Dropdown-Auswahlen (Diagnose, Arzt, Lokalisation, Einheit) gelöscht. Zwei
+unabhängige, echte Bugs - keiner davon aus der heutigen Sitzung neu
+entstanden, beide vermutlich schon länger vorhanden, aber bisher nie mit
+einem echten Seed-Arzt *und* einem gleichzeitigen anderen Validierungsfehler
+durchgetestet.
+
+### Bug 1 — `.cuid()` verträgt sich nicht mit den Seed-IDs
+
+`src/lib/schema/wunde.ts` validierte `arztId`/`pflegedienstId` mit
+`z.string().cuid(...)`. Die Seed-Ärzte/-Pflegedienste haben aber feste,
+lesbare IDs wie `"seed-doctor-01"` (`prisma/seed.ts`) statt echter
+Prisma-`cuid()`-Werte - die bestehen `.cuid()` nicht. Mit einem echten Arzt
+(nicht `cuid`-förmige ID) schlug die Validierung deshalb **immer** fehl,
+noch bevor die eigentliche Existenzprüfung (`stammdatenFehler()` in
+`src/actions/wunden.ts`, fragt die Datenbank) überhaupt lief - diese
+Prüfung macht das Format-Constraint ohnehin überflüssig.
+`src/lib/schema/patient.ts` hatte für dasselbe Feld nie ein `.cuid()`,
+daher funktionierte die Arztauswahl dort schon immer.
+
+**Fix:** `.cuid()` entfernt. Eine leere Auswahl wird als `null` gespeichert;
+nur eine tatsächlich gewählte ID wird als String validiert und anschließend
+gegen die Datenbank geprüft. Das Formular kennzeichnet den behandelnden Arzt
+ausdrücklich als optional.
+
+### Bug 2 — Formular verliert Dropdown-Werte nach jedem Absenden
+
+Der eigentlich interessante Fund, nach längerer Fehlersuche mit
+`console.log`-Instrumentierung direkt in `WundeFormular` (Render-Zähler,
+`JSON.stringify(zustand)`, ein `reset`-Event-Listener auf dem `<form>`):
+
+- **Nicht** die Ursache: ein Remount der Komponente (ein reiner,
+  von `zustand`/`vorgabe` unabhängiger `useState`-Zähler blieb über
+  mehrere Renders hinweg stabil).
+- **Nicht** die Ursache: fehlende Daten. `zustand.werte` (das Ergebnis von
+  `wundeAnlegen`/`wundeAendern`) enthielt nachweislich die richtigen Werte
+  (`"diagnoseTyp":"DEKUBITUS","arztId":"seed-doctor-07"` etc., per
+  `console.log` direkt geprüft).
+- **Nicht** die Ursache: natives `form.reset()` - ein Listener auf das
+  `reset`-Event des `<form>` feuerte nie.
+- **Die tatsächliche Ursache:** Nach jedem Abschluss der Server Action
+  (React 19 + `useActionState`, auch bei einer Rückgabe mit
+  Validierungsfehlern statt eines Throws) setzt React/Next.js die
+  `<select>`- und Checkbox-**DOM-Knoten** des Formulars direkt auf ihren
+  ursprünglichen Zustand zurück - ohne ein `reset`-Event auszulösen. Der
+  **React-State bleibt dabei korrekt** (mit `value={auswahl.diagnoseTyp}`
+  kontrolliert nachgewiesen: State zeigte weiterhin `"DEKUBITUS"`, das
+  tatsächliche `<select>`-DOM-Element aber `""`). React bemerkt die
+  Abweichung nicht, weil sein Reconciler beim erneuten Rendern nur prüft,
+  ob sich der `value`/`checked`-**Prop** gegenüber dem *vorherigen Render*
+  geändert hat - und der hatte sich ja nicht geändert, also unterbleibt die
+  erneute DOM-Zuweisung (React vertraut darauf, dass der DOM noch dem
+  letzten von ihm gesetzten Wert entspricht - hier stimmt das nicht mehr).
+  Reine Text-`<input>`/`<textarea>` sind sichtbar nicht betroffen (die
+  Kurzbezeichnung blieb in jedem Test korrekt erhalten) - vermutlich
+  behandelt Reacts interne Zurücksetzung nur "echte" Auswahl-Steuerelemente
+  (`select`, `checkbox`, `radio`).
+
+**Fix, der tatsächlich funktioniert:** Weder unkontrolliertes `defaultValue`
+noch kontrolliertes `value`+`onChange` allein reichen. Nötig ist ein
+`key`, der sich bei jedem neuen `zustand`-Ergebnis ändert und dadurch einen
+**echten Neuaufbau** des `<form>`-Unterbaums erzwingt (nicht der ganzen
+Komponente - nur des `<form>`-Elements und seiner Kinder; `useState` in
+`WundeFormular` selbst bleibt erhalten):
+
+```ts
+const zustandGeneration = useRef(0);
+const vorherigerZustand = useRef(zustand);
+if (vorherigerZustand.current !== zustand) {
+  zustandGeneration.current += 1;
+  vorherigerZustand.current = zustand;
+}
+// ...
+<form key={zustandGeneration.current} action={formAction} ...>
+```
+
+Bei einem echten Neuaufbau greift für jedes Feld wieder ganz normal
+`defaultValue={w(...)}` bzw. `value={...}` - ein frisch erzeugter DOM-Knoten
+hat noch keinen "letzten von React gesetzten Wert", mit dem der neue Prop
+verglichen werden könnte, die Zuweisung passiert also garantiert.
+
+**Angewendet auf:** `wunde-formular.tsx`, `patient-formular.tsx` (hatte
+denselben Aufbau mit kontrollierten Selects, aber ohne den `key` - also
+genauso betroffen), `neuer-benutzer.tsx` (Rollen-Select). **Nicht
+angefasst:** `aufnahme-formular.tsx` - hat zwei native `<Select>`
+(Wagner-Grad, Dekubitus-Kategorie) mit demselben Risiko, aber deutlich
+komplexerer Zustand (Autosave, Fotos, Abschnitts-Navigation) - ein
+pauschaler `key`-Neuaufbau des ganzen Formulars würde dort vermutlich mehr
+kaputtmachen als reparieren. Braucht eine gezieltere Lösung (z. B. nur die
+zwei betroffenen Felder selbst mit einem eigenen `key` versehen), separat zu
+prüfen.
+
+**Für künftige Formulare mit `useActionState` in dieser Codebase:** Jedes
+`<select>`/`<input type="checkbox">`/`<input type="radio">`, dessen Wert
+nach einem fehlgeschlagenen Absenden erhalten bleiben soll, braucht diesen
+`key`-Trick (oder muss komplett client-seitig, ohne Formular-Action,
+gehalten werden). Reine Text-Felder brauchen ihn nicht.
 
 ---
 
@@ -227,11 +571,11 @@ Was beim Weiterbauen am ehesten stolpern lässt:
 - **Wagner-Grad und Dekubitus-Kategorie hängen an der Aufnahme** (A3), nicht an
   der Wunde — sie ändern sich im Verlauf.
 
-### Zwei Punkte warten auf Rückmeldung
+### Rückmeldung erhalten (19.09.2026)
 
-1. Stimmt „Mäßige bis starke" als vierte Exsudatstufe? (A1)
-2. Sollen Patienten nach einer Frist automatisch archiviert werden?
-   (Aufbewahrungsfrist: 10 Jahre, § 630f BGB)
+1. „Mäßige bis starke" als vierte Exsudatstufe (A1) — **bestätigt korrekt.**
+2. Automatische Archivierung nach Aufbewahrungsfrist (§ 630f BGB, 10 Jahre) —
+   **bleibt offen, To-Do für später.**
 
 ---
 

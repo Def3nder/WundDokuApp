@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 
-export type Entitaet = "Patient" | "Wound" | "Assessment" | "Photo" | "User";
+export type Entitaet = "Patient" | "Wound" | "Assessment" | "Photo" | "PatientDocument" | "Doctor" | "CareService" | "User";
 export type Aktion =
   | "ANLEGEN"
   | "AENDERN"

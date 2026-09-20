@@ -6,7 +6,61 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { verlangeSitzung } from "@/lib/auth";
 import { geaenderteFelder, protokolliere } from "@/lib/audit";
-import { patientAusFormData } from "@/lib/schema/patient";
+import { patientAusFormData, type PatientEingabe } from "@/lib/schema/patient";
+
+const NEU = "__NEU__";
+
+class AuswahlFehler extends Error {
+  constructor(public feld: string, meldung: string) {
+    super(meldung);
+  }
+}
+
+async function patientDatenMitKontakten(tx: Prisma.TransactionClient, eingabe: PatientEingabe) {
+  let arztId = eingabe.arztId;
+  let arztName: string;
+  let neuerArztId: string | null = null;
+  if (arztId === NEU) {
+    if (!eingabe.neuerArztName) throw new AuswahlFehler("neuerArztName", "Bitte den Namen des neuen Arztes angeben");
+    const arzt = await tx.doctor.create({ data: { name: eingabe.neuerArztName, praxis: eingabe.neueArztPraxis } });
+    arztId = arzt.id;
+    arztName = arzt.name;
+    neuerArztId = arzt.id;
+  } else {
+    const arzt = await tx.doctor.findFirst({ where: { id: arztId, geloeschtAm: null } });
+    if (!arzt) throw new AuswahlFehler("arztId", "Der ausgewählte Arzt ist nicht verfügbar");
+    arztName = arzt.name;
+  }
+
+  let pflegedienstId = eingabe.pflegedienstId;
+  let neuerPflegedienstId: string | null = null;
+  if (pflegedienstId === NEU) {
+    if (!eingabe.neuerPflegedienstName) throw new AuswahlFehler("neuerPflegedienstName", "Bitte den Namen des neuen Pflegedienstes angeben");
+    const dienst = await tx.careService.create({
+      data: { name: eingabe.neuerPflegedienstName, ansprechpartner: eingabe.neuerPflegedienstAnsprechpartner },
+    });
+    pflegedienstId = dienst.id;
+    neuerPflegedienstId = dienst.id;
+  } else if (pflegedienstId) {
+    const dienst = await tx.careService.findFirst({ where: { id: pflegedienstId, geloeschtAm: null } });
+    if (!dienst) throw new AuswahlFehler("pflegedienstId", "Der ausgewählte Pflegedienst ist nicht verfügbar");
+  }
+
+  return {
+    daten: {
+      nachname: eingabe.nachname,
+      vorname: eingabe.vorname,
+      geburtsdatum: eingabe.geburtsdatum,
+      patientennummer: eingabe.patientennummer,
+      arztId,
+      pflegedienstId,
+      arztTherapieverantwortlich: arztName,
+      notizen: eingabe.notizen,
+    },
+    neuerArztId,
+    neuerPflegedienstId,
+  };
+}
 
 export type FormZustand = {
   /** Feldname -> Meldung */
@@ -48,12 +102,21 @@ export async function patientAnlegen(
 
   let neuerId: string;
   try {
-    const patient = await db.patient.create({
-      data: { ...geprueft.data, angelegtVonId: sitzung.user.id },
+    const ergebnis = await db.$transaction(async (tx) => {
+      const kontakte = await patientDatenMitKontakten(tx, geprueft.data);
+      const patient = await tx.patient.create({
+        data: { ...kontakte.daten, angelegtVonId: sitzung.user.id },
+      });
+      return { patient, ...kontakte };
     });
-    neuerId = patient.id;
-    await protokolliere(sitzung.user.id, "Patient", patient.id, "ANLEGEN");
+    neuerId = ergebnis.patient.id;
+    await protokolliere(sitzung.user.id, "Patient", ergebnis.patient.id, "ANLEGEN");
+    if (ergebnis.neuerArztId) await protokolliere(sitzung.user.id, "Doctor", ergebnis.neuerArztId, "ANLEGEN");
+    if (ergebnis.neuerPflegedienstId) await protokolliere(sitzung.user.id, "CareService", ergebnis.neuerPflegedienstId, "ANLEGEN");
   } catch (fehler) {
+    if (fehler instanceof AuswahlFehler) {
+      return { fehler: { [fehler.feld]: fehler.message }, werte: werteAus(fd) };
+    }
     if (
       fehler instanceof Prisma.PrismaClientKnownRequestError &&
       fehler.code === "P2002"
@@ -67,6 +130,7 @@ export async function patientAnlegen(
   }
 
   revalidatePath("/");
+  revalidatePath("/einstellungen/stammdaten");
   // redirect wirft - deshalb ausserhalb des try, sonst faengt der catch sie ab.
   redirect(`/patienten/${neuerId}`);
 }
@@ -88,9 +152,20 @@ export async function patientAendern(
     return { meldung: "Dieser Patient existiert nicht mehr." };
   }
 
+  let gespeicherteDaten: Awaited<ReturnType<typeof patientDatenMitKontakten>>["daten"];
   try {
-    await db.patient.update({ where: { id: patientId }, data: geprueft.data });
+    const ergebnis = await db.$transaction(async (tx) => {
+      const kontakte = await patientDatenMitKontakten(tx, geprueft.data);
+      await tx.patient.update({ where: { id: patientId }, data: kontakte.daten });
+      return kontakte;
+    });
+    gespeicherteDaten = ergebnis.daten;
+    if (ergebnis.neuerArztId) await protokolliere(sitzung.user.id, "Doctor", ergebnis.neuerArztId, "ANLEGEN");
+    if (ergebnis.neuerPflegedienstId) await protokolliere(sitzung.user.id, "CareService", ergebnis.neuerPflegedienstId, "ANLEGEN");
   } catch (fehler) {
+    if (fehler instanceof AuswahlFehler) {
+      return { fehler: { [fehler.feld]: fehler.message }, werte: werteAus(fd) };
+    }
     if (
       fehler instanceof Prisma.PrismaClientKnownRequestError &&
       fehler.code === "P2002"
@@ -108,11 +183,12 @@ export async function patientAendern(
     "Patient",
     patientId,
     "AENDERN",
-    geaenderteFelder(vorher, geprueft.data),
+    geaenderteFelder(vorher, gespeicherteDaten),
   );
 
   revalidatePath("/");
   revalidatePath(`/patienten/${patientId}`);
+  revalidatePath("/einstellungen/stammdaten");
   redirect(`/patienten/${patientId}`);
 }
 
