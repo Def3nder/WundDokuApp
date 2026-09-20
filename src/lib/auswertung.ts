@@ -68,6 +68,18 @@ export function diagrammDatumLang(wert: unknown): string {
 }
 
 /**
+ * Formatiert einen echten Zeitstempel (Millisekunden) fuer Achsenbeschriftungen
+ * einer zeitproportionalen X-Achse (aktuell nur die kleine Wundflaechen-
+ * Vorschau bei "Aktuelle Flaeche"). Anders als `diagrammDatumKurz` erwartet
+ * diese Funktion ausschliesslich Werte, die wir selbst aus `Verlaufspunkt.datum`
+ * berechnet haben - keine von Recharts intern gelieferten Werte unklarer
+ * Herkunft (siehe `diagrammTooltipDatum`).
+ */
+export function diagrammAchsenDatum(zeitstempel: number): string {
+  return datumKurzFormatter.format(new Date(zeitstempel));
+}
+
+/**
  * Recharts kann als Tooltip-Label den numerischen Datenindex liefern. Das
  * echte Aufnahmedatum steht verlaesslich im Payload des aktiven Datenpunkts.
  */

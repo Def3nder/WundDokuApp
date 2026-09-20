@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import {
   Area,
   AreaChart,
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { WUNDGRUND_GRUPPEN } from "@/lib/enums";
 import {
+  diagrammAchsenDatum,
   diagrammDatumKurz,
   diagrammDatumLang,
   diagrammTooltipDatum,
@@ -55,6 +57,7 @@ function Achsen({ einheit }: { einheit?: string }) {
       <CartesianGrid stroke="var(--border)" strokeDasharray="3 4" vertical={false} />
       <XAxis
         dataKey="datum"
+        interval={0}
         tickFormatter={diagrammDatumKurz}
         tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
         tickLine={false}
@@ -113,12 +116,48 @@ function KeineMesswerte({ text }: { text: string }) {
 
 export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
   const [offen, setOffen] = useState(false);
+  const [flaechenVorschau, setFlaechenVorschau] = useState(false);
+  const flaechenTriggerRef = useRef<HTMLDivElement>(null);
   const inhaltId = useId();
+  // Auf Geraeten ohne echtes Hover (Touch) oeffnet ein Klick die Vorschau
+  // statt eines Mouseover/-out - sonst liesse sie sich dort gar nicht
+  // schliessen. `hatHover` startet mit `true` (Desktop als Normalfall), bis
+  // die Messung nach der Hydration greift.
+  const [hatHover, setHatHover] = useState(true);
+  useEffect(() => {
+    const anfrage = window.matchMedia("(hover: hover) and (pointer: fine)");
+    setHatHover(anfrage.matches);
+    const aktualisieren = (event: MediaQueryListEvent) => setHatHover(event.matches);
+    anfrage.addEventListener("change", aktualisieren);
+    return () => anfrage.removeEventListener("change", aktualisieren);
+  }, []);
+  useEffect(() => {
+    if (hatHover || !flaechenVorschau) return;
+    function aussenKlick(event: MouseEvent) {
+      if (!flaechenTriggerRef.current?.contains(event.target as Node)) {
+        setFlaechenVorschau(false);
+      }
+    }
+    document.addEventListener("click", aussenKlick);
+    return () => document.removeEventListener("click", aussenKlick);
+  }, [hatHover, flaechenVorschau]);
+  // Feste rgba()-Werte statt einer CSS-Variable: iOS Safari zeigte im SVG-
+  // `fill`-Attribut die falsche Farbe (vermutlich `var()` oder die moderne
+  // rgb()-Syntax mit Schraegstrich-Alpha wird dort im SVG-Kontext nicht
+  // zuverlaessig aufgeloest) - auf dem Desktop war das Ergebnis korrekt.
+  // `resolvedTheme` aus next-themes umgeht das, indem die Farbe direkt in
+  // JS statt im SVG per CSS-Variable bestimmt wird.
+  const { resolvedTheme } = useTheme();
+  const balkenHervorhebung =
+    resolvedTheme === "dark" ? "rgba(2, 6, 23, 0.55)" : "rgba(15, 23, 42, 0.06)";
   const flaechen = daten.filter((punkt) => punkt.flaeche != null);
   const erster = flaechen.at(0)?.flaeche ?? null;
   const letzter = flaechen.at(-1)?.flaeche ?? null;
   const gesamttrend = flaechenTrend(letzter, erster);
   const letzterPunkt = daten.at(-1);
+  // Nur fuer die kleine Wundflaechen-Vorschau: echter Zeitstempel je Punkt
+  // fuer eine zeitproportionale Achse (siehe dort).
+  const zeitDaten = daten.map((punkt) => ({ ...punkt, t: new Date(punkt.datum).getTime() }));
   const chartDaten = daten.map((punkt) => ({ ...punkt, ...punkt.wundgrund }));
   const hatMasse = daten.some(
     (punkt) => punkt.breiteMm != null || punkt.laengeMm != null || punkt.tiefeMm != null,
@@ -132,8 +171,19 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:grid-cols-3">
-        <div className="p-5 sm:border-r sm:border-border">
+      <div className="grid rounded-xl border border-border bg-card shadow-sm sm:grid-cols-3">
+        <div
+          ref={flaechenTriggerRef}
+          className="relative p-5 sm:border-r sm:border-border"
+          {...(hatHover
+            ? {
+                onMouseEnter: () => setFlaechenVorschau(true),
+                onMouseLeave: () => setFlaechenVorschau(false),
+              }
+            : {
+                onClick: () => setFlaechenVorschau((sichtbar) => !sichtbar),
+              })}
+        >
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Aktuelle Fläche
           </p>
@@ -143,6 +193,54 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
           <p className="mt-1 text-xs text-muted-foreground">
             {letzterPunkt ? `Stand ${diagrammDatumLang(letzterPunkt.datum)}` : "Keine Messung"}
           </p>
+          {flaechenVorschau && flaechen.length > 0 && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute left-0 top-full z-30 mt-2 overflow-hidden rounded-lg border border-border bg-card p-3 shadow-lg"
+              style={{ maxWidth: "calc(100vw - 2rem)" }}
+            >
+              <p className="mb-1 text-xs font-semibold text-heading">Wundfläche</p>
+              {/* Feste Pixelgroesse statt ResponsiveContainer: In diesem per
+                  Hover/Touch frisch eingeblendeten, absolut positionierten
+                  Popover misst ResponsiveContainer auf iOS Safari beim ersten
+                  Rendern zuverlaessig eine Breite/Hoehe von 0 - der Vorschau-
+                  Inhalt blieb dort leer. Links statt zentriert verankert und
+                  auf die Viewportbreite gedeckelt, damit das (deutlich
+                  breitere) Diagramm bei der schmalen ersten Kachelspalte
+                  (z. B. auf dem iPad) nicht ueber den linken Rand hinausragt.
+                  Anders als die vier Diagramme im Wundverlauf unten nutzt nur
+                  diese kleine Vorschau eine echte, zeitproportionale Achse
+                  (`t` in Millisekunden statt der kategorialen `datum`-Achse) -
+                  unterschiedliche Abstaende zwischen Aufnahmen sind hier also
+                  auch als unterschiedlich breite Abschnitte sichtbar. */}
+              <AreaChart
+                width={560}
+                height={280}
+                data={zeitDaten}
+                margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+              >
+                <XAxis
+                  dataKey="t"
+                  type="number"
+                  domain={["dataMin", "dataMax"]}
+                  tickFormatter={diagrammAchsenDatum}
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={{ stroke: "var(--border-strong)" }}
+                  minTickGap={32}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="flaeche"
+                  stroke="var(--chart-1)"
+                  strokeWidth={2}
+                  fill="var(--chart-1)"
+                  fillOpacity={0.22}
+                  connectNulls
+                />
+              </AreaChart>
+            </div>
+          )}
         </div>
         <div className="border-t border-border p-5 sm:border-r sm:border-t-0">
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -288,7 +386,7 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={daten} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke="var(--border)" strokeDasharray="3 4" vertical={false} />
-                  <XAxis dataKey="datum" tickFormatter={diagrammDatumKurz} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border-strong)" }} minTickGap={18} />
+                  <XAxis dataKey="datum" interval={0} tickFormatter={diagrammDatumKurz} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border-strong)" }} minTickGap={18} />
                   <YAxis yAxisId="vas" domain={[0, 10]} width={30} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} tickLine={false} axisLine={false} />
                   <YAxis yAxisId="exsudat" orientation="right" domain={[0, 3]} ticks={[0, 1, 2, 3]} width={24} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} tickLine={false} axisLine={false} />
                   <Tooltip
@@ -323,6 +421,7 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
                   <Achsen />
                   <Tooltip
                     contentStyle={tooltipStil()}
+                    cursor={{ fill: balkenHervorhebung }}
                     labelFormatter={diagrammTooltipDatum}
                     formatter={(wert, name) => [
                       `${wert} ${Number(wert) === 1 ? "Befund" : "Befunde"}`,
