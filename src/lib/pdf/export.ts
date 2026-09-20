@@ -15,6 +15,7 @@ import { absoluterFotoPfad } from "@/lib/fotos";
 import { leseAuswahl } from "@/lib/utils";
 import { beschreibeDauer, beschreibeLokalisation, beschreibeRezidiv, datum } from "@/lib/wundtext";
 import { flaecheMm2, formatiereMm2, formatiereProzent, flaechenTrend } from "@/lib/wundmasse";
+import { baueVerlaufspunkte, diagrammDatumKurz } from "@/lib/auswertung";
 import {
   AUFNAHME_TYPEN,
   DEKUBITUS_KATEGORIEN,
@@ -33,13 +34,17 @@ import {
   WUNDABDECKUNG,
   WUNDFUELLUNG,
   WUNDGRUND,
+  WUNDGRUND_GRUPPEN,
   WUNDRAND,
   WUNDSPUELUNG,
   WUNDUMGEBUNG,
   labelVon,
   labelsVon,
 } from "@/lib/enums";
-import { PdfBuilder, type Angabe } from "@/lib/pdf/builder";
+import { PdfBuilder, PDF_DIAGRAMM_FARBEN, type Angabe } from "@/lib/pdf/builder";
+
+/** Dieselbe Farbstaffelung wie `gruppenFarben` in verlaufsdiagramme.tsx. */
+const WUNDGRUND_GRUPPEN_FARBEN = [1, 0, 2, 4, 3].map((index) => PDF_DIAGRAMM_FARBEN[index]);
 
 export class PdfExportFehler extends Error {}
 
@@ -202,6 +207,52 @@ async function renderAufnahme(
   await builder.fotoRaster(`Fotos${fotos.length > 0 ? ` (${fotos.length})` : ""}`, fotos);
 }
 
+/** Dieselben vier Verlaufsdiagramme wie im Wund-Cockpit (`Verlaufsdiagramme`), fuer den PDF-Export. */
+function renderVerlaufsdiagramme(builder: PdfBuilder, aufnahmen: readonly Assessment[]): void {
+  const punkte = baueVerlaufspunkte(aufnahmen);
+  const xLabels = punkte.map((p) => diagrammDatumKurz(p.datum));
+  const [chart1, chart2, chart3, chart4, chart5] = PDF_DIAGRAMM_FARBEN;
+
+  builder.liniendiagramm(
+    "Wundfläche",
+    "Breite × Länge in mm² – kleinere Werte bedeuten Heilungsfortschritt.",
+    xLabels,
+    [{ name: "Fläche", farbe: chart1, werte: punkte.map((p) => p.flaeche), flaeche: true }],
+  );
+
+  builder.liniendiagramm(
+    "Abmessungen",
+    "Breite, Länge und Tiefe in Millimetern.",
+    xLabels,
+    [
+      { name: "Breite", farbe: chart1, werte: punkte.map((p) => p.breiteMm) },
+      { name: "Länge", farbe: chart2, werte: punkte.map((p) => p.laengeMm), gestrichelt: true },
+      { name: "Tiefe", farbe: chart4, werte: punkte.map((p) => p.tiefeMm), gestrichelt: true },
+    ],
+  );
+
+  builder.liniendiagramm(
+    "Schmerz & Exsudation",
+    "VAS 0–10 und Exsudatstufe 0–3 auf getrennten Achsen.",
+    xLabels,
+    [
+      { name: "Schmerz-VAS", farbe: chart5, werte: punkte.map((p) => p.schmerzVas), domain: [0, 10] },
+      { name: "Exsudat", farbe: chart3, werte: punkte.map((p) => p.exsudatStufe), domain: [0, 3], gestrichelt: true },
+    ],
+  );
+
+  builder.gestapeltesBalkendiagramm(
+    "Wundgrund-Zusammensetzung",
+    "Dokumentierte Befunde, gebündelt in fünf klinische Gruppen.",
+    xLabels,
+    WUNDGRUND_GRUPPEN.map((gruppe, index) => ({
+      name: gruppe.label,
+      farbe: WUNDGRUND_GRUPPEN_FARBEN[index],
+      werte: punkte.map((p) => p.wundgrund[gruppe.id]),
+    })),
+  );
+}
+
 function pruefeAufnahmeSichtbar(aufnahme: { geloeschtAm: Date | null }, wunde: Wound, patient: Patient): void {
   if (aufnahme.geloeschtAm || wunde.geloeschtAm || patient.geloeschtAm) {
     throw new PdfExportFehler("Aufnahme nicht gefunden");
@@ -299,6 +350,8 @@ export async function erzeugeVerlaufPdf(
       fotos: a.fotos.length,
     };
   }));
+
+  renderVerlaufsdiagramme(builder, wunde.aufnahmen);
 
   let vorherigeFlaeche: number | null = null;
   for (const [index, aufnahme] of wunde.aufnahmen.entries()) {

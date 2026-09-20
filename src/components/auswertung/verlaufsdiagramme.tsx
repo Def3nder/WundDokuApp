@@ -1,5 +1,6 @@
 "use client";
 
+import { useId, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -14,29 +15,19 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Activity, Droplets, Ruler, Sparkles } from "lucide-react";
+import { Activity, ChartLine, ChevronDown, Droplets, Ruler, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { WUNDGRUND_GRUPPEN } from "@/lib/enums";
 import {
   diagrammDatumKurz,
   diagrammDatumLang,
   diagrammTooltipDatum,
-  type WundgrundGruppeId,
+  type Verlaufspunkt,
 } from "@/lib/auswertung";
 import { flaechenTrend, formatiereMm2, formatiereProzent } from "@/lib/wundmasse";
 
-export type Verlaufspunkt = {
-  id: string;
-  datum: string;
-  flaeche: number | null;
-  breiteMm: number | null;
-  laengeMm: number | null;
-  tiefeMm: number | null;
-  schmerzVas: number | null;
-  exsudatStufe: number | null;
-  exsudatLabel: string;
-  wundgrund: Record<WundgrundGruppeId, number>;
-};
+export type { Verlaufspunkt };
 
 const deutscheZahl = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
 const gruppenFarben = [
@@ -121,6 +112,8 @@ function KeineMesswerte({ text }: { text: string }) {
 }
 
 export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
+  const [offen, setOffen] = useState(false);
+  const inhaltId = useId();
   const flaechen = daten.filter((punkt) => punkt.flaeche != null);
   const erster = flaechen.at(0)?.flaeche ?? null;
   const letzter = flaechen.at(-1)?.flaeche ?? null;
@@ -179,7 +172,42 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <button
+          type="button"
+          onClick={() => setOffen((o) => !o)}
+          aria-expanded={offen}
+          aria-controls={inhaltId}
+          className="flex w-full items-center gap-3 p-4 text-left cursor-pointer sm:p-5"
+        >
+          <span
+            aria-hidden="true"
+            className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-on-secondary"
+          >
+            <ChartLine className="size-4.5" aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-heading text-base font-semibold text-heading">
+              Wundverlauf
+            </span>
+            <span className="mt-0.5 block text-sm font-normal text-muted-foreground">
+              Fläche, Abmessungen, Schmerz/Exsudat und Wundgrund als Diagramme
+            </span>
+          </span>
+          <ChevronDown
+            className={cn(
+              "size-5 shrink-0 text-muted-foreground transition-transform duration-200",
+              offen && "rotate-180",
+            )}
+            aria-hidden="true"
+          />
+        </button>
+
+        <div
+          id={inhaltId}
+          hidden={!offen}
+          className="grid gap-4 border-t border-border p-4 lg:grid-cols-2 sm:p-5"
+        >
         <DiagrammKarte
           icon={Activity}
           titel="Wundfläche"
@@ -319,23 +347,24 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
             <KeineMesswerte text="Für die Wundgrund-Auswertung fehlen noch gruppierbare Befunde." />
           )}
         </DiagrammKarte>
-      </div>
 
-      <table className="nur-screenreader">
-        <caption>Tabellarische Daten der Verlaufsdiagramme</caption>
-        <thead>
-          <tr>
-            <th>Datum</th><th>Fläche</th><th>Breite</th><th>Länge</th><th>Tiefe</th><th>Schmerz-VAS</th><th>Exsudat</th>
-          </tr>
-        </thead>
-        <tbody>
-          {daten.map((punkt) => (
-            <tr key={punkt.id}>
-              <td>{diagrammDatumLang(punkt.datum)}</td><td>{punkt.flaeche ?? "–"}</td><td>{punkt.breiteMm ?? "–"}</td><td>{punkt.laengeMm ?? "–"}</td><td>{punkt.tiefeMm ?? "–"}</td><td>{punkt.schmerzVas ?? "–"}</td><td>{punkt.exsudatLabel || "–"}</td>
+        <table className="nur-screenreader">
+          <caption>Tabellarische Daten der Verlaufsdiagramme</caption>
+          <thead>
+            <tr>
+              <th>Datum</th><th>Fläche</th><th>Breite</th><th>Länge</th><th>Tiefe</th><th>Schmerz-VAS</th><th>Exsudat</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {daten.map((punkt) => (
+              <tr key={punkt.id}>
+                <td>{diagrammDatumLang(punkt.datum)}</td><td>{punkt.flaeche ?? "–"}</td><td>{punkt.breiteMm ?? "–"}</td><td>{punkt.laengeMm ?? "–"}</td><td>{punkt.tiefeMm ?? "–"}</td><td>{punkt.schmerzVas ?? "–"}</td><td>{punkt.exsudatLabel || "–"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        </div>
+      </div>
     </div>
   );
 }
