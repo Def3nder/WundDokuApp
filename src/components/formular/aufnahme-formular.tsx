@@ -152,7 +152,14 @@ export function AufnahmeFormular({
   }
 
   return (
-    <form ref={formularRef} action={formAction} onSubmit={(event) => void vorAbsenden(event)} className="space-y-6" noValidate>
+    <form
+      ref={formularRef}
+      action={formAction}
+      onSubmit={(event) => void vorAbsenden(event)}
+      className="space-y-6"
+      data-aenderungen-warnung="aufnahme"
+      noValidate
+    >
       {autosave.entwurfId && <input type="hidden" name="entwurfId" value={autosave.entwurfId} />}
 
       <FehlerUebersicht fehler={zustand.fehler} />

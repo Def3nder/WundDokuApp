@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Figtree, Noto_Sans } from "next/font/google";
+import { FormularEnterSchutz } from "@/components/formular/formular-enter-schutz";
+import { UngespeicherteAenderungenSchutz } from "@/components/formular/ungespeicherte-aenderungen-schutz";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
@@ -43,6 +45,8 @@ export default function RootLayout({
     <html lang="de" suppressHydrationWarning>
       <body className={`${figtree.variable} ${notoSans.variable} antialiased`}>
         <ThemeProvider>
+          <FormularEnterSchutz />
+          <UngespeicherteAenderungenSchutz />
           <a
             href="#hauptinhalt"
             className="nur-screenreader focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-3 focus:text-on-primary"

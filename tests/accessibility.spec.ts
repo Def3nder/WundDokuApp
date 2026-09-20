@@ -175,14 +175,20 @@ test("Formulargruppen und Fotodialog halten die Tastaturkonventionen ein", async
 
   const gruppen = page.locator('main [role="radiogroup"]');
   expect(await gruppen.count()).toBeGreaterThan(0);
-  const tabstopps = await gruppen.evaluateAll((elemente) =>
-    elemente.map((gruppe) =>
-      Array.from(gruppe.querySelectorAll<HTMLElement>('[role="radio"]')).filter(
-        (radio) => radio.tabIndex === 0,
-      ).length,
-    ),
+  const ungueltigeTabstopps = await gruppen.evaluateAll((elemente) =>
+    elemente
+      .map((gruppe) => ({
+        bezeichnung:
+          gruppe.getAttribute("aria-label") ??
+          gruppe.querySelector("legend")?.textContent?.trim() ??
+          "Unbenannte Radiogruppe",
+        anzahl: Array.from(gruppe.querySelectorAll<HTMLElement>('[role="radio"]')).filter(
+          (radio) => radio.tabIndex === 0,
+        ).length,
+      }))
+      .filter(({ anzahl }) => anzahl !== 1),
   );
-  expect(tabstopps.every((anzahl) => anzahl === 1)).toBe(true);
+  expect(ungueltigeTabstopps).toEqual([]);
 
   const aufnahmeRoute = routen.find((route) => /^\/aufnahmen\/[^/]+$/.test(route));
   expect(aufnahmeRoute).toBeTruthy();
@@ -199,5 +205,121 @@ test("Formulargruppen und Fotodialog halten die Tastaturkonventionen ein", async
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
     await expect(fotoOeffnen).toBeFocused();
+  }
+});
+
+test("Versorgungspartner lassen sich suchen, auswählen und neu anlegen", async ({ page }) => {
+  await anmelden(page);
+  await page.goto("/patienten/neu");
+
+  const arztSuche = page.getByLabel("Therapieverantwortlicher Arzt");
+  await arztSuche.fill("katharina schneider");
+  const arzt = page.getByRole("radio", { name: /Dr\. med\. Katharina Schneider/ });
+  await expect(arzt).toBeVisible();
+  await expect(page.getByRole("radio", { name: /Dr\. med\. Thomas Berger/ })).toHaveCount(0);
+  await arztSuche.press("Enter");
+  await expect(page.locator('input[type="hidden"][name="arztId"]')).toHaveValue(
+    "seed-doctor-01",
+  );
+  await expect(page).toHaveURL(/\/patienten\/neu$/);
+
+  const pflegeSuche = page.getByRole("searchbox", { name: "Pflegedienst", exact: true });
+  await arztSuche.press("Tab");
+  await expect(pflegeSuche).toBeFocused();
+  await pflegeSuche.fill("sabine kruger");
+  await expect(
+    page.getByRole("radio", { name: /Ambulanter Pflegedienst Sonnenschein/ }),
+  ).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Kein Pflegedienst" })).toHaveCount(0);
+  await pflegeSuche.press("Tab");
+  await expect(page.locator('input[type="hidden"][name="pflegedienstId"]')).toHaveValue(
+    "seed-care-service-01",
+  );
+  await expect(page.getByLabel("Notizen")).toBeFocused();
+
+  const implizitesAbsenden = page
+    .waitForRequest((anfrage) => anfrage.method() === "POST", { timeout: 750 })
+    .then(() => true)
+    .catch(() => false);
+  await page.getByLabel("Nachname").press("Enter");
+  expect(await implizitesAbsenden).toBe(false);
+
+  await expect(page.getByRole("button", { name: "Neuen Arzt anlegen" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Neuen Pflegedienst anlegen" })).toBeVisible();
+
+  const routen = await anwendungsRouten(page);
+  const wundeNeu = routen.find((route) => route.endsWith("/wunden/neu"));
+  expect(wundeNeu).toBeTruthy();
+  await page.goto(wundeNeu!);
+  await expect(page.getByRole("button", { name: "Neuen Arzt anlegen" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Neuen Pflegedienst anlegen" })).toBeVisible();
+  const wundeArztSuche = page.getByRole("searchbox", {
+    name: "Behandelnder Arzt (optional)",
+  });
+  await wundeArztSuche.fill("katharina schneider");
+  await expect(page.getByRole("radio", { name: "Kein behandelnder Arzt" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Marker auf Körperkarte" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  const wundeBearbeiten = routen.find((route) => /^\/wunden\/[^/]+\/bearbeiten$/.test(route));
+  expect(wundeBearbeiten).toBeTruthy();
+  await page.goto(wundeBearbeiten!);
+  const gespeicherterModus = await page
+    .locator('input[type="hidden"][name="lokalisationModus"]')
+    .inputValue();
+  await expect(
+    page.getByRole("button", {
+      name: gespeicherterModus === "FREIHAND" ? "Frei einzeichnen" : "Marker auf Körperkarte",
+    }),
+  ).toHaveAttribute("aria-pressed", "true");
+
+  await page.goto(wundeBearbeiten!.replace(/\/bearbeiten$/, ""));
+  await expect(page.getByText("Lokalisationsart", { exact: true })).toBeVisible();
+});
+
+test("Navigation warnt nur bei tatsächlich ungespeicherten Änderungen", async ({ page }) => {
+  await anmelden(page);
+  const routen = await anwendungsRouten(page);
+  const patientBearbeiten = routen.find((route) => /^\/patienten\/[^/]+\/bearbeiten$/.test(route));
+  expect(patientBearbeiten).toBeTruthy();
+  await page.goto(patientBearbeiten!);
+
+  const formular = page.locator('form[data-aenderungen-warnung="patient"]');
+  await expect(formular).toBeVisible();
+  const nachname = page.getByLabel("Nachname");
+  const ausgangswert = await nachname.inputValue();
+  await nachname.fill(`${ausgangswert} geändert`);
+  await expect
+    .poll(() => page.locator("html").getAttribute("data-ungespeicherte-aenderungen"))
+    .toBe("true");
+
+  const stammdaten = page.getByRole("link", { name: "Stammdaten", exact: true });
+  const dialogErwartet = page.waitForEvent("dialog");
+  const navigation = stammdaten.click();
+  const dialog = await dialogErwartet;
+  expect(dialog.message()).toContain("ungespeicherte Änderungen");
+  await dialog.dismiss();
+  await navigation;
+  await expect(page).toHaveURL(new RegExp(`${patientBearbeiten!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`));
+  await expect(nachname).toHaveValue(`${ausgangswert} geändert`);
+
+  await nachname.fill(ausgangswert);
+  await expect
+    .poll(() => page.locator("html").getAttribute("data-ungespeicherte-aenderungen"))
+    .toBe("false");
+  let unerwarteterDialog = false;
+  page.once("dialog", async (offenerDialog) => {
+    unerwarteterDialog = true;
+    await offenerDialog.dismiss();
+  });
+  await stammdaten.click();
+  await expect(page).toHaveURL(/\/einstellungen\/stammdaten$/);
+  expect(unerwarteterDialog).toBe(false);
+
+  for (const route of routen.filter((route) => /\/(wunden|aufnahmen)\/[^/]+\/bearbeiten$/.test(route))) {
+    await page.goto(route);
+    await expect(page.locator("form[data-aenderungen-warnung]")).toBeVisible();
   }
 });

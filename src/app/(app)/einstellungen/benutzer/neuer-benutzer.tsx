@@ -33,7 +33,13 @@ export function NeuerBenutzer({ abbrechenNach }: { abbrechenNach: string }) {
   return (
     <Card>
       <CardContent className="space-y-5 pt-6">
-        <form key={zustandGeneration.current} action={formAction} className="space-y-5" noValidate>
+        <form
+          key={zustandGeneration.current}
+          action={formAction}
+          className="space-y-5"
+          data-aenderungen-warnung="benutzer"
+          noValidate
+        >
           <FehlerUebersicht fehler={zustand.fehler} />
 
           <div className="grid gap-5 sm:grid-cols-2">

@@ -1,1 +1,1 @@
-Beim Anlegen einer Wunde darf der behandelnde Arzt auf leer sein.
+in der StammdatenSuche sollte per Tab zu dem nächsten Eingabefelde gewechselt werden und nicht auf den "Eintrag löschen Button"

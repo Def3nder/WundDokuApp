@@ -3,8 +3,46 @@
 Arbeitsstand für die Fortsetzung in einer neuen Sitzung. Ergänzt die
 inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
 
-**Stand:** 19.09.2026 · Phase 1 bis 6 fertig
-**Prüfstand:** `npm run typecheck` sauber · `npm test` 59/59 grün · `npm run test:a11y` 5/5 grün · `npx next build` sauber · Browser-Durchgang erfolgreich (Login, Leerzustände, Tastaturbedienung, Lightbox, mobile Navigation, Hell-/Dark-Mode, PDF-Export einzeln und Verlauf, Audit-Log-Filter) · noch nichts committet
+**Stand:** 20.09.2026 · Phase 1 bis 6 fertig
+**Prüfstand:** `npm run typecheck` sauber · `npm test` 78/78 grün · `npm run test:a11y` 7/7 grün · `npm run build` sauber · Browser-Durchgang erfolgreich (Login, Leerzustände, Tastaturbedienung, Lightbox, mobile Navigation, Hell-/Dark-Mode, PDF-Export einzeln und Verlauf, Audit-Log-Filter, Versorgungspartner-Suche bei Patient und Wunde, Warnung bei ungespeicherten Änderungen) · aktuelle Erweiterung noch nicht committet
+
+---
+
+## Erweiterung Versorgungspartner — 20.09.2026
+
+- Die Arzt- und Pflegedienst-Auswahl bei **Patient und Wunde** verwendet jetzt
+  eine sichtbare Suchzeile mit direkt darunter gefilterten Treffern statt eines
+  nativen Drop-downs. Gesucht wird begriffsweise über Namen, Titel wie
+  `Dr.`/`Prof.`, Praxis und Ansprechpartner; Groß-/Kleinschreibung, Umlaute und
+  Satzzeichen sind für die Suche unerheblich.
+- Im Wundformular lassen sich Arzt und Pflegedienst nun genauso zentral neu
+  anlegen wie im Patientenformular. Arzt und Pflegedienst bleiben an der Wunde
+  optional; beim Patienten bleibt der therapieverantwortliche Arzt Pflicht.
+- Prüfung bzw. Neuanlage der zentralen Stammdaten und das Speichern von
+  Patient/Wunde laufen in derselben Datenbanktransaktion. Neue Stammdatensätze
+  werden zusätzlich im Audit-Log protokolliert.
+- Die Trefferlisten sind als tastaturbedienbare Radiogruppen mit genau einem
+  Tab-Stopp umgesetzt. Dabei wurde auch die leere Vorbelegung bestehender
+  Radio-Chips korrigiert.
+- Ist die Suche auf genau einen Versorgungspartner eingegrenzt, übernehmen
+  `Enter` und `Tab` diesen Treffer direkt. Enter in einem einzeiligen
+  Eingabefeld löst an keiner Stelle mehr ein implizites Speichern aus;
+  Formulare werden nur über ihre Absende-Schaltfläche abgeschickt.
+- `Tab` springt aus der Stammdatensuche direkt zum nächsten Eingabefeld und
+  überspringt den Leeren-Knopf sowie die Trefferliste. Die Trefferliste bleibt
+  über `Pfeil nach unten` gezielt per Tastatur erreichbar.
+- Sobald in einer Versorgungspartner-Suche Text steht, wird der Leereintrag
+  „Kein Arzt/Pflegedienst“ aus den Suchergebnissen ausgeblendet.
+- Die Lokalisationsart (`MARKER` oder `FREIHAND`) wird nun pro Wunde gespeichert
+  und beim Bearbeiten wieder geöffnet. Die Wundübersicht weist sie textlich als
+  „Marker auf Körperkarte“ bzw. „Frei eingezeichnet“ aus; ein Lokalisationsbild
+  wird dort weiterhin bewusst nicht angezeigt. Eine Migration übernimmt
+  bestehende frei eingezeichnete Marker automatisch als `FREIHAND`.
+- Patienten-, Wund-, Aufnahme-, Benutzer-, Dokument- und Stammdatenformulare
+  vergleichen ihren aktuellen Inhalt mit dem Ausgangszustand. Beim Verlassen
+  über die Navigation erscheint nur bei tatsächlich ungespeicherten Änderungen
+  eine Sicherheitsabfrage; nach dem Zurücksetzen auf die Ausgangswerte nicht.
+  Reine Such-, Lösch- und Abmeldeformulare sind davon ausgenommen.
 
 ---
 
@@ -603,7 +641,7 @@ Der Seed läuft mehrfach ohne Schaden (`upsert` auf die Patientennummer).
 
 ```bash
 npm run dev          # Entwicklungsserver
-npm test             # 59 Tests
+npm test             # 78 Tests
 npm run test:a11y    # Playwright/axe in Hell und Dunkel (lokales Chrome)
 npm run typecheck    # Typprüfung
 npm run db:studio    # Datenbank ansehen

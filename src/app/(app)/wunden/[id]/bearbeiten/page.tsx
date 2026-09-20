@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { verlangeSitzung } from "@/lib/auth";
 import { WundeFormular } from "@/components/wunde/wunde-formular";
 import { wundeAendern } from "@/actions/wunden";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
@@ -13,13 +12,11 @@ export default async function WundeBearbeitenSeite({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const sitzung = await verlangeSitzung();
   const wunde = await db.wound.findUnique({ where: { id }, include: { patient: true } });
   if (!wunde || wunde.geloeschtAm || wunde.patient.geloeschtAm) notFound();
-  const [aerzte, pflegedienste, benutzer] = await Promise.all([
+  const [aerzte, pflegedienste] = await Promise.all([
     db.doctor.findMany({ where: { geloeschtAm: null }, orderBy: { name: "asc" }, select: { id: true, name: true, praxis: true } }),
-    db.careService.findMany({ where: { geloeschtAm: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
-    db.user.findUnique({ where: { id: sitzung.user.id }, select: { lokalisationsAnzeige: true } }),
+    db.careService.findMany({ where: { geloeschtAm: null }, orderBy: { name: "asc" }, select: { id: true, name: true, ansprechpartner: true } }),
   ]);
 
   const action = wundeAendern.bind(null, id);
@@ -43,11 +40,16 @@ export default async function WundeBearbeitenSeite({
           diagnoseTyp: wunde.diagnoseTyp,
           diagnoseFreitext: wunde.diagnoseFreitext ?? "",
           arztId: wunde.arztId ?? "",
+          neuerArztName: "",
+          neueArztPraxis: "",
           pflegedienstId: wunde.pflegedienstId ?? "",
+          neuerPflegedienstName: "",
+          neuerPflegedienstAnsprechpartner: "",
           lokalisationRegion: wunde.lokalisationRegion ?? "",
           lokalisationSeite: wunde.lokalisationSeite ?? "",
           lokalisationAusrichtung: wunde.lokalisationAusrichtung ?? "",
           lokalisationFreitext: wunde.lokalisationFreitext ?? "",
+          lokalisationModus: wunde.lokalisationModus,
           lokalisationMarkerX: wunde.lokalisationMarkerX?.toString() ?? "",
           lokalisationMarkerY: wunde.lokalisationMarkerY?.toString() ?? "",
           lokalisationMarkerRadius: wunde.lokalisationMarkerRadius?.toString() ?? "",
@@ -58,7 +60,6 @@ export default async function WundeBearbeitenSeite({
         }}
         aerzte={aerzte}
         pflegedienste={pflegedienste}
-        anzeigeModus={benutzer?.lokalisationsAnzeige}
       />
     </div>
   );

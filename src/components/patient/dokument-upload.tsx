@@ -23,7 +23,11 @@ export function DokumentUpload({
   return (
     <Card>
       <CardContent className="p-5 sm:p-6">
-        <form action={action} className="space-y-5">
+        <form
+          action={action}
+          className="space-y-5"
+          data-aenderungen-warnung="dokument"
+        >
           <input type="hidden" name="typ" value={typ} />
           <Field id="dokument-titel" label="Titel" pflicht>
             {(p) => (
