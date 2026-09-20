@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronRight, FileText, Plus, ReceiptText, Trash2 } from "lucide-react";
+import { FileText, Plus, ReceiptText } from "lucide-react";
 import { dokumentLoeschen } from "@/actions/dokumente";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { db } from "@/lib/db";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { DokumentListe } from "@/components/patient/dokument-liste";
 
 export const metadata = { title: "Patientendokumente" };
 
@@ -63,45 +64,7 @@ export default async function DokumenteSeite({
           </CardContent>
         </Card>
         ) : (
-        <ul className="space-y-3">
-          {patient.dokumente.map((dokument) => (
-            <li key={dokument.id}>
-              <Card className="hover:border-primary">
-                <CardContent className="flex items-center gap-2 p-0">
-                  <a
-                    href={`/api/documents/${dokument.id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex min-w-0 flex-1 items-center gap-4 rounded-l-xl p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <Icon className="size-7 shrink-0 text-primary" aria-hidden="true" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{dokument.titel}</p>
-                      <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                        {dokument.dateiname} · {dokument.mimeType === "application/pdf" ? "PDF" : "Foto"}
-                      </p>
-                      <p className="mt-2 text-sm text-muted-foreground tabular">
-                        Hinzugefügt am {dokument.createdAt.toLocaleDateString("de-DE")}
-                      </p>
-                    </div>
-                    <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  </a>
-                  <form action={dokumentLoeschen.bind(null, dokument.id)} className="pr-3">
-                    <Button
-                      type="submit"
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      aria-label={`${dokument.titel} löschen`}
-                    >
-                      <Trash2 aria-hidden="true" />
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ul>
+          <DokumentListe dokumente={patient.dokumente} typ={typ} dokumentLoeschen={dokumentLoeschen} />
         )}
       </section>
     </div>

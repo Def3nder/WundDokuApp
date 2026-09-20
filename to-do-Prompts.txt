@@ -1,1 +1,27 @@
-in der StammdatenSuche sollte per Tab zu dem nächsten Eingabefelde gewechselt werden und nicht auf den "Eintrag löschen Button"
+In der StammdatenSuche wird, sobald ich etwas eingetragen habe, ein kleines "x" angezeigt am Ende des Eingabefeldes und zusätzlich ein "x"-Button eingeblendet. Bitte nur eines von beiden nutzen.
+
+Alle Wundverlaufsdiagramme einklappen unter den oberen Metadaten-Feldern ("Aktuelle Fläche", "Seit erster Messung" und "Dokumentierte Termine"),
+so dass diese nur bei Bedarf angezeigt werden. BEschriftung "Wundverlauf" mit dem Piktogramm einer Kurve.
+
+Bitte diese Diagramme mit in das PDF "Wundverlauf" aufnehmen.
+
+Bitte das kleine Icon im Wundverlauf beim Diagramm "Wundfläche" als favicon.ico der Website ausgeben.
+
+################
+
+In der StammdatenSuche soll bei der Anzeige von mehreren Einträge beim Drücken von "Tab" in die Liste gesprungen werden und nur bei einem Eintrag in das nächste EIngabefeld gewechselt werden.
+
+Bitte bei der Anzeige des Patienten den "Bearbeiten" Button auf der gleichen Höhe wie die beiden Buttons "Rezepte" und "Arztbriefe" (unten ausgerichtet) nur auf der rechten Seite anzeigen (also rechts unten, während die anderen beiden Buttons links unten sind).
+
+Kannst Du im erzeugten PDF "Wundverlauf" einen Link von der Tabelle der Aufnahmen zu der entsprechenden St3elle im Dokument erzeugen, so dass ich in der Übersicht auf einenm Eintrag klicken kann und das PDF dann an diese Stelle springt ?
+
+###############
+
+Im Änderungsprotokoll kann man "Arzt" und "Pflegedienst" auswählen, es wird dann aber nur angezeigt, dass ein neuer Eintrag angelegt worden ist, aber nicht, welcher Arzt / Deinst hinzugefügt / gelöscht wurde 
+
+Man kann im PDF Wundverlauf jetzt von der Übersicht der Aufnahmen direkt zu der Aufnahme springen. Ich würde gerne in dem Kopf der Aufnahme auf dieser Seite einen kleinen "Pfeil nach Oben" Button haben, so dass man auch wieder zurück zur Übersicht springen kann und somit sich schnell die einzelnen Eintröäge anschauen kann.
+
+Die Anzeige von Rezepten / Arztbriefen im Popup soll zoombar sein. Auf Touch-Geräte mit pinch / Punch, auf dem Desktop mit dem Scrollrad und Verschieben mit der Maus.
+In der Standard-Ansicht soll das Dokument vollkommen sichtbar sein (also auf die Seite eingepaßt werden).
+
+Bei der Anzeige der Wunde nimm bitte den Punkt "Lokalisationsart" wieder weg (nicht anzeigen, nur merken), so dass wieder vier Daten in einer Zeile angezeigt werden und keine zweite Zeile entsteht.

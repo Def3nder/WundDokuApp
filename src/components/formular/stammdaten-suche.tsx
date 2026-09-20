@@ -104,7 +104,8 @@ export function StammdatenSuche({
 
     if (auswahlOptionen.length > 1) {
       event.preventDefault();
-      fokussiereErsteOption();
+      waehlen(auswahlOptionen[0].id);
+      requestAnimationFrame(() => fokussiereErsteOption());
       return;
     }
 
