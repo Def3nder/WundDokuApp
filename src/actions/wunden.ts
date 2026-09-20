@@ -94,7 +94,7 @@ export async function wundeAnlegen(
   const { wunde, kontakte } = ergebnis;
   await protokolliere(sitzung.user.id, "Wound", wunde.id, "ANLEGEN");
   if (kontakte.neuerArztId) {
-    await protokolliere(sitzung.user.id, "Doctor", kontakte.neuerArztId, "ANLEGEN");
+    await protokolliere(sitzung.user.id, "Doctor", kontakte.neuerArztId, "ANLEGEN", kontakte.arztName ?? undefined);
   }
   if (kontakte.neuerPflegedienstId) {
     await protokolliere(
@@ -102,6 +102,7 @@ export async function wundeAnlegen(
       "CareService",
       kontakte.neuerPflegedienstId,
       "ANLEGEN",
+      kontakte.pflegedienstName ?? undefined,
     );
   }
 
@@ -158,7 +159,7 @@ export async function wundeAendern(
     geaenderteFelder(vorher, daten),
   );
   if (kontakte.neuerArztId) {
-    await protokolliere(sitzung.user.id, "Doctor", kontakte.neuerArztId, "ANLEGEN");
+    await protokolliere(sitzung.user.id, "Doctor", kontakte.neuerArztId, "ANLEGEN", kontakte.arztName ?? undefined);
   }
   if (kontakte.neuerPflegedienstId) {
     await protokolliere(
@@ -166,6 +167,7 @@ export async function wundeAendern(
       "CareService",
       kontakte.neuerPflegedienstId,
       "ANLEGEN",
+      kontakte.pflegedienstName ?? undefined,
     );
   }
 

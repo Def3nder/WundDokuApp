@@ -315,8 +315,9 @@ export class PdfBuilder {
   }
 
   /** Abschnittsueberschrift, wie die Karten-Titel im Formular ("Wundbefund" usw.). */
-  abschnitt(titel: string): void {
+  abschnitt(titel: string, zielId?: string): void {
     this.sicherstellenPlatz(34);
+    if (zielId) this.setzeSprungziel(zielId, Math.min(this.y + 4, SEITE_HOEHE - 12));
     this.y -= 6;
     this.text(titel, RAND, this.y, { font: this.schriftFett, size: GROESSE_ABSCHNITT, color: FARBE_PRIMAER });
     this.y -= 8;
@@ -443,7 +444,7 @@ export class PdfBuilder {
 
   /** Auffaellige, nummerierte Uebersicht aller Aufnahmen im Verlauf. */
   verlaufsUebersicht(zeilen: readonly VerlaufZeile[]): void {
-    this.abschnitt("Aufnahmen im Verlauf");
+    this.abschnitt("Aufnahmen im Verlauf", "uebersicht");
     this.text("Klick auf eine Zeile springt zur passenden Aufnahme im Dokument.", RAND, this.y, {
       size: GROESSE_LABEL,
       color: FARBE_GRAU,
@@ -758,7 +759,15 @@ export class PdfBuilder {
     this.y = oben - kartenHoehe - 10;
   }
 
-  /** Wiedererkennbare Nummer vor jedem Detailbefund. */
+  /** Kleiner "Pfeil nach oben" als Knopfsymbol, z.B. fuer den Sprung zurueck zur Uebersicht. */
+  private pfeilNachOben(cx: number, cy: number, breite: number, farbe: ReturnType<typeof rgb>): void {
+    const halb = breite / 2;
+    const opts = { thickness: 1.3, color: farbe, lineCap: LineCapStyle.Round };
+    this.page.drawLine({ start: { x: cx - halb, y: cy - halb * 0.5 }, end: { x: cx, y: cy + halb * 0.6 }, ...opts });
+    this.page.drawLine({ start: { x: cx, y: cy + halb * 0.6 }, end: { x: cx + halb, y: cy - halb * 0.5 }, ...opts });
+  }
+
+  /** Wiedererkennbare Nummer vor jedem Detailbefund, mit Ruecksprung-Knopf zur Verlaufsuebersicht. */
   aufnahmeBanner(nummer: number, titel: string, untertitel?: string): void {
     const hoehe = untertitel ? 47 : 35;
     this.sicherstellenPlatz(hoehe + 12);
@@ -770,6 +779,13 @@ export class PdfBuilder {
     this.text(nr, RAND + 19 - nrBreite / 2, this.y - 23, { font: this.schriftFett, size: 12, color: FARBE_WEISS });
     this.text(titel, RAND + 50, this.y - 19, { font: this.schriftFett, size: GROESSE_ABSCHNITT, color: FARBE_PRIMAER });
     if (untertitel) this.text(untertitel, RAND + 50, this.y - 35, { size: GROESSE_LABEL, color: FARBE_GRAU });
+
+    const knopfCx = RAND + INHALT_BREITE - 22;
+    const knopfCy = this.y - hoehe / 2;
+    this.page.drawCircle({ x: knopfCx, y: knopfCy, size: 10, color: FARBE_WEISS, borderColor: FARBE_PRIMAER, borderWidth: 1 });
+    this.pfeilNachOben(knopfCx, knopfCy, 9, FARBE_PRIMAER);
+    this.merkeLink("uebersicht", { x: knopfCx - 12, y: knopfCy - 12, breite: 24, hoehe: 24 });
+
     this.y -= hoehe + 10;
   }
 

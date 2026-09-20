@@ -45,6 +45,7 @@ describe("versorgungspartnerAufloesen", () => {
       arztId: "arzt-neu",
       arztName: "Prof. Dr. Anna Meier",
       pflegedienstId: "pflege-neu",
+      pflegedienstName: "Pflege Nord",
       neuerArztId: "arzt-neu",
       neuerPflegedienstId: "pflege-neu",
     });

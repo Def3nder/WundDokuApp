@@ -274,9 +274,6 @@ test("Versorgungspartner lassen sich suchen, auswählen und neu anlegen", async 
       name: gespeicherterModus === "FREIHAND" ? "Frei einzeichnen" : "Marker auf Körperkarte",
     }),
   ).toHaveAttribute("aria-pressed", "true");
-
-  await page.goto(wundeBearbeiten!.replace(/\/bearbeiten$/, ""));
-  await expect(page.getByText("Lokalisationsart", { exact: true })).toBeVisible();
 });
 
 test("Navigation warnt nur bei tatsächlich ungespeicherten Änderungen", async ({ page }) => {

@@ -59,6 +59,7 @@ export async function versorgungspartnerAufloesen(
   }
 
   let pflegedienstId = eingabe.pflegedienstId;
+  let pflegedienstName: string | null = null;
   let neuerPflegedienstId: string | null = null;
 
   if (pflegedienstId === NEUER_STAMMDATENSATZ) {
@@ -75,11 +76,12 @@ export async function versorgungspartnerAufloesen(
       },
     });
     pflegedienstId = dienst.id;
+    pflegedienstName = dienst.name;
     neuerPflegedienstId = dienst.id;
   } else if (pflegedienstId) {
     const dienst = await tx.careService.findFirst({
       where: { id: pflegedienstId, geloeschtAm: null },
-      select: { id: true },
+      select: { id: true, name: true },
     });
     if (!dienst) {
       throw new VersorgungspartnerFehler(
@@ -87,12 +89,14 @@ export async function versorgungspartnerAufloesen(
         "Der ausgewählte Pflegedienst ist nicht verfügbar",
       );
     }
+    pflegedienstName = dienst.name;
   }
 
   return {
     arztId,
     arztName,
     pflegedienstId,
+    pflegedienstName,
     neuerArztId,
     neuerPflegedienstId,
   };

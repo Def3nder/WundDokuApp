@@ -1,12 +1,4 @@
-import {
-  BriefcaseMedical,
-  CircleCheck,
-  Crosshair,
-  MapPin,
-  Pencil,
-  RotateCcw,
-  Truck,
-} from "lucide-react";
+import { BriefcaseMedical, CircleCheck, MapPin, RotateCcw, Truck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { DIAGNOSE_TYPEN, labelVon } from "@/lib/enums";
 import {
@@ -23,7 +15,6 @@ type Wunde = {
   lokalisationSeite: string | null;
   lokalisationAusrichtung: string | null;
   lokalisationFreitext: string | null;
-  lokalisationModus: string;
   bestehtSeitWert: number | null;
   bestehtSeitEinheit: string | null;
   rezidiv: boolean;
@@ -49,8 +40,6 @@ export function WundeKopf({
   const lokalisation = beschreibeLokalisation(wunde);
   const dauer = beschreibeDauer(wunde);
   const rezidiv = beschreibeRezidiv(wunde);
-  const freihand = wunde.lokalisationModus === "FREIHAND";
-  const LokalisationsIcon = freihand ? Pencil : Crosshair;
 
   return (
     <Card>
@@ -83,19 +72,6 @@ export function WundeKopf({
               </dd>
             </div>
           )}
-
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Lokalisationsart
-            </dt>
-            <dd className="mt-0.5 flex items-start gap-1.5 text-sm font-medium">
-              <LokalisationsIcon
-                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-              {freihand ? "Frei eingezeichnet" : "Marker auf Körperkarte"}
-            </dd>
-          </div>
 
           {dauer && (
             <div>

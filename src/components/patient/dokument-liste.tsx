@@ -6,13 +6,14 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { ChevronRight, Download, FileText, Loader2, ReceiptText, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ZoomVorschau } from "@/components/patient/zoom-vorschau";
 
 const PdfVorschau = dynamic(
   () => import("@/components/patient/pdf-vorschau").then((mod) => mod.PdfVorschau),
   {
     ssr: false,
     loading: () => (
-      <div className="flex min-h-[50vh] items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <Loader2 className="size-8 animate-spin text-white/70" aria-hidden="true" />
       </div>
     ),
@@ -30,8 +31,13 @@ export type DokumentEintrag = {
 /**
  * Ersetzt das frühere `<a target="_blank">` - Rezepte und Arztbriefe öffnen
  * sich als Popup statt in einem neuen Browserfenster. PDFs werden über
- * `react-pdf` gerendert (Seite fuer Seite, per Web Worker), alles andere
- * (Foto-Upload als JPEG/PNG/WebP) als Bild.
+ * `react-pdf` gerendert (Seite fuer Seite, per Web Worker) und wie Fotos
+ * (JPEG/PNG/WebP) in `ZoomVorschau` gezeigt.
+ *
+ * Bewusst kein `<iframe>` auf die native Browser-PDF-Anzeige: In diesem
+ * `position: fixed`-Popup funktioniert iOS' eigenes Pinch-Zoom nicht (wird
+ * als Multitasking-Geste interpretiert) - das eigene, JavaScript-gesteuerte
+ * Zoomen in `ZoomVorschau` ist deshalb auf allen Geraeten zuverlaessig.
  */
 export function DokumentListe({
   dokumente,
@@ -137,15 +143,18 @@ export function DokumentListe({
               </div>
             </div>
 
-            <div className="relative min-h-0 flex-1 overflow-y-auto">
-              {url && istPdf && (
-                <div className="p-3 sm:p-6">
-                  <PdfVorschau url={url} />
-                </div>
-              )}
+            <div className="relative min-h-0 flex-1 overflow-hidden">
+              {url && istPdf && <PdfVorschau key={aktiv?.id} url={url} />}
               {url && !istPdf && (
-                <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
-                  <img src={url} alt={aktiv?.titel ?? ""} className="max-h-full max-w-full object-contain" />
+                <div className="h-full p-3 sm:p-6">
+                  <ZoomVorschau key={aktiv?.id}>
+                    <img
+                      src={url}
+                      alt={aktiv?.titel ?? ""}
+                      className="max-h-full max-w-full"
+                      draggable={false}
+                    />
+                  </ZoomVorschau>
                 </div>
               )}
             </div>

@@ -27,7 +27,9 @@ async function patientDatenMitKontakten(tx: Prisma.TransactionClient, eingabe: P
       notizen: eingabe.notizen,
     },
     neuerArztId: kontakte.neuerArztId,
+    neuerArztName: kontakte.arztName,
     neuerPflegedienstId: kontakte.neuerPflegedienstId,
+    neuerPflegedienstName: kontakte.pflegedienstName,
   };
 }
 
@@ -80,8 +82,8 @@ export async function patientAnlegen(
     });
     neuerId = ergebnis.patient.id;
     await protokolliere(sitzung.user.id, "Patient", ergebnis.patient.id, "ANLEGEN");
-    if (ergebnis.neuerArztId) await protokolliere(sitzung.user.id, "Doctor", ergebnis.neuerArztId, "ANLEGEN");
-    if (ergebnis.neuerPflegedienstId) await protokolliere(sitzung.user.id, "CareService", ergebnis.neuerPflegedienstId, "ANLEGEN");
+    if (ergebnis.neuerArztId) await protokolliere(sitzung.user.id, "Doctor", ergebnis.neuerArztId, "ANLEGEN", ergebnis.neuerArztName ?? undefined);
+    if (ergebnis.neuerPflegedienstId) await protokolliere(sitzung.user.id, "CareService", ergebnis.neuerPflegedienstId, "ANLEGEN", ergebnis.neuerPflegedienstName ?? undefined);
   } catch (fehler) {
     if (fehler instanceof VersorgungspartnerFehler) {
       return { fehler: { [fehler.feld]: fehler.message }, werte: werteAus(fd) };
@@ -129,8 +131,8 @@ export async function patientAendern(
       return kontakte;
     });
     gespeicherteDaten = ergebnis.daten;
-    if (ergebnis.neuerArztId) await protokolliere(sitzung.user.id, "Doctor", ergebnis.neuerArztId, "ANLEGEN");
-    if (ergebnis.neuerPflegedienstId) await protokolliere(sitzung.user.id, "CareService", ergebnis.neuerPflegedienstId, "ANLEGEN");
+    if (ergebnis.neuerArztId) await protokolliere(sitzung.user.id, "Doctor", ergebnis.neuerArztId, "ANLEGEN", ergebnis.neuerArztName ?? undefined);
+    if (ergebnis.neuerPflegedienstId) await protokolliere(sitzung.user.id, "CareService", ergebnis.neuerPflegedienstId, "ANLEGEN", ergebnis.neuerPflegedienstName ?? undefined);
   } catch (fehler) {
     if (fehler instanceof VersorgungspartnerFehler) {
       return { fehler: { [fehler.feld]: fehler.message }, werte: werteAus(fd) };
