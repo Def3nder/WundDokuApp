@@ -4,7 +4,7 @@ Arbeitsstand für die Fortsetzung in einer neuen Sitzung. Ergänzt die
 inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
 
 **Stand:** 20.09.2026 · Phase 1 bis 6 fertig
-**Prüfstand:** `npm run typecheck` sauber · `npm test` 78/78 grün · `npm run test:a11y` 7/7 grün · `npm run build` sauber · Browser-Durchgang erfolgreich (Login, Leerzustände, Tastaturbedienung, Lightbox, mobile Navigation, Hell-/Dark-Mode, PDF-Export einzeln und Verlauf, Audit-Log-Filter, Versorgungspartner-Suche bei Patient und Wunde, Warnung bei ungespeicherten Änderungen) · aktuelle Erweiterung noch nicht committet
+**Prüfstand:** `npm run typecheck` sauber · `npm test` 78/78 grün · `npm run test:a11y` 7/7 grün · `npm run build` sauber · Browser-Durchgang erfolgreich (Login, Leerzustände, Tastaturbedienung, Lightbox, mobile Navigation, Hell-/Dark-Mode, PDF-Export einzeln und Verlauf, Audit-Log-Filter, Versorgungspartner-Suche bei Patient und Wunde, Warnung bei ungespeicherten Änderungen, Dokumentvorschau mit Zoom) · Dokumentvorschau zusätzlich auf echtem iPad bestätigt (Anzeige und Zoom funktionieren)
 
 ---
 
@@ -43,6 +43,176 @@ inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
   über die Navigation erscheint nur bei tatsächlich ungespeicherten Änderungen
   eine Sicherheitsabfrage; nach dem Zurücksetzen auf die Ausgangswerte nicht.
   Reine Such-, Lösch- und Abmeldeformulare sind davon ausgenommen.
+
+---
+
+## Nachtrag — StammdatenSuche: Tab springt in die Liste (20.09.2026)
+
+Bei mehreren Treffern springt `Tab` aus dem Suchfeld jetzt in die Trefferliste
+(fokussiert und **wählt sofort** den ersten gefilterten Eintrag), statt wie
+vorher immer direkt ins nächste Formularfeld zu wechseln. Nur bei genau einem
+Treffer übernimmt `Tab` weiterhin direkt und springt weiter — das war schon
+vorher so und blieb unverändert.
+
+**Ursprünglicher Bug, gemeldet vom Nutzer:** Nach dem Tab-Sprung in die Liste
+war der fokussierte (erste) Eintrag zwar sichtbar fokussiert, aber nicht
+wirklich ausgewählt — der tatsächliche Formularwert (`wert`) blieb auf der
+alten, durch die Suche ggf. gar nicht mehr sichtbaren Auswahl stehen. Erst ein
+zusätzlicher Pfeiltasten-Druck wählte wirklich etwas aus. Grund: Der
+Sprung-Handler rief nur `.focus()` auf, nie `waehlen()`. Fix in
+`src/components/formular/stammdaten-suche.tsx`: `waehlen(auswahlOptionen[0].id)`
+vor dem Fokussieren. **Bewusst nicht** auf `ArrowDown` übertragen — dort hätte
+das blindes Auswählen (z. B. „Kein Pflegedienst") schon beim bloßen Durchblättern
+ohne Tippen eine bestehende Auswahl gelöscht.
+
+## Nachtrag — Patientenkopf: „Bearbeiten"-Button bleibt oben rechts (20.09.2026)
+
+Bug auf iPad-Breite (768px) gemeldet: Der „Bearbeiten"-Button in der
+Patienten-Kopfzeile (`src/app/(app)/patienten/[id]/page.tsx`) rutschte unter
+die linke Infogruppe, statt oben rechts zu bleiben. Ursache: Der äußere
+Container nutzte `flex flex-wrap`, und die linke Gruppe hatte keine
+Breitenbegrenzung — bei genug Inhalt (Arzt, Pflegedienst, Dokument-Badges)
+wurde die Zeile zu breit und der Button brach in eine zweite Zeile um.
+**Fix:** `flex-wrap` am äußeren Container entfernt, linke Gruppe bekommt
+`min-w-0 flex-1` (wickelt intern um, statt den Button zu verdrängen), Button
+bekommt `shrink-0`. Damit bleibt der Button strukturell garantiert an Ort und
+Stelle, unabhängig vom Inhalt der linken Seite.
+
+## Nachtrag — PDF-Wundverlauf: Sprung-Links Übersicht ↔ Aufnahme (20.09.2026)
+
+In `src/lib/pdf/builder.ts` gibt es jetzt echte PDF-interne Links: Ein Klick
+auf eine Zeile der Verlaufsübersicht springt zur passenden Aufnahme, ein
+kleiner Pfeil-nach-oben-Knopf im Aufnahme-Banner springt zurück zur Übersicht.
+
+**Technik (kein High-Level-API in `pdf-lib` dafür vorhanden):** Link-Annotationen
+werden über `doc.context.obj({ Type: "Annot", Subtype: "Link", Rect: [...],
+Dest: [zielSeite.ref, "XYZ", null, zielY, null] })` gebaut und per
+`context.register(...)` + `seite.node.addAnnot(ref)` an die Seite gehängt.
+Da die Übersichtstabelle **vor** den Aufnahme-Seiten gezeichnet wird, das
+Sprungziel (Seite + Y-Position) aber erst beim Zeichnen der jeweiligen Aufnahme
+bekannt ist, sammelt `PdfBuilder` anklickbare Bereiche und Sprungziele
+getrennt (`ausstehendeLinks` / `sprungziele`) und verknüpft beides erst am
+Ende in `fertig()`, wenn alle Seiten feststehen. Für den Rückweg bekam
+`abschnitt()` einen optionalen `zielId`-Parameter, der ein Sprungziel an der
+aktuellen Position setzt — verwendet für die Übersichtsüberschrift.
+
+Der Pfeil-Knopf selbst ist reine Vektorgrafik (`drawCircle` + zwei
+`drawLine`-Segmente als Chevron) — `pdf-lib` hat kein Icon-Font-System.
+
+## Nachtrag — Änderungsprotokoll zeigt Arzt-/Pflegedienstnamen (20.09.2026)
+
+Bug gemeldet: Beim Anlegen/Ändern/Löschen eines Arztes oder Pflegedienstes
+zeigte das Änderungsprotokoll nur „Angelegt"/„Geändert"/„Gelöscht" ohne
+Details — man sah nicht, *welcher* Arzt/Dienst gemeint war. Die
+`protokolliere()`-Aufrufe für `Doctor`/`CareService` übergaben schlicht nie
+einen `details`-Text.
+
+**Fix:** Alle Aufrufstellen übergeben jetzt den Namen als `details`:
+- `src/actions/stammdaten.ts` (zentrale Verwaltung): Name direkt aus dem
+  gespeicherten/gelöschten Datensatz.
+- `src/actions/wunden.ts`, `src/actions/patienten.ts` (Inline-Neuanlage über
+  „Neuen Arzt/Pflegedienst anlegen" in der Stammdatensuche): `arztName` kam
+  schon aus `versorgungspartnerAufloesen()` zurück, `pflegedienstName` fehlte
+  dort komplett und wurde ergänzt (`src/lib/versorgungspartner-server.ts`,
+  auch beim Lookup eines *bestehenden* Pflegedienstes jetzt mit `select: {
+  name: true }` statt nur `{ id: true }`).
+
+## Nachtrag — Lokalisationsart nicht mehr im Wund-Cockpit angezeigt (20.09.2026)
+
+Auf Wunsch zurückgenommen: Die in der „Erweiterung Versorgungspartner" oben
+ergänzte Anzeige der Lokalisationsart („Marker auf Körperkarte" /„Frei
+eingezeichnet") in `WundeKopf` (`src/components/wunde/wunde-kopf.tsx`) sorgte
+dafür, dass die Kopfzeile in eine zweite Zeile umbrach (fünf statt vier
+Einträge im `grid-cols-4`). Anzeige entfernt, **Speicherung unverändert** —
+`wunde.lokalisationModus` wird weiter mit jeder Wunde gespeichert und in der
+Freihand/Karte-Umschaltung im Formular verwendet, nur eben nicht mehr im
+Cockpit angezeigt. Ein bestehender Playwright-Test prüfte explizit die
+Sichtbarkeit von „Lokalisationsart" auf dieser Seite — die dadurch überholte
+Prüfung wurde aus `tests/accessibility.spec.ts` entfernt.
+
+## Nachtrag — Dokumentvorschau für Rezepte/Arztbriefe (20.09.2026)
+
+Der bisherige `<a href="/api/documents/[id]" target="_blank">`-Link (neues
+Browserfenster) wurde durch ein Popup ersetzt (`src/components/patient/
+dokument-liste.tsx`, Radix-Dialog wie die bestehende Foto-Lightbox). PDFs und
+Fotos lassen sich darin per Pinch (Touch), Mausrad und Ziehen zoomen, mit
+sichtbaren Zoom-Knöpfen (−/An-Fenster-anpassen/+) unten rechts; Standardansicht
+ist immer vollständig eingepasst.
+
+**Zoom/Pan-Bibliothek:** `react-zoom-pan-pinch`, gekapselt in
+`src/components/patient/zoom-vorschau.tsx` (gemeinsam für Foto- und
+PDF-Anzeige). `fitOnInit` + `centerOnInit` für die Einpassung; `minScale`
+bewusst weit unter 1 (0.05), sonst verhindert die Untergrenze das Einpassen
+großer Inhalte.
+
+**Wheel-Zoom war anfangs viel zu empfindlich — ein einzelnes Mausrad-Rasten
+sprang durchs halbe Zoom-Spektrum.** Ursache: Die Bibliothek multipliziert den
+Zoomschritt standardmäßig (`smooth: true`, Default) mit dem **rohen `deltaY`**
+des Wheel-Events, nicht mit einer festen Schrittweite. Bei einer normalen Maus
+(deltaY oft ~100 pro Rastung) ergab das mit dem Standard-`step` von `0.015`
+einen Sprung von `0.015 × 100 = 1.5` pro Rastung — bei einem Zoombereich von
+0.05 bis 8 praktisch ein Sprung zwischen den Extremen. **Fix:** `smooth:
+false` + fester `wheel.step: 0.08` (~8 % pro Ereignis, unabhängig vom
+`deltaY`).
+
+**PDF-Anzeige — mehrfacher Anlauf, weil zwei Anforderungen sich zunächst zu
+widersprechen schienen:**
+
+1. *Erster Versuch:* `react-pdf` (React-Wrapper um `pdfjs-dist`), Seiten als
+   Canvas gerendert, in `ZoomVorschau` gepackt. Funktionierte auf dem
+   Testrechner, stürzte aber auf einem echten iPad ab (PDF blieb leer).
+2. *Verdacht:* Zu große Canvas-Fläche. Ein Testdokument (eine als PDF
+   gedruckte, ungewöhnlich lange Webseite, weit über A4-Format) erzeugte bei
+   fester `scale={2.5}` eine Canvas von ~2617×9480px (~25 Mio. Pixel) — iOS
+   Safari liefert bei zu großen Canvas-Flächen/-Kantenlängen still ein leeres
+   Bild statt eines Fehlers.
+3. *Zweiter Versuch:* Statt eigenem Renderer ein `<iframe>` auf die native
+   PDF-Anzeige des Browsers (kein Größenlimit-Risiko, eigene ausgereifte
+   Zoom-Werkzeugleiste). Dafür musste die CSP gelockert werden
+   (`X-Frame-Options: DENY` / `frame-ancestors 'none'` verhindern auch das
+   Einbetten der eigenen Seite in sich selbst).
+4. **Kernerkenntnis, die diesen Weg wieder verworfen hat:** In einem
+   `position: fixed`-Popup (zwingend für ein Overlay) funktioniert iOS'
+   natives Pinch-Zoom grundsätzlich **nicht** — das ist eine WebKit-Einschränkung
+   unabhängig vom eingebetteten Viewer. Die Pinch-Geste läuft ins Leere und
+   wird stattdessen vom System als Multitasking-Geste interpretiert. Ein
+   `<iframe>` mit nativer Anzeige kann dieses Problem grundsätzlich nicht
+   lösen, egal welcher Viewer dahinter steckt. next.config.ts-Änderung wieder
+   zurückgenommen.
+5. *Zurück zu `react-pdf`*, diesmal mit einer **Sicherheitsgrenze für die
+   Canvas-Größe**, die zusätzlich `window.devicePixelRatio` einrechnet:
+   `react-pdf` multipliziert die übergebene `scale` intern nochmals mit der
+   Pixel-Dichte des Bildschirms (für scharfe Darstellung) — eine erste
+   Grenzwertrechnung ohne diesen Faktor wurde dadurch unbemerkt überschritten
+   (6000px statt der gedeckelten 4000px bei einer hiesigen Dichte von 1.5).
+   `sichereSkala()` in `src/components/patient/pdf-vorschau.tsx` deckelt jetzt
+   sowohl die längste Kante (4000px) als auch die Fläche (16 Mio. Px) **unter
+   Berücksichtigung** dieses Faktors, nicht nur die nominale Skala.
+6. **Letzter, vom Nutzer mit echtem iPad-Stack-Trace gemeldeter Fehler:**
+   `TypeError: undefined is not a function (near '...value of
+   readableStream...')` in `getTextContent` (`pdfjs-dist`). `getTextContent()`
+   baut die unsichtbare Textebene (Textauswahl/Suche im PDF) und nutzt dafür
+   intern einen `ReadableStream` mit asynchroner Iteration — von
+   Safari/WebKit nicht vollständig unterstützt, offenbar auch beim
+   Turbopack-Bundling nicht durchgängig stabil (auch auf dem Desktop
+   vereinzelt beobachtet). **Fix:** `renderTextLayer={false}` auf der
+   `<Page>`-Komponente. Für eine reine Vorschau unnötig — das Original bleibt
+   über den Download-Knopf im Popup erreichbar; `renderAnnotationLayer`
+   (anklickbare Links im PDF) blieb an, ist von diesem Bug nicht betroffen.
+
+**Für künftige PDF-Arbeit in dieser Codebase:** `getTextContent`/Textebene ist
+der bekannte Safari-Bruchpunkt in `pdfjs-dist` — bei jedem neuen
+PDF-Feature zuerst prüfen, ob `renderTextLayer` gebraucht wird, bevor es
+aktiviert wird. Bei Canvas-Rendering für PDFs immer `devicePixelRatio` in
+Größenrechnungen einbeziehen, nicht nur die nominale `scale`. Und: Pinch-Zoom
+in einem `position: fixed`-Kontext auf iOS braucht zwingend eigenes,
+JavaScript-gesteuertes Zoomen — natives Viewport-Zoom (auch via `<iframe>`)
+funktioniert dort nicht.
+
+**Auf echtem iPad bestätigt (20.09.2026):** Anzeige und Zoom funktionieren.
+Damit ist bestätigt, dass sowohl die Canvas-Größenbegrenzung (Schritt 5) als
+auch `renderTextLayer={false}` (Schritt 6) die tatsächliche Ursache getroffen
+haben, nicht nur Symptome behoben haben.
 
 ---
 
