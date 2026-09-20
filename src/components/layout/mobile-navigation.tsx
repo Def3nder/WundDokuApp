@@ -16,7 +16,7 @@ export function MobileNavigation({ istAdmin }: { istAdmin: boolean }) {
           type="button"
           variant="ghost"
           size="icon"
-          className="sm:hidden"
+          className="lg:hidden"
           aria-label="Hauptnavigation öffnen"
         >
           <Menu aria-hidden="true" />

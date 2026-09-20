@@ -18,6 +18,7 @@ import {
 } from "recharts";
 import { Activity, ChartLine, ChevronDown, Droplets, Ruler, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AbmessungenVerlauf } from "@/components/auswertung/abmessungen-verlauf";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { WUNDGRUND_GRUPPEN } from "@/lib/enums";
 import {
@@ -89,7 +90,7 @@ function DiagrammKarte({
   breit?: boolean;
 }) {
   return (
-    <Card className={breit ? "lg:col-span-2" : undefined}>
+    <Card className={cn("min-w-0", breit && "lg:col-span-2")}>
       <CardHeader className="pb-3">
         <div className="flex items-start gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-on-secondary">
@@ -159,9 +160,6 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
   // fuer eine zeitproportionale Achse (siehe dort).
   const zeitDaten = daten.map((punkt) => ({ ...punkt, t: new Date(punkt.datum).getTime() }));
   const chartDaten = daten.map((punkt) => ({ ...punkt, ...punkt.wundgrund }));
-  const hatMasse = daten.some(
-    (punkt) => punkt.breiteMm != null || punkt.laengeMm != null || punkt.tiefeMm != null,
-  );
   const hatBelastung = daten.some(
     (punkt) => punkt.schmerzVas != null || punkt.exsudatStufe != null,
   );
@@ -349,31 +347,10 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
         <DiagrammKarte
           icon={Ruler}
           titel="Abmessungen"
-          beschreibung="Breite, Länge und Tiefe in Millimetern."
+          beschreibung="Ausgewählte Aufnahme als schematische Draufsicht und Tiefenprofil."
+          breit
         >
-          {hatMasse ? (
-            <div className="h-72 w-full" role="img" aria-label="Verlauf der Wundabmessungen">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={daten} margin={{ top: 12, right: 12, left: 4, bottom: 0 }}>
-                  <Achsen />
-                  <Tooltip
-                    contentStyle={tooltipStil()}
-                    labelFormatter={diagrammTooltipDatum}
-                    formatter={(wert, name) => [
-                      `${deutscheZahl.format(Number(wert))} mm`,
-                      String(name),
-                    ]}
-                  />
-                  <Legend wrapperStyle={{ fontSize: "0.75rem", paddingTop: "10px" }} />
-                  <Line type="monotone" dataKey="breiteMm" name="Breite" stroke="var(--chart-1)" strokeWidth={2.5} connectNulls />
-                  <Line type="monotone" dataKey="laengeMm" name="Länge" stroke="var(--chart-2)" strokeWidth={2.5} strokeDasharray="7 3" connectNulls />
-                  <Line type="monotone" dataKey="tiefeMm" name="Tiefe" stroke="var(--chart-4)" strokeWidth={2.5} strokeDasharray="2 3" connectNulls />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <KeineMesswerte text="Für diesen Verlauf wurden noch keine Abmessungen dokumentiert." />
-          )}
+          <AbmessungenVerlauf daten={daten} />
         </DiagrammKarte>
 
         <DiagrammKarte
@@ -412,7 +389,6 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
           icon={Sparkles}
           titel="Wundgrund-Zusammensetzung"
           beschreibung="Dokumentierte Befunde, gebündelt in fünf klinische Gruppen."
-          breit
         >
           {hatWundgrund ? (
             <div className="h-72 w-full" role="img" aria-label="Verlauf der Wundgrund-Zusammensetzung">

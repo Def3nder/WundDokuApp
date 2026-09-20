@@ -208,6 +208,178 @@ test("Formulargruppen und Fotodialog halten die Tastaturkonventionen ein", async
   }
 });
 
+test("interaktive Abmessungen starten bei der neuesten Aufnahme und sind per Tastatur bedienbar", async ({ page }) => {
+  await anmelden(page);
+  await page.goto("/");
+  const patientHref = verlangeHref(
+    await page.getByRole("link", { name: /Berger, Hannelore/ }).first().getAttribute("href"),
+    "Patientin mit Mehrfachverlauf",
+  );
+  await page.goto(patientHref);
+  const wundeHref = verlangeHref(
+    await page.getByRole("link", { name: /Ulcus cruris venosum/ }).first().getAttribute("href"),
+    "Wunde mit Mehrfachverlauf",
+  );
+  await page.goto(wundeHref);
+
+  await page.getByRole("button", { name: /Wundverlauf/ }).click();
+  const abmessungen = page.getByRole("region", {
+    name: "Interaktive Darstellung der Wundabmessungen",
+  });
+  await expect(abmessungen).toBeVisible();
+
+  const auswahl = abmessungen.getByRole("group", { name: "Aufnahme auswählen" });
+  const termine = auswahl.getByRole("button");
+  const anzahlTermine = await termine.count();
+  expect(anzahlTermine).toBeGreaterThan(1);
+  await expect(auswahl.locator("[data-termin-abmessungen]").first()).toBeVisible();
+
+  const ersterTermin = termine.first();
+  const neuesterTermin = termine.last();
+  await expect(neuesterTermin).toHaveAttribute("aria-pressed", "true");
+  await neuesterTermin.focus();
+  await neuesterTermin.press("Home");
+  await expect(ersterTermin).toBeFocused();
+  await expect(ersterTermin).toHaveAttribute("aria-pressed", "true");
+  await ersterTermin.press("End");
+  await expect(neuesterTermin).toBeFocused();
+  await expect(neuesterTermin).toHaveAttribute("aria-pressed", "true");
+
+  const axeErgebnis = await new AxeBuilder({ page })
+    .exclude("nextjs-portal")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze();
+  expect(axeErgebnis.violations).toEqual([]);
+});
+
+test("interaktive Abmessungen bleiben auf iPad Pro und iPad Mini vollständig sichtbar", async ({ page }) => {
+  await anmelden(page);
+  await page.goto("/");
+  const patientHref = verlangeHref(
+    await page.getByRole("link", { name: /Berger, Hannelore/ }).first().getAttribute("href"),
+    "Patientin mit Mehrfachverlauf",
+  );
+  await page.goto(patientHref);
+  const wundeHref = verlangeHref(
+    await page.getByRole("link", { name: /Ulcus cruris venosum/ }).first().getAttribute("href"),
+    "Wunde mit Mehrfachverlauf",
+  );
+
+  for (const viewport of [
+    {
+      width: 1024,
+      height: 1366,
+      farbschema: "Hell",
+      wundFarbe: "#be123c",
+      tiefenFarbe: "#7c3aed",
+      randFarbe: "#94a3b8",
+    },
+    {
+      width: 744,
+      height: 1133,
+      farbschema: "Dunkel",
+      wundFarbe: "#fda4af",
+      tiefenFarbe: "#c4b5fd",
+      randFarbe: "#4c5c7a",
+    },
+  ]) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto(wundeHref);
+    const farbschema = page.getByRole("radio", { name: viewport.farbschema });
+    await farbschema.click();
+    await expect(farbschema).toHaveAttribute("aria-checked", "true");
+    await page.getByRole("button", { name: /Wundverlauf/ }).click();
+
+    const abmessungen = page.getByRole("region", {
+      name: "Interaktive Darstellung der Wundabmessungen",
+    });
+    await expect(abmessungen).toBeVisible();
+
+    const draufsicht = abmessungen
+      .locator("section")
+      .filter({ has: page.getByRole("heading", { name: "Draufsicht" }) });
+    const tiefe = abmessungen
+      .locator("section")
+      .filter({ has: page.getByRole("heading", { name: "Tiefe" }) });
+    const [draufsichtBox, tiefeBox] = await Promise.all([
+      draufsicht.boundingBox(),
+      tiefe.boundingBox(),
+    ]);
+    expect(draufsichtBox).not.toBeNull();
+    expect(tiefeBox).not.toBeNull();
+    expect(Math.abs(draufsichtBox!.y - tiefeBox!.y)).toBeLessThan(2);
+
+    const schemaGruppen = abmessungen.locator("[data-schema-gruppe]");
+    const gruppenHoehen = await schemaGruppen.evaluateAll((elemente) =>
+      elemente.map((element) => element.getBoundingClientRect().height),
+    );
+    expect(gruppenHoehen).toHaveLength(2);
+    expect(Math.abs(gruppenHoehen[0] - gruppenHoehen[1])).toBeLessThan(1);
+    expect(gruppenHoehen[0]).toBeLessThanOrEqual(224);
+
+    const draufsichtFlaeche = abmessungen
+      .getByRole("img", { name: /Schematische Wunddraufsicht/ })
+      .locator("svg");
+    const flaechenBox = await draufsichtFlaeche.boundingBox();
+    expect(flaechenBox).not.toBeNull();
+    expect(flaechenBox!.height).toBeGreaterThan(140);
+    expect(flaechenBox!.height).toBeLessThan(180);
+    expect(flaechenBox!.width).toBeGreaterThan(flaechenBox!.height);
+    const konturBox = await draufsichtFlaeche.locator("path").evaluate((element) => {
+      const box = (element as SVGGraphicsElement).getBBox();
+      return { x: box.x, y: box.y, width: box.width, height: box.height };
+    });
+    expect(konturBox.width).toBeGreaterThan(50);
+    expect(konturBox.height).toBeGreaterThan(50);
+    expect(Math.abs(konturBox.x + konturBox.width / 2 - 140)).toBeLessThan(2);
+    expect(Math.abs(konturBox.y + konturBox.height / 2 - 90)).toBeLessThan(2);
+    const wundFarbe = await draufsichtFlaeche.locator("[data-wundkontur]").getAttribute("stroke");
+    expect(wundFarbe).toBe(viewport.wundFarbe);
+    const tiefenProfil = abmessungen.locator("[data-tiefenprofil]");
+    const tiefenRand = abmessungen.locator("[data-tiefenrand]");
+    expect(await tiefenProfil.getAttribute("stroke")).toBe(viewport.tiefenFarbe);
+    expect(await tiefenRand.getAttribute("stroke")).toBe(viewport.randFarbe);
+
+    const auswahl = abmessungen.getByRole("group", { name: "Aufnahme auswählen" });
+    await expect.poll(() => auswahl.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+    const messwertZeilen = auswahl.locator("[data-termin-abmessungen]");
+    if (viewport.width < 1280) {
+      await expect(messwertZeilen.first()).toBeHidden();
+    } else {
+      await expect(messwertZeilen.first()).toBeVisible();
+    }
+    const terminPositionen = await auswahl.getByRole("button").evaluateAll((elemente) =>
+      elemente.map((element) => Math.round(element.getBoundingClientRect().top)),
+    );
+    expect(new Set(terminPositionen).size).toBe(1);
+
+    const seitenbreite = await page.evaluate(() => {
+      const clientWidth = document.documentElement.clientWidth;
+      return {
+        clientWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        ausreisser: Array.from(document.querySelectorAll("*"))
+          .map((element) => {
+            const rect = element.getBoundingClientRect();
+            return {
+              tag: element.tagName,
+              klasse: element.getAttribute("class"),
+              links: Math.round(rect.left),
+              rechts: Math.round(rect.right),
+              breite: Math.round(rect.width),
+            };
+          })
+          .filter((element) => element.rechts > clientWidth + 1)
+          .sort((a, b) => b.rechts - a.rechts)
+          .slice(0, 8),
+      };
+    });
+    expect(seitenbreite.scrollWidth, JSON.stringify(seitenbreite, null, 2)).toBeLessThanOrEqual(
+      seitenbreite.clientWidth,
+    );
+  }
+});
+
 test("Versorgungspartner lassen sich suchen, auswählen und neu anlegen", async ({ page }) => {
   await anmelden(page);
   await page.goto("/patienten/neu");

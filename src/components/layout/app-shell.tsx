@@ -32,7 +32,7 @@ export function AppShell({
             <span className="max-[430px]:hidden">WundDoku</span>
           </Link>
 
-          <nav aria-label="Hauptnavigation" className="ml-2 hidden items-center gap-1 sm:flex">
+          <nav aria-label="Hauptnavigation" className="ml-2 hidden items-center gap-1 lg:flex">
             <Link
               href="/"
               className="tippziel inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-surface-muted hover:text-foreground"

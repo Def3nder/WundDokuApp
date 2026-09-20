@@ -207,7 +207,7 @@ async function renderAufnahme(
   await builder.fotoRaster(`Fotos${fotos.length > 0 ? ` (${fotos.length})` : ""}`, fotos);
 }
 
-/** Dieselben vier Verlaufsdiagramme wie im Wund-Cockpit (`Verlaufsdiagramme`), fuer den PDF-Export. */
+/** PDF-Verlaufsdiagramme; die klassische Abmessungs-Liniengrafik bleibt hier bewusst erhalten. */
 function renderVerlaufsdiagramme(builder: PdfBuilder, aufnahmen: readonly Assessment[]): void {
   const punkte = baueVerlaufspunkte(aufnahmen);
   const xLabels = punkte.map((p) => diagrammDatumKurz(p.datum));

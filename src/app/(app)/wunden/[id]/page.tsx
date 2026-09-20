@@ -38,7 +38,7 @@ export default async function WundeSeite({
         pflegedienst: true,
         aufnahmen: {
           where: { geloeschtAm: null },
-          orderBy: { datum: "desc" },
+          orderBy: [{ datum: "desc" }, { createdAt: "desc" }],
           include: {
             erstelltVon: { select: { name: true, handzeichen: true } },
             _count: { select: { fotos: { where: { geloeschtAm: null } } } },
