@@ -34,6 +34,7 @@ function wunde(overrides: Partial<Wound> = {}): Wound {
     lokalisationSeite: null,
     lokalisationAusrichtung: null,
     lokalisationFreitext: null,
+    lokalisationModus: "MARKER",
     lokalisationMarkerX: null,
     lokalisationMarkerY: null,
     lokalisationMarkerRadius: null,

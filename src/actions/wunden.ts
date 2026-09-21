@@ -5,7 +5,11 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { verlangeAdmin, verlangeSitzung } from "@/lib/auth";
 import { geaenderteFelder, protokolliere } from "@/lib/audit";
-import { wundeAusFormData } from "@/lib/schema/wunde";
+import { wundeAusFormData, type WundeEingabe } from "@/lib/schema/wunde";
+import {
+  VersorgungspartnerFehler,
+  versorgungspartnerAufloesen,
+} from "@/lib/versorgungspartner-server";
 import type { FormZustand } from "./patienten";
 
 function zuFehlern(issues: { path: (string | number)[]; message: string }[]) {
@@ -25,14 +29,27 @@ function werteAus(fd: FormData): Record<string, string> {
   return werte;
 }
 
-async function stammdatenFehler(arztId: string | null, pflegedienstId: string | null) {
-  const [arzt, pflegedienst] = await Promise.all([
-    arztId ? db.doctor.findFirst({ where: { id: arztId, geloeschtAm: null }, select: { id: true } }) : null,
-    pflegedienstId ? db.careService.findFirst({ where: { id: pflegedienstId, geloeschtAm: null }, select: { id: true } }) : null,
-  ]);
+function wundDaten(
+  eingabe: WundeEingabe,
+  kontakte: Awaited<ReturnType<typeof versorgungspartnerAufloesen>>,
+) {
+  const {
+    neuerArztName,
+    neueArztPraxis,
+    neuerPflegedienstName,
+    neuerPflegedienstAnsprechpartner,
+    ...daten
+  } = eingabe;
+  // Diese vier Werte dienen nur der optionalen Stammdaten-Neuanlage und sind
+  // keine Spalten der Wunde.
+  void neuerArztName;
+  void neueArztPraxis;
+  void neuerPflegedienstName;
+  void neuerPflegedienstAnsprechpartner;
   return {
-    ...(arztId && !arzt ? { arztId: "Der ausgewählte Arzt ist nicht verfügbar" } : {}),
-    ...(pflegedienstId && !pflegedienst ? { pflegedienstId: "Der ausgewählte Pflegedienst ist nicht verfügbar" } : {}),
+    ...daten,
+    arztId: kontakte.arztId,
+    pflegedienstId: kontakte.pflegedienstId,
   };
 }
 
@@ -47,20 +64,52 @@ export async function wundeAnlegen(
   if (!geprueft.success) {
     return { fehler: zuFehlern(geprueft.error.issues), werte: werteAus(fd) };
   }
-  const auswahlFehler = await stammdatenFehler(geprueft.data.arztId, geprueft.data.pflegedienstId);
-  if (Object.keys(auswahlFehler).length) return { fehler: auswahlFehler, werte: werteAus(fd) };
 
   const patient = await db.patient.findUnique({ where: { id: patientId } });
   if (!patient || patient.geloeschtAm) {
     return { meldung: "Dieser Patient existiert nicht mehr." };
   }
 
-  const wunde = await db.wound.create({
-    data: { ...geprueft.data, patientId },
-  });
+  const transaktion = () =>
+    db.$transaction(async (tx) => {
+      const kontakte = await versorgungspartnerAufloesen(tx, geprueft.data, {
+        arztPflicht: false,
+      });
+      const wunde = await tx.wound.create({
+        data: { ...wundDaten(geprueft.data, kontakte), patientId },
+      });
+      return { wunde, kontakte };
+    });
+
+  let ergebnis: Awaited<ReturnType<typeof transaktion>>;
+  try {
+    ergebnis = await transaktion();
+  } catch (fehler) {
+    if (fehler instanceof VersorgungspartnerFehler) {
+      return { fehler: { [fehler.feld]: fehler.message }, werte: werteAus(fd) };
+    }
+    throw fehler;
+  }
+
+  const { wunde, kontakte } = ergebnis;
   await protokolliere(sitzung.user.id, "Wound", wunde.id, "ANLEGEN");
+  if (kontakte.neuerArztId) {
+    await protokolliere(sitzung.user.id, "Doctor", kontakte.neuerArztId, "ANLEGEN", kontakte.arztName ?? undefined);
+  }
+  if (kontakte.neuerPflegedienstId) {
+    await protokolliere(
+      sitzung.user.id,
+      "CareService",
+      kontakte.neuerPflegedienstId,
+      "ANLEGEN",
+      kontakte.pflegedienstName ?? undefined,
+    );
+  }
 
   revalidatePath(`/patienten/${patientId}`);
+  if (kontakte.neuerArztId || kontakte.neuerPflegedienstId) {
+    revalidatePath("/einstellungen/stammdaten");
+  }
   redirect(`/wunden/${wunde.id}`);
 }
 
@@ -75,25 +124,58 @@ export async function wundeAendern(
   if (!geprueft.success) {
     return { fehler: zuFehlern(geprueft.error.issues), werte: werteAus(fd) };
   }
-  const auswahlFehler = await stammdatenFehler(geprueft.data.arztId, geprueft.data.pflegedienstId);
-  if (Object.keys(auswahlFehler).length) return { fehler: auswahlFehler, werte: werteAus(fd) };
 
   const vorher = await db.wound.findUnique({ where: { id: wundeId } });
   if (!vorher || vorher.geloeschtAm) {
     return { meldung: "Diese Wunde existiert nicht mehr." };
   }
 
-  await db.wound.update({ where: { id: wundeId }, data: geprueft.data });
+  const transaktion = () =>
+    db.$transaction(async (tx) => {
+      const kontakte = await versorgungspartnerAufloesen(tx, geprueft.data, {
+        arztPflicht: false,
+      });
+      const daten = wundDaten(geprueft.data, kontakte);
+      await tx.wound.update({ where: { id: wundeId }, data: daten });
+      return { kontakte, daten };
+    });
+
+  let ergebnis: Awaited<ReturnType<typeof transaktion>>;
+  try {
+    ergebnis = await transaktion();
+  } catch (fehler) {
+    if (fehler instanceof VersorgungspartnerFehler) {
+      return { fehler: { [fehler.feld]: fehler.message }, werte: werteAus(fd) };
+    }
+    throw fehler;
+  }
+
+  const { kontakte, daten } = ergebnis;
   await protokolliere(
     sitzung.user.id,
     "Wound",
     wundeId,
     "AENDERN",
-    geaenderteFelder(vorher, geprueft.data),
+    geaenderteFelder(vorher, daten),
   );
+  if (kontakte.neuerArztId) {
+    await protokolliere(sitzung.user.id, "Doctor", kontakte.neuerArztId, "ANLEGEN", kontakte.arztName ?? undefined);
+  }
+  if (kontakte.neuerPflegedienstId) {
+    await protokolliere(
+      sitzung.user.id,
+      "CareService",
+      kontakte.neuerPflegedienstId,
+      "ANLEGEN",
+      kontakte.pflegedienstName ?? undefined,
+    );
+  }
 
   revalidatePath(`/patienten/${vorher.patientId}`);
   revalidatePath(`/wunden/${wundeId}`);
+  if (kontakte.neuerArztId || kontakte.neuerPflegedienstId) {
+    revalidatePath("/einstellungen/stammdaten");
+  }
   redirect(`/wunden/${wundeId}`);
 }
 
@@ -134,15 +216,6 @@ export async function wundeWiedereroeffnen(wundeId: string): Promise<void> {
  * vorgegebenen Markierungen) oder frei einzeichenbar angezeigt werden soll.
  * Reine Anzeige-Vorliebe, kein Wunddatum - deshalb kein Audit-Eintrag.
  */
-export async function lokalisationsAnzeigeSetzen(modus: string): Promise<void> {
-  const sitzung = await verlangeSitzung();
-  if (modus !== "KARTE" && modus !== "FREIHAND") return;
-  await db.user.update({
-    where: { id: sitzung.user.id },
-    data: { lokalisationsAnzeige: modus },
-  });
-}
-
 export async function wundeLoeschen(wundeId: string): Promise<void> {
   const sitzung = await verlangeAdmin();
 

@@ -21,14 +21,14 @@ export async function arztSpeichern(id: string | null, fd: FormData): Promise<vo
   const arzt = id
     ? await db.doctor.update({ where: { id }, data: daten })
     : await db.doctor.create({ data: daten });
-  await protokolliere(sitzung.user.id, "Doctor", arzt.id, id ? "AENDERN" : "ANLEGEN");
+  await protokolliere(sitzung.user.id, "Doctor", arzt.id, id ? "AENDERN" : "ANLEGEN", arzt.name);
   revalidatePath("/einstellungen/stammdaten");
 }
 
 export async function arztLoeschen(id: string): Promise<void> {
   const sitzung = await admin();
-  await db.doctor.update({ where: { id }, data: { geloeschtAm: new Date() } });
-  await protokolliere(sitzung.user.id, "Doctor", id, "LOESCHEN");
+  const arzt = await db.doctor.update({ where: { id }, data: { geloeschtAm: new Date() } });
+  await protokolliere(sitzung.user.id, "Doctor", id, "LOESCHEN", arzt.name);
   revalidatePath("/einstellungen/stammdaten");
 }
 
@@ -40,13 +40,13 @@ export async function pflegedienstSpeichern(id: string | null, fd: FormData): Pr
   const dienst = id
     ? await db.careService.update({ where: { id }, data: daten })
     : await db.careService.create({ data: daten });
-  await protokolliere(sitzung.user.id, "CareService", dienst.id, id ? "AENDERN" : "ANLEGEN");
+  await protokolliere(sitzung.user.id, "CareService", dienst.id, id ? "AENDERN" : "ANLEGEN", dienst.name);
   revalidatePath("/einstellungen/stammdaten");
 }
 
 export async function pflegedienstLoeschen(id: string): Promise<void> {
   const sitzung = await admin();
-  await db.careService.update({ where: { id }, data: { geloeschtAm: new Date() } });
-  await protokolliere(sitzung.user.id, "CareService", id, "LOESCHEN");
+  const dienst = await db.careService.update({ where: { id }, data: { geloeschtAm: new Date() } });
+  await protokolliere(sitzung.user.id, "CareService", id, "LOESCHEN", dienst.name);
   revalidatePath("/einstellungen/stammdaten");
 }

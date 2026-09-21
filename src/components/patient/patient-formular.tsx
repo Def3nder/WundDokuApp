@@ -1,11 +1,13 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Field, Input, Textarea } from "@/components/ui/field";
 import { FehlerUebersicht } from "@/components/ui/fehler-uebersicht";
+import { StammdatenSuche } from "@/components/formular/stammdaten-suche";
+import { NEUER_STAMMDATENSATZ } from "@/lib/versorgungspartner";
 import type { FormZustand } from "@/actions/patienten";
 
 const START: FormZustand = {};
@@ -25,9 +27,7 @@ export type PatientWerte = {
 };
 
 type ArztOption = { id: string; name: string; praxis: string | null };
-type PflegedienstOption = { id: string; name: string };
-
-const NEU = "__NEU__";
+type PflegedienstOption = { id: string; name: string; ansprechpartner: string | null };
 
 const LEER: PatientWerte = {
   nachname: "",
@@ -66,20 +66,13 @@ export function PatientFormular({
   const [arztAuswahl, setArztAuswahl] = useState(w("arztId"));
   const [pflegedienstAuswahl, setPflegedienstAuswahl] = useState(w("pflegedienstId"));
 
-  // Nach jedem Absenden (auch bei einem Fehler) setzt React/Next.js die
-  // <select>-DOM-Knoten dieses Formulars auf ihren Ursprungszustand zurueck,
-  // ohne dass React das bei einem unveraenderten value-Prop bemerkt - siehe
-  // dieselbe Anmerkung in wunde-formular.tsx. Ein wechselnder `key` auf dem
-  // <form> erzwingt bei jedem neuen `zustand` einen echten Neuaufbau.
-  const zustandGeneration = useRef(0);
-  const vorherigerZustand = useRef(zustand);
-  if (vorherigerZustand.current !== zustand) {
-    zustandGeneration.current += 1;
-    vorherigerZustand.current = zustand;
-  }
-
   return (
-    <form key={zustandGeneration.current} action={formAction} className="space-y-6" noValidate>
+    <form
+      action={formAction}
+      className="space-y-6"
+      data-aenderungen-warnung="patient"
+      noValidate
+    >
       <FehlerUebersicht fehler={zustand.fehler} />
 
       {zustand.meldung && (
@@ -149,14 +142,23 @@ export function PatientFormular({
             <div className="min-w-0 space-y-3">
               <Field id="arztId" label="Therapieverantwortlicher Arzt" pflicht fehler={f("arztId")}>
                 {(p) => (
-                  <Select {...p} className="h-11" name="arztId" value={arztAuswahl} onChange={(event) => setArztAuswahl(event.target.value)} required>
-                    <option value="">Bitte auswählen</option>
-                    {aerzte.map((arzt) => <option key={arzt.id} value={arzt.id}>{arzt.name}{arzt.praxis ? ` · ${arzt.praxis}` : ""}</option>)}
-                    <option value={NEU}>＋ Neuen Arzt anlegen</option>
-                  </Select>
+                  <StammdatenSuche
+                    eingabeProps={p}
+                    name="arztId"
+                    wert={arztAuswahl}
+                    onWertAendern={setArztAuswahl}
+                    optionen={aerzte.map((arzt) => ({
+                      id: arzt.id,
+                      name: arzt.name,
+                      zusatz: arzt.praxis,
+                    }))}
+                    platzhalter="Arzt suchen, z. B. Name oder Titel"
+                    gruppenLabel="Therapieverantwortlichen Arzt auswählen"
+                    neuText="Neuen Arzt anlegen"
+                  />
                 )}
               </Field>
-              {arztAuswahl === NEU && (
+              {arztAuswahl === NEUER_STAMMDATENSATZ && (
                 <div className="space-y-3 rounded-lg border border-primary/25 bg-primary/5 p-3">
                   <p className="text-sm font-medium">Neuen zentralen Arzt anlegen</p>
                   <Field id="neuerArztName" label="Name" pflicht fehler={f("neuerArztName")}>
@@ -172,14 +174,26 @@ export function PatientFormular({
             <div className="min-w-0 space-y-3">
               <Field id="pflegedienstId" label="Pflegedienst" fehler={f("pflegedienstId")}>
                 {(p) => (
-                  <Select {...p} className="h-11" name="pflegedienstId" value={pflegedienstAuswahl} onChange={(event) => setPflegedienstAuswahl(event.target.value)}>
-                    <option value="">Kein Pflegedienst</option>
-                    {pflegedienste.map((dienst) => <option key={dienst.id} value={dienst.id}>{dienst.name}</option>)}
-                    <option value={NEU}>＋ Neuen Pflegedienst anlegen</option>
-                  </Select>
+                  <StammdatenSuche
+                    eingabeProps={p}
+                    name="pflegedienstId"
+                    wert={pflegedienstAuswahl}
+                    onWertAendern={setPflegedienstAuswahl}
+                    optionen={pflegedienste.map((dienst) => ({
+                      id: dienst.id,
+                      name: dienst.name,
+                      zusatz: dienst.ansprechpartner
+                        ? `Ansprechpartner: ${dienst.ansprechpartner}`
+                        : null,
+                    }))}
+                    platzhalter="Pflegedienst oder Ansprechpartner suchen"
+                    gruppenLabel="Pflegedienst auswählen"
+                    keineAuswahlText="Kein Pflegedienst"
+                    neuText="Neuen Pflegedienst anlegen"
+                  />
                 )}
               </Field>
-              {pflegedienstAuswahl === NEU && (
+              {pflegedienstAuswahl === NEUER_STAMMDATENSATZ && (
                 <div className="space-y-3 rounded-lg border border-accent/25 bg-accent/5 p-3">
                   <p className="text-sm font-medium">Neuen zentralen Pflegedienst anlegen</p>
                   <Field id="neuerPflegedienstName" label="Name" pflicht fehler={f("neuerPflegedienstName")}>

@@ -15,7 +15,7 @@ export default async function PatientBearbeitenSeite({
   const [patient, aerzte, pflegedienste] = await Promise.all([
     db.patient.findUnique({ where: { id } }),
     db.doctor.findMany({ where: { geloeschtAm: null }, orderBy: { name: "asc" }, select: { id: true, name: true, praxis: true } }),
-    db.careService.findMany({ where: { geloeschtAm: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    db.careService.findMany({ where: { geloeschtAm: null }, orderBy: { name: "asc" }, select: { id: true, name: true, ansprechpartner: true } }),
   ]);
   if (!patient || patient.geloeschtAm) notFound();
 

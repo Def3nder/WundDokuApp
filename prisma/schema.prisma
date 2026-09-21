@@ -87,6 +87,7 @@ model Wound {
   diagnoseFreitext String?
 
   // --- Lokalisation ---
+  lokalisationModus       String  @default("MARKER") // MARKER | FREIHAND
   lokalisationRegion      String?
   lokalisationSeite       String? // LINKS | RECHTS
   lokalisationAusrichtung String? // LATERAL | MEDIAL

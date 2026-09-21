@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useId, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import {
   Area,
   AreaChart,
@@ -14,29 +16,21 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Activity, Droplets, Ruler, Sparkles } from "lucide-react";
+import { Activity, ChartLine, ChevronDown, Droplets, Ruler, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { AbmessungenVerlauf } from "@/components/auswertung/abmessungen-verlauf";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { WUNDGRUND_GRUPPEN } from "@/lib/enums";
 import {
+  diagrammAchsenDatum,
   diagrammDatumKurz,
   diagrammDatumLang,
   diagrammTooltipDatum,
-  type WundgrundGruppeId,
+  type Verlaufspunkt,
 } from "@/lib/auswertung";
 import { flaechenTrend, formatiereMm2, formatiereProzent } from "@/lib/wundmasse";
 
-export type Verlaufspunkt = {
-  id: string;
-  datum: string;
-  flaeche: number | null;
-  breiteMm: number | null;
-  laengeMm: number | null;
-  tiefeMm: number | null;
-  schmerzVas: number | null;
-  exsudatStufe: number | null;
-  exsudatLabel: string;
-  wundgrund: Record<WundgrundGruppeId, number>;
-};
+export type { Verlaufspunkt };
 
 const deutscheZahl = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
 const gruppenFarben = [
@@ -64,6 +58,7 @@ function Achsen({ einheit }: { einheit?: string }) {
       <CartesianGrid stroke="var(--border)" strokeDasharray="3 4" vertical={false} />
       <XAxis
         dataKey="datum"
+        interval={0}
         tickFormatter={diagrammDatumKurz}
         tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
         tickLine={false}
@@ -95,7 +90,7 @@ function DiagrammKarte({
   breit?: boolean;
 }) {
   return (
-    <Card className={breit ? "lg:col-span-2" : undefined}>
+    <Card className={cn("min-w-0", breit && "lg:col-span-2")}>
       <CardHeader className="pb-3">
         <div className="flex items-start gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-on-secondary">
@@ -121,15 +116,50 @@ function KeineMesswerte({ text }: { text: string }) {
 }
 
 export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
+  const [offen, setOffen] = useState(false);
+  const [flaechenVorschau, setFlaechenVorschau] = useState(false);
+  const flaechenTriggerRef = useRef<HTMLDivElement>(null);
+  const inhaltId = useId();
+  // Auf Geraeten ohne echtes Hover (Touch) oeffnet ein Klick die Vorschau
+  // statt eines Mouseover/-out - sonst liesse sie sich dort gar nicht
+  // schliessen. `hatHover` startet mit `true` (Desktop als Normalfall), bis
+  // die Messung nach der Hydration greift.
+  const [hatHover, setHatHover] = useState(true);
+  useEffect(() => {
+    const anfrage = window.matchMedia("(hover: hover) and (pointer: fine)");
+    setHatHover(anfrage.matches);
+    const aktualisieren = (event: MediaQueryListEvent) => setHatHover(event.matches);
+    anfrage.addEventListener("change", aktualisieren);
+    return () => anfrage.removeEventListener("change", aktualisieren);
+  }, []);
+  useEffect(() => {
+    if (hatHover || !flaechenVorschau) return;
+    function aussenKlick(event: MouseEvent) {
+      if (!flaechenTriggerRef.current?.contains(event.target as Node)) {
+        setFlaechenVorschau(false);
+      }
+    }
+    document.addEventListener("click", aussenKlick);
+    return () => document.removeEventListener("click", aussenKlick);
+  }, [hatHover, flaechenVorschau]);
+  // Feste rgba()-Werte statt einer CSS-Variable: iOS Safari zeigte im SVG-
+  // `fill`-Attribut die falsche Farbe (vermutlich `var()` oder die moderne
+  // rgb()-Syntax mit Schraegstrich-Alpha wird dort im SVG-Kontext nicht
+  // zuverlaessig aufgeloest) - auf dem Desktop war das Ergebnis korrekt.
+  // `resolvedTheme` aus next-themes umgeht das, indem die Farbe direkt in
+  // JS statt im SVG per CSS-Variable bestimmt wird.
+  const { resolvedTheme } = useTheme();
+  const balkenHervorhebung =
+    resolvedTheme === "dark" ? "rgba(2, 6, 23, 0.55)" : "rgba(15, 23, 42, 0.06)";
   const flaechen = daten.filter((punkt) => punkt.flaeche != null);
   const erster = flaechen.at(0)?.flaeche ?? null;
   const letzter = flaechen.at(-1)?.flaeche ?? null;
   const gesamttrend = flaechenTrend(letzter, erster);
   const letzterPunkt = daten.at(-1);
+  // Nur fuer die kleine Wundflaechen-Vorschau: echter Zeitstempel je Punkt
+  // fuer eine zeitproportionale Achse (siehe dort).
+  const zeitDaten = daten.map((punkt) => ({ ...punkt, t: new Date(punkt.datum).getTime() }));
   const chartDaten = daten.map((punkt) => ({ ...punkt, ...punkt.wundgrund }));
-  const hatMasse = daten.some(
-    (punkt) => punkt.breiteMm != null || punkt.laengeMm != null || punkt.tiefeMm != null,
-  );
   const hatBelastung = daten.some(
     (punkt) => punkt.schmerzVas != null || punkt.exsudatStufe != null,
   );
@@ -139,8 +169,19 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:grid-cols-3">
-        <div className="p-5 sm:border-r sm:border-border">
+      <div className="grid rounded-xl border border-border bg-card shadow-sm sm:grid-cols-3">
+        <div
+          ref={flaechenTriggerRef}
+          className="relative p-5 sm:border-r sm:border-border"
+          {...(hatHover
+            ? {
+                onMouseEnter: () => setFlaechenVorschau(true),
+                onMouseLeave: () => setFlaechenVorschau(false),
+              }
+            : {
+                onClick: () => setFlaechenVorschau((sichtbar) => !sichtbar),
+              })}
+        >
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Aktuelle Fläche
           </p>
@@ -150,6 +191,54 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
           <p className="mt-1 text-xs text-muted-foreground">
             {letzterPunkt ? `Stand ${diagrammDatumLang(letzterPunkt.datum)}` : "Keine Messung"}
           </p>
+          {flaechenVorschau && flaechen.length > 0 && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute left-0 top-full z-30 mt-2 overflow-hidden rounded-lg border border-border bg-card p-3 shadow-lg"
+              style={{ maxWidth: "calc(100vw - 2rem)" }}
+            >
+              <p className="mb-1 text-xs font-semibold text-heading">Wundfläche</p>
+              {/* Feste Pixelgroesse statt ResponsiveContainer: In diesem per
+                  Hover/Touch frisch eingeblendeten, absolut positionierten
+                  Popover misst ResponsiveContainer auf iOS Safari beim ersten
+                  Rendern zuverlaessig eine Breite/Hoehe von 0 - der Vorschau-
+                  Inhalt blieb dort leer. Links statt zentriert verankert und
+                  auf die Viewportbreite gedeckelt, damit das (deutlich
+                  breitere) Diagramm bei der schmalen ersten Kachelspalte
+                  (z. B. auf dem iPad) nicht ueber den linken Rand hinausragt.
+                  Anders als die vier Diagramme im Wundverlauf unten nutzt nur
+                  diese kleine Vorschau eine echte, zeitproportionale Achse
+                  (`t` in Millisekunden statt der kategorialen `datum`-Achse) -
+                  unterschiedliche Abstaende zwischen Aufnahmen sind hier also
+                  auch als unterschiedlich breite Abschnitte sichtbar. */}
+              <AreaChart
+                width={560}
+                height={280}
+                data={zeitDaten}
+                margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+              >
+                <XAxis
+                  dataKey="t"
+                  type="number"
+                  domain={["dataMin", "dataMax"]}
+                  tickFormatter={diagrammAchsenDatum}
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={{ stroke: "var(--border-strong)" }}
+                  minTickGap={32}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="flaeche"
+                  stroke="var(--chart-1)"
+                  strokeWidth={2}
+                  fill="var(--chart-1)"
+                  fillOpacity={0.22}
+                  connectNulls
+                />
+              </AreaChart>
+            </div>
+          )}
         </div>
         <div className="border-t border-border p-5 sm:border-r sm:border-t-0">
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -179,7 +268,42 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <button
+          type="button"
+          onClick={() => setOffen((o) => !o)}
+          aria-expanded={offen}
+          aria-controls={inhaltId}
+          className="flex w-full items-center gap-3 p-4 text-left cursor-pointer sm:p-5"
+        >
+          <span
+            aria-hidden="true"
+            className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-on-secondary"
+          >
+            <ChartLine className="size-4.5" aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-heading text-base font-semibold text-heading">
+              Wundverlauf
+            </span>
+            <span className="mt-0.5 block text-sm font-normal text-muted-foreground">
+              Fläche, Abmessungen, Schmerz/Exsudat und Wundgrund als Diagramme
+            </span>
+          </span>
+          <ChevronDown
+            className={cn(
+              "size-5 shrink-0 text-muted-foreground transition-transform duration-200",
+              offen && "rotate-180",
+            )}
+            aria-hidden="true"
+          />
+        </button>
+
+        <div
+          id={inhaltId}
+          hidden={!offen}
+          className="grid gap-4 border-t border-border p-4 lg:grid-cols-2 sm:p-5"
+        >
         <DiagrammKarte
           icon={Activity}
           titel="Wundfläche"
@@ -223,31 +347,10 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
         <DiagrammKarte
           icon={Ruler}
           titel="Abmessungen"
-          beschreibung="Breite, Länge und Tiefe in Millimetern."
+          beschreibung="Ausgewählte Aufnahme als schematische Draufsicht und Tiefenprofil."
+          breit
         >
-          {hatMasse ? (
-            <div className="h-72 w-full" role="img" aria-label="Verlauf der Wundabmessungen">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={daten} margin={{ top: 12, right: 12, left: 4, bottom: 0 }}>
-                  <Achsen />
-                  <Tooltip
-                    contentStyle={tooltipStil()}
-                    labelFormatter={diagrammTooltipDatum}
-                    formatter={(wert, name) => [
-                      `${deutscheZahl.format(Number(wert))} mm`,
-                      String(name),
-                    ]}
-                  />
-                  <Legend wrapperStyle={{ fontSize: "0.75rem", paddingTop: "10px" }} />
-                  <Line type="monotone" dataKey="breiteMm" name="Breite" stroke="var(--chart-1)" strokeWidth={2.5} connectNulls />
-                  <Line type="monotone" dataKey="laengeMm" name="Länge" stroke="var(--chart-2)" strokeWidth={2.5} strokeDasharray="7 3" connectNulls />
-                  <Line type="monotone" dataKey="tiefeMm" name="Tiefe" stroke="var(--chart-4)" strokeWidth={2.5} strokeDasharray="2 3" connectNulls />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <KeineMesswerte text="Für diesen Verlauf wurden noch keine Abmessungen dokumentiert." />
-          )}
+          <AbmessungenVerlauf daten={daten} />
         </DiagrammKarte>
 
         <DiagrammKarte
@@ -260,7 +363,7 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={daten} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke="var(--border)" strokeDasharray="3 4" vertical={false} />
-                  <XAxis dataKey="datum" tickFormatter={diagrammDatumKurz} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border-strong)" }} minTickGap={18} />
+                  <XAxis dataKey="datum" interval={0} tickFormatter={diagrammDatumKurz} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border-strong)" }} minTickGap={18} />
                   <YAxis yAxisId="vas" domain={[0, 10]} width={30} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} tickLine={false} axisLine={false} />
                   <YAxis yAxisId="exsudat" orientation="right" domain={[0, 3]} ticks={[0, 1, 2, 3]} width={24} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} tickLine={false} axisLine={false} />
                   <Tooltip
@@ -286,7 +389,6 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
           icon={Sparkles}
           titel="Wundgrund-Zusammensetzung"
           beschreibung="Dokumentierte Befunde, gebündelt in fünf klinische Gruppen."
-          breit
         >
           {hatWundgrund ? (
             <div className="h-72 w-full" role="img" aria-label="Verlauf der Wundgrund-Zusammensetzung">
@@ -295,6 +397,7 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
                   <Achsen />
                   <Tooltip
                     contentStyle={tooltipStil()}
+                    cursor={{ fill: balkenHervorhebung }}
                     labelFormatter={diagrammTooltipDatum}
                     formatter={(wert, name) => [
                       `${wert} ${Number(wert) === 1 ? "Befund" : "Befunde"}`,
@@ -319,23 +422,24 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
             <KeineMesswerte text="Für die Wundgrund-Auswertung fehlen noch gruppierbare Befunde." />
           )}
         </DiagrammKarte>
-      </div>
 
-      <table className="nur-screenreader">
-        <caption>Tabellarische Daten der Verlaufsdiagramme</caption>
-        <thead>
-          <tr>
-            <th>Datum</th><th>Fläche</th><th>Breite</th><th>Länge</th><th>Tiefe</th><th>Schmerz-VAS</th><th>Exsudat</th>
-          </tr>
-        </thead>
-        <tbody>
-          {daten.map((punkt) => (
-            <tr key={punkt.id}>
-              <td>{diagrammDatumLang(punkt.datum)}</td><td>{punkt.flaeche ?? "–"}</td><td>{punkt.breiteMm ?? "–"}</td><td>{punkt.laengeMm ?? "–"}</td><td>{punkt.tiefeMm ?? "–"}</td><td>{punkt.schmerzVas ?? "–"}</td><td>{punkt.exsudatLabel || "–"}</td>
+        <table className="nur-screenreader">
+          <caption>Tabellarische Daten der Verlaufsdiagramme</caption>
+          <thead>
+            <tr>
+              <th>Datum</th><th>Fläche</th><th>Breite</th><th>Länge</th><th>Tiefe</th><th>Schmerz-VAS</th><th>Exsudat</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {daten.map((punkt) => (
+              <tr key={punkt.id}>
+                <td>{diagrammDatumLang(punkt.datum)}</td><td>{punkt.flaeche ?? "–"}</td><td>{punkt.breiteMm ?? "–"}</td><td>{punkt.laengeMm ?? "–"}</td><td>{punkt.tiefeMm ?? "–"}</td><td>{punkt.schmerzVas ?? "–"}</td><td>{punkt.exsudatLabel || "–"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        </div>
+      </div>
     </div>
   );
 }

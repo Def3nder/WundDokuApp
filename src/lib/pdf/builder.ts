@@ -10,7 +10,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, type PDFFont, type PDFPage, rgb } from "pdf-lib";
+import { LineCapStyle, PDFDocument, type PDFFont, type PDFPage, rgb } from "pdf-lib";
 
 /**
  * Echte Schriftdateien statt `StandardFonts.Helvetica`: Die eingebauten
@@ -37,12 +37,37 @@ const FARBE_FLAECHE = rgb(0.95, 0.98, 0.98);
 const FARBE_ZEBRA = rgb(0.97, 0.98, 0.99);
 const FARBE_WEISS = rgb(1, 1, 1);
 
+/**
+ * Dieselbe Staffelung wie `--chart-1` bis `--chart-5` im Hell-Farbschema
+ * (globals.css) - das PDF kennt keinen Dark Mode, also fest die Druckwerte.
+ */
+const FARBE_DIAGRAMM = [
+  rgb(0.055, 0.455, 0.565), // chart-1 #0e7490
+  rgb(0.02, 0.588, 0.412), // chart-2 #059669
+  rgb(0.706, 0.325, 0.035), // chart-3 #b45309
+  rgb(0.486, 0.227, 0.929), // chart-4 #7c3aed
+  rgb(0.745, 0.071, 0.235), // chart-5 #be123c
+];
+
 const GROESSE_TITEL = 17;
 const GROESSE_UNTERTITEL = 10;
 const GROESSE_ABSCHNITT = 12;
 const GROESSE_LABEL = 8.3;
 const GROESSE_WERT = 10;
 const GROESSE_FUSS = 8;
+
+const ZAHL_DE = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
+
+/** Rundet eine Achsenobergrenze auf eine "schoene" Zahl auf (1/2/2,5/5/10 * 10^n). */
+function schoeneObergrenze(wert: number): number {
+  if (wert <= 0) return 1;
+  const groessenordnung = 10 ** Math.floor(Math.log10(wert));
+  for (const schritt of [1, 2, 2.5, 5, 10]) {
+    const kandidat = schritt * groessenordnung;
+    if (kandidat >= wert - 1e-9) return kandidat;
+  }
+  return 10 * groessenordnung;
+}
 
 /**
  * Die eingebettete Schrift ist auf Latein/Interpunktion eingekuerzt (siehe
@@ -89,6 +114,24 @@ export type VerlaufZeile = {
   fotos: number;
 };
 
+/**
+ * Eine Datenreihe fuer `liniendiagramm`. Ohne eigene `domain` teilt sich eine
+ * Serie die automatisch berechnete Standardachse mit allen anderen Serien
+ * ohne `domain` (z.B. Breite/Laenge/Tiefe auf derselben mm-Achse). Serien mit
+ * `domain` bekommen eine eigene, unabhaengige Achse (z.B. Schmerz-VAS 0-10
+ * neben Exsudat 0-3) - analog zu den zwei `YAxis` im Bildschirm-Diagramm.
+ */
+export type PdfDiagrammSerie = {
+  name: string;
+  farbe: ReturnType<typeof rgb>;
+  werte: readonly (number | null)[];
+  domain?: readonly [number, number];
+  gestrichelt?: boolean;
+  flaeche?: boolean;
+};
+
+export const PDF_DIAGRAMM_FARBEN = FARBE_DIAGRAMM;
+
 export class PdfBuilder {
   private doc!: PDFDocument;
   private schrift!: PDFFont;
@@ -96,6 +139,23 @@ export class PdfBuilder {
   private page!: PDFPage;
   private y = OBEN_START;
   private erzeugtAm = new Date();
+
+  /**
+   * Interne PDF-Links (z.B. von der Verlaufsuebersicht zur jeweiligen
+   * Aufnahme): Sprungziele werden gesetzt, sobald die Zielstelle gezeichnet
+   * wird; anklickbare Bereiche koennen aber schon vorher entstehen (die
+   * Uebersichtstabelle steht vor den Aufnahmen). Beide Listen werden erst in
+   * `fertig()` zusammengefuehrt, wenn alle Sprungziele bekannt sind.
+   */
+  private sprungziele = new Map<string, { seite: PDFPage; y: number }>();
+  private ausstehendeLinks: {
+    seite: PDFPage;
+    x: number;
+    y: number;
+    breite: number;
+    hoehe: number;
+    zielId: string;
+  }[] = [];
 
   private constructor() {}
 
@@ -148,6 +208,32 @@ export class PdfBuilder {
       thickness: dicke,
       color: farbe,
     });
+  }
+
+  /** Merkt sich die aktuelle Position als Sprungziel fuer interne PDF-Links. */
+  private setzeSprungziel(id: string, y: number): void {
+    this.sprungziele.set(id, { seite: this.page, y });
+  }
+
+  /** Reserviert einen anklickbaren Bereich, der in `fertig()` mit seinem Sprungziel verknuepft wird. */
+  private merkeLink(zielId: string, rect: { x: number; y: number; breite: number; hoehe: number }): void {
+    this.ausstehendeLinks.push({ seite: this.page, zielId, ...rect });
+  }
+
+  /** Baut aus den gemerkten Bereichen und Sprungzielen echte PDF-Link-Annotationen. */
+  private verknuepfeLinks(): void {
+    for (const link of this.ausstehendeLinks) {
+      const ziel = this.sprungziele.get(link.zielId);
+      if (!ziel) continue;
+      const annotation = this.doc.context.obj({
+        Type: "Annot",
+        Subtype: "Link",
+        Rect: [link.x, link.y, link.x + link.breite, link.y + link.hoehe],
+        Border: [0, 0, 0],
+        Dest: [ziel.seite.ref, "XYZ", null, ziel.y, null],
+      });
+      link.seite.node.addAnnot(this.doc.context.register(annotation));
+    }
   }
 
   /** Kopfblock: Titel, Untertitel und eine trennende Linie. */
@@ -229,8 +315,9 @@ export class PdfBuilder {
   }
 
   /** Abschnittsueberschrift, wie die Karten-Titel im Formular ("Wundbefund" usw.). */
-  abschnitt(titel: string): void {
+  abschnitt(titel: string, zielId?: string): void {
     this.sicherstellenPlatz(34);
+    if (zielId) this.setzeSprungziel(zielId, Math.min(this.y + 4, SEITE_HOEHE - 12));
     this.y -= 6;
     this.text(titel, RAND, this.y, { font: this.schriftFett, size: GROESSE_ABSCHNITT, color: FARBE_PRIMAER });
     this.y -= 8;
@@ -357,7 +444,12 @@ export class PdfBuilder {
 
   /** Auffaellige, nummerierte Uebersicht aller Aufnahmen im Verlauf. */
   verlaufsUebersicht(zeilen: readonly VerlaufZeile[]): void {
-    this.abschnitt("Aufnahmen im Verlauf");
+    this.abschnitt("Aufnahmen im Verlauf", "uebersicht");
+    this.text("Klick auf eine Zeile springt zur passenden Aufnahme im Dokument.", RAND, this.y, {
+      size: GROESSE_LABEL,
+      color: FARBE_GRAU,
+    });
+    this.y -= 16;
     const kopfHoehe = 22;
     const zeilenHoehe = 28;
     const spalten = [34, 76, 128, 78, 95, 54];
@@ -396,15 +488,290 @@ export class PdfBuilder {
         });
         x += spalten[wertIndex + 1];
       });
+      this.merkeLink(String(zeile.nummer), {
+        x: RAND,
+        y: this.y - zeilenHoehe + 5,
+        breite: INHALT_BREITE,
+        hoehe: zeilenHoehe,
+      });
       this.y -= zeilenHoehe;
     });
     this.y -= 8;
   }
 
-  /** Wiedererkennbare Nummer vor jedem Detailbefund. */
+  /** Kartenrahmen mit Titel/Beschreibung fuer eine leere Diagrammserie - Aequivalent zu `KeineMesswerte` auf dem Bildschirm. */
+  private diagrammPlatzhalter(titel: string, beschreibung: string, hinweistext: string): void {
+    const innenRand = 12;
+    const kartenHoehe = 90;
+    this.sicherstellenPlatz(kartenHoehe + 10);
+    const oben = this.y;
+    this.page.drawRectangle({
+      x: RAND,
+      y: oben - kartenHoehe,
+      width: INHALT_BREITE,
+      height: kartenHoehe,
+      borderColor: FARBE_LINIE,
+      borderWidth: 0.75,
+    });
+    this.text(titel, RAND + innenRand, oben - 18, { font: this.schriftFett, size: GROESSE_ABSCHNITT, color: FARBE_PRIMAER });
+    if (beschreibung) this.text(beschreibung, RAND + innenRand, oben - 31, { size: GROESSE_LABEL, color: FARBE_GRAU });
+    const textBreite = this.schrift.widthOfTextAtSize(hinweistext, GROESSE_WERT);
+    this.text(hinweistext, RAND + (INHALT_BREITE - textBreite) / 2, oben - kartenHoehe / 2 - 4, {
+      size: GROESSE_WERT,
+      color: FARBE_GRAU,
+    });
+    this.y = oben - kartenHoehe - 10;
+  }
+
+  /** Zeichnet moeglichst wenige, ueberlappungsfreie x-Achsen-Beschriftungen unter den gegebenen Positionen. */
+  private diagrammXAchse(labels: readonly string[], xPositionen: readonly number[], y: number): void {
+    const n = labels.length;
+    if (n === 0) return;
+    const maxLabelBreite = Math.max(...labels.map((l) => this.schrift.widthOfTextAtSize(l, GROESSE_LABEL)));
+    const platzProLabel = maxLabelBreite + 10;
+    const gesamtbreite = xPositionen[n - 1] - xPositionen[0] || 1;
+    const maxAnzahl = Math.max(2, Math.floor(gesamtbreite / platzProLabel) + 1);
+    const indizes = new Set<number>([0, n - 1]);
+    if (n <= maxAnzahl) {
+      for (let i = 0; i < n; i++) indizes.add(i);
+    } else {
+      const schritt = (n - 1) / (maxAnzahl - 1);
+      for (let i = 0; i < maxAnzahl; i++) indizes.add(Math.round(i * schritt));
+    }
+    for (const index of [...indizes].sort((a, b) => a - b)) {
+      const breite = this.schrift.widthOfTextAtSize(labels[index], GROESSE_LABEL);
+      const x = Math.min(Math.max(xPositionen[index] - breite / 2, RAND), RAND + INHALT_BREITE - breite);
+      this.text(labels[index], x, y, { size: GROESSE_LABEL, color: FARBE_GRAU });
+    }
+  }
+
+  /** Legende mit Farbpunkt je Serie, wird nur bei mehr als einer Serie gebraucht. */
+  private diagrammLegende(serien: readonly { name: string; farbe: ReturnType<typeof rgb> }[], y: number): void {
+    let x = RAND + 12;
+    for (const serie of serien) {
+      this.page.drawRectangle({ x, y: y - 1, width: 8, height: 8, color: serie.farbe });
+      this.text(serie.name, x + 12, y, { size: GROESSE_LABEL, color: FARBE_GRAU });
+      x += 12 + this.schrift.widthOfTextAtSize(serie.name, GROESSE_LABEL) + 16;
+    }
+  }
+
+  /**
+   * Liniendiagramm mit einer oder mehreren Serien - fuer Wundflaeche (mit
+   * Flaechenfuellung), Abmessungen (drei Serien, eine gemeinsame Achse) und
+   * Schmerz/Exsudat (zwei Serien mit je eigener `domain`, analog zu den
+   * beiden `YAxis` im Bildschirm-Diagramm).
+   */
+  liniendiagramm(
+    titel: string,
+    beschreibung: string,
+    xLabels: readonly string[],
+    serien: readonly PdfDiagrammSerie[],
+  ): void {
+    const hatWerte = xLabels.length > 0 && serien.some((s) => s.werte.some((w) => w != null));
+    if (!hatWerte) {
+      this.diagrammPlatzhalter(titel, beschreibung, "Für diesen Verlauf liegen noch keine Messwerte vor.");
+      return;
+    }
+
+    const ohneEigeneDomain = serien.filter((s) => !s.domain);
+    const standardDomain: readonly [number, number] = ohneEigeneDomain.length
+      ? [0, schoeneObergrenze(Math.max(1e-9, ...ohneEigeneDomain.flatMap((s) => s.werte).filter((w): w is number => w != null)) * 1.15)]
+      : [0, 1];
+    const domainVon = (s: PdfDiagrammSerie) => s.domain ?? standardDomain;
+    const linksDomain = domainVon(serien[0]);
+    const rechtsSerie = serien.find((s) => {
+      const d = domainVon(s);
+      return d[0] !== linksDomain[0] || d[1] !== linksDomain[1];
+    });
+    const rechtsDomain = rechtsSerie ? domainVon(rechtsSerie) : null;
+
+    const innenRand = 12;
+    const linksAchsenBreite = 32;
+    const rechtsAchsenBreite = rechtsDomain ? 30 : 0;
+    const plotHoehe = 118;
+    const xAchsenHoehe = 16;
+    const legendeHoehe = serien.length > 1 ? 16 : 4;
+    const kopfHoehe = beschreibung ? 42 : 26;
+    const kartenHoehe = kopfHoehe + plotHoehe + xAchsenHoehe + legendeHoehe + innenRand;
+
+    this.sicherstellenPlatz(kartenHoehe + 10);
+    const oben = this.y;
+    this.page.drawRectangle({
+      x: RAND,
+      y: oben - kartenHoehe,
+      width: INHALT_BREITE,
+      height: kartenHoehe,
+      borderColor: FARBE_LINIE,
+      borderWidth: 0.75,
+    });
+    this.text(titel, RAND + innenRand, oben - 18, { font: this.schriftFett, size: GROESSE_ABSCHNITT, color: FARBE_PRIMAER });
+    if (beschreibung) this.text(beschreibung, RAND + innenRand, oben - 31, { size: GROESSE_LABEL, color: FARBE_GRAU });
+
+    const plotX = RAND + innenRand + linksAchsenBreite;
+    const plotBreite = INHALT_BREITE - innenRand * 2 - linksAchsenBreite - rechtsAchsenBreite;
+    const plotOben = oben - kopfHoehe;
+    const plotUnten = plotOben - plotHoehe;
+    const n = xLabels.length;
+    const px = (index: number) => (n === 1 ? plotX + plotBreite / 2 : plotX + (plotBreite * index) / (n - 1));
+
+    for (let i = 0; i <= 4; i++) {
+      const frac = i / 4;
+      const y = plotUnten + plotHoehe * frac;
+      this.page.drawLine({
+        start: { x: plotX, y },
+        end: { x: plotX + plotBreite, y },
+        thickness: i === 0 ? 1 : 0.5,
+        color: i === 0 ? FARBE_GRAU : FARBE_LINIE,
+      });
+      const linksWert = ZAHL_DE.format(linksDomain[0] + (linksDomain[1] - linksDomain[0]) * frac);
+      const linksBreite = this.schrift.widthOfTextAtSize(linksWert, GROESSE_LABEL);
+      this.text(linksWert, plotX - 6 - linksBreite, y - 3, { size: GROESSE_LABEL, color: FARBE_GRAU });
+      if (rechtsDomain) {
+        const rechtsWert = ZAHL_DE.format(rechtsDomain[0] + (rechtsDomain[1] - rechtsDomain[0]) * frac);
+        this.text(rechtsWert, plotX + plotBreite + 6, y - 3, { size: GROESSE_LABEL, color: FARBE_GRAU });
+      }
+    }
+
+    this.diagrammXAchse(
+      xLabels,
+      Array.from({ length: n }, (_, i) => px(i)),
+      plotUnten - 11,
+    );
+
+    for (const serie of serien) {
+      const domain = domainVon(serie);
+      const skala = plotHoehe / (domain[1] - domain[0] || 1);
+      const punkte = serie.werte
+        .map((wert, index) =>
+          wert == null ? null : { x: px(index), y: plotUnten + (wert - domain[0]) * skala },
+        )
+        .filter((p): p is { x: number; y: number } => p != null);
+      if (punkte.length === 0) continue;
+
+      if (serie.flaeche && punkte.length >= 2) {
+        const pfad = [
+          `M ${punkte[0].x},${-punkte[0].y}`,
+          ...punkte.slice(1).map((p) => `L ${p.x},${-p.y}`),
+          `L ${punkte[punkte.length - 1].x},${-plotUnten}`,
+          `L ${punkte[0].x},${-plotUnten}`,
+          "Z",
+        ].join(" ");
+        this.page.drawSvgPath(pfad, { x: 0, y: 0, color: serie.farbe, opacity: 0.16 });
+      }
+
+      if (punkte.length >= 2) {
+        const linie = punkte.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x},${-p.y}`).join(" ");
+        this.page.drawSvgPath(linie, {
+          x: 0,
+          y: 0,
+          borderColor: serie.farbe,
+          borderWidth: 1.6,
+          borderLineCap: LineCapStyle.Round,
+          borderDashArray: serie.gestrichelt ? [5, 3] : undefined,
+        });
+      }
+
+      for (const p of punkte) {
+        this.page.drawCircle({ x: p.x, y: p.y, size: 2.4, color: FARBE_WEISS, borderColor: serie.farbe, borderWidth: 1.6 });
+      }
+    }
+
+    if (serien.length > 1) {
+      this.diagrammLegende(serien, plotUnten - xAchsenHoehe - 10);
+    }
+
+    this.y = oben - kartenHoehe - 10;
+  }
+
+  /** Gestapeltes Balkendiagramm, z.B. die Wundgrund-Zusammensetzung je Aufnahme. */
+  gestapeltesBalkendiagramm(
+    titel: string,
+    beschreibung: string,
+    xLabels: readonly string[],
+    serien: readonly { name: string; farbe: ReturnType<typeof rgb>; werte: readonly number[] }[],
+  ): void {
+    const summen = xLabels.map((_, index) => serien.reduce((summe, s) => summe + (s.werte[index] ?? 0), 0));
+    const hatWerte = summen.some((summe) => summe > 0);
+    if (!hatWerte) {
+      this.diagrammPlatzhalter(titel, beschreibung, "Für diesen Verlauf liegen noch keine gruppierbaren Befunde vor.");
+      return;
+    }
+
+    const domainMax = schoeneObergrenze(Math.max(...summen));
+    const innenRand = 12;
+    const linksAchsenBreite = 22;
+    const plotHoehe = 118;
+    const xAchsenHoehe = 16;
+    const legendeHoehe = 16;
+    const kopfHoehe = beschreibung ? 42 : 26;
+    const kartenHoehe = kopfHoehe + plotHoehe + xAchsenHoehe + legendeHoehe + innenRand;
+
+    this.sicherstellenPlatz(kartenHoehe + 10);
+    const oben = this.y;
+    this.page.drawRectangle({
+      x: RAND,
+      y: oben - kartenHoehe,
+      width: INHALT_BREITE,
+      height: kartenHoehe,
+      borderColor: FARBE_LINIE,
+      borderWidth: 0.75,
+    });
+    this.text(titel, RAND + innenRand, oben - 18, { font: this.schriftFett, size: GROESSE_ABSCHNITT, color: FARBE_PRIMAER });
+    if (beschreibung) this.text(beschreibung, RAND + innenRand, oben - 31, { size: GROESSE_LABEL, color: FARBE_GRAU });
+
+    const plotX = RAND + innenRand + linksAchsenBreite;
+    const plotBreite = INHALT_BREITE - innenRand * 2 - linksAchsenBreite;
+    const plotOben = oben - kopfHoehe;
+    const plotUnten = plotOben - plotHoehe;
+    const n = xLabels.length;
+    const slotBreite = plotBreite / n;
+    const balkenBreite = Math.min(36, slotBreite * 0.55);
+
+    for (let i = 0; i <= 4; i++) {
+      const frac = i / 4;
+      const y = plotUnten + plotHoehe * frac;
+      this.page.drawLine({
+        start: { x: plotX, y },
+        end: { x: plotX + plotBreite, y },
+        thickness: i === 0 ? 1 : 0.5,
+        color: i === 0 ? FARBE_GRAU : FARBE_LINIE,
+      });
+      const wert = ZAHL_DE.format(domainMax * frac);
+      const breite = this.schrift.widthOfTextAtSize(wert, GROESSE_LABEL);
+      this.text(wert, plotX - 6 - breite, y - 3, { size: GROESSE_LABEL, color: FARBE_GRAU });
+    }
+
+    const slotMitten = xLabels.map((_, i) => plotX + slotBreite * (i + 0.5));
+    this.diagrammXAchse(xLabels, slotMitten, plotUnten - 11);
+
+    xLabels.forEach((_, i) => {
+      let cy = plotUnten;
+      for (const serie of serien) {
+        const wert = serie.werte[i] ?? 0;
+        if (wert <= 0) continue;
+        const hoehe = (wert / domainMax) * plotHoehe;
+        this.page.drawRectangle({ x: slotMitten[i] - balkenBreite / 2, y: cy, width: balkenBreite, height: hoehe, color: serie.farbe });
+        cy += hoehe;
+      }
+    });
+
+    this.diagrammLegende(serien, plotUnten - xAchsenHoehe - 10);
+    this.y = oben - kartenHoehe - 10;
+  }
+
+  /** Kleiner "Pfeil nach oben" als Knopfsymbol, z.B. fuer den Sprung zurueck zur Uebersicht. */
+  private pfeilNachOben(cx: number, cy: number, breite: number, farbe: ReturnType<typeof rgb>): void {
+    const halb = breite / 2;
+    const opts = { thickness: 1.3, color: farbe, lineCap: LineCapStyle.Round };
+    this.page.drawLine({ start: { x: cx - halb, y: cy - halb * 0.5 }, end: { x: cx, y: cy + halb * 0.6 }, ...opts });
+    this.page.drawLine({ start: { x: cx, y: cy + halb * 0.6 }, end: { x: cx + halb, y: cy - halb * 0.5 }, ...opts });
+  }
+
+  /** Wiedererkennbare Nummer vor jedem Detailbefund, mit Ruecksprung-Knopf zur Verlaufsuebersicht. */
   aufnahmeBanner(nummer: number, titel: string, untertitel?: string): void {
     const hoehe = untertitel ? 47 : 35;
     this.sicherstellenPlatz(hoehe + 12);
+    this.setzeSprungziel(String(nummer), Math.min(this.y + 14, SEITE_HOEHE - 12));
     this.page.drawRectangle({ x: RAND, y: this.y - hoehe, width: INHALT_BREITE, height: hoehe, color: FARBE_FLAECHE, borderColor: FARBE_LINIE, borderWidth: 0.75 });
     this.page.drawRectangle({ x: RAND, y: this.y - hoehe, width: 38, height: hoehe, color: FARBE_PRIMAER });
     const nr = String(nummer).padStart(2, "0");
@@ -412,6 +779,13 @@ export class PdfBuilder {
     this.text(nr, RAND + 19 - nrBreite / 2, this.y - 23, { font: this.schriftFett, size: 12, color: FARBE_WEISS });
     this.text(titel, RAND + 50, this.y - 19, { font: this.schriftFett, size: GROESSE_ABSCHNITT, color: FARBE_PRIMAER });
     if (untertitel) this.text(untertitel, RAND + 50, this.y - 35, { size: GROESSE_LABEL, color: FARBE_GRAU });
+
+    const knopfCx = RAND + INHALT_BREITE - 22;
+    const knopfCy = this.y - hoehe / 2;
+    this.page.drawCircle({ x: knopfCx, y: knopfCy, size: 10, color: FARBE_WEISS, borderColor: FARBE_PRIMAER, borderWidth: 1 });
+    this.pfeilNachOben(knopfCx, knopfCy, 9, FARBE_PRIMAER);
+    this.merkeLink("uebersicht", { x: knopfCx - 12, y: knopfCy - 12, breite: 24, hoehe: 24 });
+
     this.y -= hoehe + 10;
   }
 
@@ -549,6 +923,7 @@ export class PdfBuilder {
 
   /** Stempelt Fusszeilen auf alle Seiten und liefert die fertigen Bytes. */
   async fertig(): Promise<Uint8Array> {
+    this.verknuepfeLinks();
     const seiten = this.doc.getPages();
     const zeitstempel = this.erzeugtAm.toLocaleString("de-DE", {
       day: "2-digit",

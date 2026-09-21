@@ -89,7 +89,11 @@ function StammdatenAbschnitt({ titel, einzahl, icon: Icon, farbe, eintraege, neu
             <Plus className="size-4" aria-hidden="true" />
             {einzahl} hinzufügen
           </summary>
-          <form action={neuAction} className="grid gap-3 border-t border-border p-4">
+          <form
+            action={neuAction}
+            className="grid gap-3 border-t border-border p-4"
+            data-aenderungen-warnung={`stammdaten-neu-${zweitesName}`}
+          >
             <StammdatenFelder zweitesFeld={zweitesFeld} zweitesName={zweitesName} />
             <div className="flex justify-end">
               <Button type="submit"><Plus aria-hidden="true" />{einzahl} hinzufügen</Button>
@@ -111,7 +115,11 @@ function StammdatenAbschnitt({ titel, einzahl, icon: Icon, farbe, eintraege, neu
                 <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" aria-hidden="true" />
               </summary>
               <div className="border-t border-border px-3 py-4">
-                <form action={speichern.bind(null, eintrag.id)} className="grid gap-3">
+                <form
+                  action={speichern.bind(null, eintrag.id)}
+                  className="grid gap-3"
+                  data-aenderungen-warnung={`stammdaten-${eintrag.id}`}
+                >
                   <StammdatenFelder eintrag={eintrag} zweitesFeld={zweitesFeld} zweitesName={zweitesName} />
                   <div className="flex flex-wrap justify-end gap-2">
                     <Button type="submit" variant="outline"><Save aria-hidden="true" />Änderungen speichern</Button>
