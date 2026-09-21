@@ -31,6 +31,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
   // maximumScale bewusst nicht gesetzt: Zoom darf nie unterbunden werden.
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f8fafc" },

@@ -87,7 +87,7 @@ export function PatientFormular({
       <Card>
         <CardContent className="space-y-5 pt-6">
           <h2 className="text-base font-semibold">Patientendaten</h2>
-          <div className="grid items-start gap-5 sm:grid-cols-2">
+          <div className="form-grid items-start gap-5">
             <Field id="nachname" label="Nachname" pflicht fehler={f("nachname")} className="min-w-0">
               {(p) => (
                 <Input {...p} className="h-11" name="nachname" defaultValue={w("nachname")} autoComplete="family-name" required />
@@ -108,17 +108,14 @@ export function PatientFormular({
               className="min-w-0"
             >
               {(p) => (
-                <span className="ipad-datumsrahmen">
-                  <Input
-                    {...p}
-                    className="ipad-datumsfeld"
-                    name="geburtsdatum"
-                    type="date"
-                    defaultValue={w("geburtsdatum")}
-                    max={new Date().toISOString().slice(0, 10)}
-                    required
-                  />
-                </span>
+                <Input
+                  {...p}
+                  name="geburtsdatum"
+                  type="date"
+                  defaultValue={w("geburtsdatum")}
+                  max={new Date().toISOString().slice(0, 10)}
+                  required
+                />
               )}
             </Field>
 
@@ -138,7 +135,7 @@ export function PatientFormular({
 
           <div className="space-y-5 border-t border-border pt-5">
             <h2 className="text-base font-semibold">Versorgungspartner</h2>
-            <div className="grid items-start gap-5 sm:grid-cols-2">
+            <div className="form-grid items-start gap-5">
             <div className="min-w-0 space-y-3">
               <Field id="arztId" label="Therapieverantwortlicher Arzt" pflicht fehler={f("arztId")}>
                 {(p) => (
@@ -219,7 +216,7 @@ export function PatientFormular({
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="form-actions">
         <Button type="submit" laedt={laeuft}>
           {absendeText}
         </Button>

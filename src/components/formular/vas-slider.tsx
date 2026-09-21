@@ -64,12 +64,12 @@ export function VasSlider({
         onChange={(e) => setWert(Number(e.target.value))}
         aria-describedby={beschreibungId}
         aria-valuetext={wert == null ? "nicht angegeben" : `${wert} von ${VAS_MAX}`}
-        className="h-11 w-full cursor-pointer appearance-none bg-transparent"
-        style={{ accentColor: farbe }}
+        className="vas-slider h-11 w-full cursor-pointer appearance-none bg-transparent"
+        style={{ color: farbe }}
       />
 
       {/* Zahlenleiste: jede Zahl direkt antippbar */}
-      <div className="flex justify-between gap-0.5">
+      <div className="vas-values">
         {Array.from({ length: VAS_MAX - VAS_MIN + 1 }, (_, i) => i + VAS_MIN).map((n) => (
           <button
             key={n}
@@ -78,7 +78,7 @@ export function VasSlider({
             aria-pressed={wert === n}
             onClick={() => setWert(wert === n ? null : n)}
             className={cn(
-              "tabular flex h-9 flex-1 items-center justify-center rounded-md text-sm font-medium transition-colors duration-200 cursor-pointer",
+              "tabular flex min-h-11 items-center justify-center rounded-md text-sm font-medium transition-colors duration-200 cursor-pointer",
               wert === n
                 ? "text-on-primary"
                 : "bg-surface-muted text-muted-foreground hover:bg-surface hover:text-foreground",

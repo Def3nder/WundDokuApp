@@ -119,6 +119,25 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
   const [offen, setOffen] = useState(false);
   const [flaechenVorschau, setFlaechenVorschau] = useState(false);
   const flaechenTriggerRef = useRef<HTMLDivElement>(null);
+  const [vorschauBreite, setVorschauBreite] = useState(280);
+  useEffect(() => {
+    const trigger = flaechenTriggerRef.current;
+    if (!trigger) return;
+    const messen = () => {
+      // Explizite Pixelbreite fuer Safari, begrenzt auf den Platz rechts vom
+      // Ausloeser einschliesslich Rahmen und Innenabstand der Vorschau.
+      const links = trigger.getBoundingClientRect().left;
+      setVorschauBreite(Math.max(1, Math.min(560, document.documentElement.clientWidth - links - 42)));
+    };
+    messen();
+    const observer = new ResizeObserver(messen);
+    observer.observe(trigger);
+    window.addEventListener("resize", messen);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", messen);
+    };
+  }, []);
   const inhaltId = useId();
   // Auf Geraeten ohne echtes Hover (Touch) oeffnet ein Klick die Vorschau
   // statt eines Mouseover/-out - sonst liesse sie sich dort gar nicht
@@ -195,7 +214,6 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
             <div
               aria-hidden="true"
               className="pointer-events-none absolute left-0 top-full z-30 mt-2 overflow-hidden rounded-lg border border-border bg-card p-3 shadow-lg"
-              style={{ maxWidth: "calc(100vw - 2rem)" }}
             >
               <p className="mb-1 text-xs font-semibold text-heading">Wundfläche</p>
               {/* Feste Pixelgroesse statt ResponsiveContainer: In diesem per
@@ -212,7 +230,7 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
                   unterschiedliche Abstaende zwischen Aufnahmen sind hier also
                   auch als unterschiedlich breite Abschnitte sichtbar. */}
               <AreaChart
-                width={560}
+                width={vorschauBreite}
                 height={280}
                 data={zeitDaten}
                 margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
@@ -423,21 +441,23 @@ export function Verlaufsdiagramme({ daten }: { daten: Verlaufspunkt[] }) {
           )}
         </DiagrammKarte>
 
-        <table className="nur-screenreader">
-          <caption>Tabellarische Daten der Verlaufsdiagramme</caption>
-          <thead>
-            <tr>
-              <th>Datum</th><th>Fläche</th><th>Breite</th><th>Länge</th><th>Tiefe</th><th>Schmerz-VAS</th><th>Exsudat</th>
-            </tr>
-          </thead>
-          <tbody>
-            {daten.map((punkt) => (
-              <tr key={punkt.id}>
-                <td>{diagrammDatumLang(punkt.datum)}</td><td>{punkt.flaeche ?? "–"}</td><td>{punkt.breiteMm ?? "–"}</td><td>{punkt.laengeMm ?? "–"}</td><td>{punkt.tiefeMm ?? "–"}</td><td>{punkt.schmerzVas ?? "–"}</td><td>{punkt.exsudatLabel || "–"}</td>
+        <div className="nur-screenreader">
+          <table>
+            <caption>Tabellarische Daten der Verlaufsdiagramme</caption>
+            <thead>
+              <tr>
+                <th>Datum</th><th>Fläche</th><th>Breite</th><th>Länge</th><th>Tiefe</th><th>Schmerz-VAS</th><th>Exsudat</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {daten.map((punkt) => (
+                <tr key={punkt.id}>
+                  <td>{diagrammDatumLang(punkt.datum)}</td><td>{punkt.flaeche ?? "–"}</td><td>{punkt.breiteMm ?? "–"}</td><td>{punkt.laengeMm ?? "–"}</td><td>{punkt.tiefeMm ?? "–"}</td><td>{punkt.schmerzVas ?? "–"}</td><td>{punkt.exsudatLabel || "–"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         </div>
       </div>
     </div>

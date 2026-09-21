@@ -67,7 +67,7 @@ export function AbschnittSchmerz({
             fehler={fehler("schmerzVas")}
           />
 
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="form-grid gap-4">
             <SchmerzOrt
               label="In der Wunde"
               modusName="schmerzWundeModus"
@@ -94,7 +94,7 @@ export function AbschnittSchmerz({
             />
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="form-grid gap-5">
             <JaNein
               name="schmerzVerbandwechsel"
               legende="Beim Verbandwechsel?"

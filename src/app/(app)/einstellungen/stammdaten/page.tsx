@@ -22,7 +22,7 @@ export default async function StammdatenSeite() {
         <h1 className="text-2xl font-semibold">Ärzte und Pflegedienste</h1>
         <p className="mt-1 text-sm text-muted-foreground">Zentrale Auswahllisten für das Anlegen und Bearbeiten von Wunden.</p>
       </div>
-      <div className="grid items-start gap-8 lg:grid-cols-2">
+      <div className="panel-grid items-start gap-8">
         <StammdatenAbschnitt
           titel="Ärzte"
           einzahl="Arzt"
@@ -149,7 +149,7 @@ function StammdatenFelder({ eintrag, zweitesFeld, zweitesName }: {
     <>
       <Input name="name" defaultValue={eintrag?.name} placeholder="Name" aria-label="Name" required />
       <Input name={zweitesName} defaultValue={eintrag?.[zweitesName] ?? ""} placeholder={zweitesFeld} aria-label={zweitesFeld} />
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="compact-grid gap-3">
         <Input name="telefon" defaultValue={eintrag?.telefon ?? ""} placeholder="Telefon" aria-label="Telefon" />
         <Input name="email" type="email" defaultValue={eintrag?.email ?? ""} placeholder="E-Mail" aria-label="E-Mail" />
       </div>

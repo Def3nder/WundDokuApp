@@ -102,7 +102,7 @@ export function DokumentListe({
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm" />
           <Dialog.Content
-            className="fixed inset-3 z-50 flex flex-col overflow-hidden rounded-xl border border-white/15 bg-slate-950 text-white shadow-2xl sm:inset-8"
+            className="media-dialog fixed z-50 flex flex-col overflow-hidden rounded-xl border border-white/15 bg-slate-950 text-white shadow-2xl"
             onCloseAutoFocus={(event) => {
               event.preventDefault();
               ausloeser.current?.focus();

@@ -69,62 +69,59 @@ export default async function PatientSeite({
 
       {/* Kopfzeile: alles, was beim Verbandwechsel griffbereit sein muss */}
       <Card>
-        <CardContent className="flex items-start justify-between gap-4 p-5 sm:p-6">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-2xl font-semibold">
-              {patient.nachname}, {patient.vorname}
-            </h1>
-            <dl className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
-              <div className="flex gap-1.5">
-                <dt>Nr.</dt>
-                <dd className="tabular font-medium text-foreground">
-                  {patient.patientennummer}
-                </dd>
-              </div>
-              <div className="flex gap-1.5">
-                <dt>Geboren</dt>
-                <dd className="tabular font-medium text-foreground">
-                  {patient.geburtsdatum.toLocaleDateString("de-DE")} (
-                  {alterJahre(patient.geburtsdatum)} Jahre)
-                </dd>
-              </div>
-              {(patient.arzt || patient.arztTherapieverantwortlich) && (
-                <div className="flex gap-1.5">
-                  <dt>Arzt</dt>
-                  <dd className="font-medium text-foreground">
-                    {patient.arzt?.name ?? patient.arztTherapieverantwortlich}
-                  </dd>
-                </div>
-              )}
-              {patient.pflegedienst && (
-                <div className="flex gap-1.5">
-                  <dt>Pflegedienst</dt>
-                  <dd className="font-medium text-foreground">{patient.pflegedienst.name}</dd>
-                </div>
-              )}
-            </dl>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <DokumentVerweis
-                href={`/patienten/${id}/dokumente?typ=REZEPT`}
-                icon={ReceiptText}
-                bezeichnung="Rezepte"
-                anzahl={patient.dokumente.filter((dokument) => dokument.typ === "REZEPT").length}
-              />
-              <DokumentVerweis
-                href={`/patienten/${id}/dokumente?typ=ARZTBRIEF`}
-                icon={FileText}
-                bezeichnung="Arztbriefe"
-                anzahl={patient.dokumente.filter((dokument) => dokument.typ === "ARZTBRIEF").length}
-              />
-            </div>
-          </div>
-
-          <Button variant="outline" asChild className="shrink-0">
-            <Link href={`/patienten/${id}/bearbeiten`}>
+        <CardContent className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-3">
+          <h1 className="min-w-0 text-2xl font-semibold">
+            {patient.nachname}, {patient.vorname}
+          </h1>
+          <Button variant="outline" asChild className="col-start-2 row-start-1 shrink-0 max-sm:size-11 max-sm:p-0">
+            <Link href={`/patienten/${id}/bearbeiten`} aria-label="Bearbeiten" title="Patient bearbeiten">
               <Pencil aria-hidden="true" />
-              Bearbeiten
+              <span className="hidden sm:inline">Bearbeiten</span>
             </Link>
           </Button>
+          <dl className="detail-grid col-span-2 gap-x-6 gap-y-3 text-sm text-muted-foreground">
+            <div>
+              <dt>Nr.</dt>
+              <dd className="tabular font-medium text-foreground">
+                {patient.patientennummer}
+              </dd>
+            </div>
+            <div>
+              <dt>Geboren</dt>
+              <dd className="tabular font-medium text-foreground">
+                {patient.geburtsdatum.toLocaleDateString("de-DE")} (
+                {alterJahre(patient.geburtsdatum)} Jahre)
+              </dd>
+            </div>
+            {(patient.arzt || patient.arztTherapieverantwortlich) && (
+              <div>
+                <dt>Arzt</dt>
+                <dd className="font-medium text-foreground">
+                  {patient.arzt?.name ?? patient.arztTherapieverantwortlich}
+                </dd>
+              </div>
+            )}
+            {patient.pflegedienst && (
+              <div>
+                <dt>Pflegedienst</dt>
+                <dd className="font-medium text-foreground">{patient.pflegedienst.name}</dd>
+              </div>
+            )}
+          </dl>
+          <div className="col-span-2 flex flex-wrap gap-2">
+            <DokumentVerweis
+              href={`/patienten/${id}/dokumente?typ=REZEPT`}
+              icon={ReceiptText}
+              bezeichnung="Rezepte"
+              anzahl={patient.dokumente.filter((dokument) => dokument.typ === "REZEPT").length}
+            />
+            <DokumentVerweis
+              href={`/patienten/${id}/dokumente?typ=ARZTBRIEF`}
+              icon={FileText}
+              bezeichnung="Arztbriefe"
+              anzahl={patient.dokumente.filter((dokument) => dokument.typ === "ARZTBRIEF").length}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -208,7 +205,7 @@ function DokumentVerweis({
   return (
     <Link
       href={href}
-      className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-border bg-surface-muted/40 px-3 py-1.5 text-sm transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-surface-muted/40 px-3 py-2 text-sm transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <Icon className="size-4 text-primary" aria-hidden="true" />
       <span>{bezeichnung}: <span className="font-semibold tabular">{anzahl}</span></span>

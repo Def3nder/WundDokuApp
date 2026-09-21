@@ -221,7 +221,7 @@ export function AufnahmeFormular({
         />
       </Abschnitt>
 
-      <div className="sticky bottom-0 z-20 -mx-4 flex flex-wrap gap-3 border-t border-border bg-background/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6">
+      <div className="save-bar form-actions sticky bottom-0 z-20 border-t border-border bg-background/95 py-4 backdrop-blur">
         <Button type="submit" laedt={laeuft || fotosWerdenHochgeladen}>
           {fotosWerdenHochgeladen ? "Fotos werden hochgeladen …" : absendeText}
         </Button>

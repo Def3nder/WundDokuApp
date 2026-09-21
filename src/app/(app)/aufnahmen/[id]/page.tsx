@@ -51,7 +51,7 @@ function DetailKarte({ titel, children }: { titel: string; children: ReactNode }
   return (
     <Card>
       <CardHeader className="pb-3"><CardTitle>{titel}</CardTitle></CardHeader>
-      <CardContent><dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">{children}</dl></CardContent>
+      <CardContent><dl className="detail-grid gap-x-8 gap-y-5">{children}</dl></CardContent>
     </Card>
   );
 }
@@ -125,7 +125,7 @@ export default async function AufnahmeSeite({ params }: { params: Promise<{ id: 
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="form-actions">
         <Button asChild>
           <Link href={`/aufnahmen/${id}/bearbeiten`}><Pencil aria-hidden="true" />{aufnahme.istEntwurf ? "Entwurf fortsetzen" : "Aufnahme bearbeiten"}</Link>
         </Button>

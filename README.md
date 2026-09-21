@@ -55,6 +55,7 @@ Anmeldung ändern.**
 | `npm run typecheck` | TypeScript prüfen |
 | `npm test` | Tests ausführen |
 | `npm run test:a11y` | Playwright-/axe-Prüfung in Hell und Dunkel (lokales Chrome) |
+| `npm run test:responsive` | Layoutprüfung in 14 Desktop-, Smartphone- und Tablet-Profilen (Chrome und WebKit) |
 | `npm run db:studio` | Datenbank im Browser ansehen |
 | `npm run db:migrate` | Schemaänderung einspielen |
 
@@ -102,6 +103,11 @@ Was Du zusätzlich sicherstellen musst:
   Zugriffsschutz.
 
 ## Stand der Umsetzung
+
+Die Regeln für Bildschirmgrößen und die Browser-Testmatrix stehen in
+[docs/RESPONSIVE.md](docs/RESPONSIVE.md). Die Tests benötigen lokales Chrome,
+eine mit `npx playwright install webkit` installierte WebKit-Engine und die
+vorhandenen Testdaten.
 
 - [x] Phase 1 — Fundament: Projekt, Design-System, Datenmodell, Enums
 - [x] Phase 2 — Patienten und Wunden: Stammdaten, Suche, Wund-Cockpit, Benutzerverwaltung

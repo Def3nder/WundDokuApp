@@ -3,8 +3,55 @@
 Arbeitsstand für die Fortsetzung in einer neuen Sitzung. Ergänzt die
 inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
 
-**Stand:** 20.09.2026 · Phase 1 bis 6 fertig
-**Prüfstand:** `npm run typecheck` sauber · `npm test` 78/78 grün · `npm run test:a11y` 7/7 grün · `npm run build` sauber · Browser-Durchgang erfolgreich (Login, Leerzustände, Tastaturbedienung, Lightbox, mobile Navigation, Hell-/Dark-Mode, PDF-Export einzeln und Verlauf, Audit-Log-Filter, Versorgungspartner-Suche bei Patient und Wunde, Warnung bei ungespeicherten Änderungen, Dokumentvorschau mit Zoom) · Dokumentvorschau zusätzlich auf echtem iPad bestätigt (Anzeige und Zoom funktionieren)
+**Stand:** 21.09.2026 · Phase 1 bis 6 fertig
+**Prüfstand:** `npm run typecheck` sauber · `npm test` 78/78 grün · `npm run test:a11y` 9/9 grün · Responsive-Matrix 28/28 grün · Produktionsbuild sauber · Browser-Durchgang erfolgreich (Login, Leerzustände, Tastaturbedienung, Lightbox, mobile Navigation, Hell-/Dark-Mode, PDF-Export einzeln und Verlauf, Audit-Log-Filter, Versorgungspartner-Suche bei Patient und Wunde, Warnung bei ungespeicherten Änderungen, Dokumentvorschau mit Zoom) · Dokumentvorschau zusätzlich auf echtem iPad bestätigt (Anzeige und Zoom funktionieren)
+
+---
+
+## Nachtrag — einheitliche Darstellung auf Desktop, iPhone und Tablets (21.09.2026)
+
+- Gemeinsame Feldhöhen (44 px, 16 px Schrift), flexible Spalten nach verfügbarer
+  Kartenbreite, ausreichend große Schaltflächen und konsistente Kartenabstände.
+  `CardContent` verlor vorher durch `sm:pt-0` trotz `pt-6` auf Tablets seinen
+  oberen Abstand. Die Grundabstände liegen nun in der CSS-Komponentenschicht.
+- Patientenkopf: „Bearbeiten“ bleibt oben rechts, auf dem Smartphone als Symbol.
+  Die Stammdaten nutzen darunter die gesamte Breite und werden nicht mehr durch
+  den Button in eine schmale Textspalte gedrängt.
+- Datumsfelder verwenden die bewährte Safari-Begrenzung jetzt zentral in `Input`,
+  auch beim Aufnahmedatum. Eine separate Hülle im Patientenformular entfällt.
+- Kopfzeile, Abschnittsnavigation und Sprungabstände passen zusammen; Safe Areas
+  und dynamische Viewporthöhen werden berücksichtigt. Bei geringer Fensterhöhe
+  ist die Speicherleiste nicht klebend.
+- **Wichtige Ursache für verkleinerte Smartphoneansichten:** Die unsichtbare
+  Screenreader-Tabelle der Verlaufsdiagramme hatte trotz `width: 1px` eine
+  intrinsische Breite von rund 567 px. Beim Öffnen der Diagramme wuchs der mobile
+  Viewport bei 320 px Bildschirmbreite auf 599 px. Die Klasse `nur-screenreader`
+  liegt jetzt auf einem umschließenden `div`; die Tabelle bleibt zugänglich,
+  die gemessene Seitenbreite bleibt bei 320 px.
+- Flächenvorschau: Die feste 560-px-Diagrammbreite wird jetzt durch den verfügbaren
+  Platz begrenzt. Explizite Pixelbreiten bleiben wegen der bekannten
+  Safari-Problematik erhalten. Schmerzskalen passen ihre Zahlenreihen an die
+  Spaltenbreite an; der Slider hat browserübergreifende Track-/Thumb-Stile.
+- Zifferblatt: CSS-/SVG-Koordinaten sind auf drei Nachkommastellen gerundet,
+  damit unterschiedliche CSS-Serialisierung keine Hydrationswarnungen erzeugt.
+- Patientensuche: Das Laden einer unveränderten Suche erzeugt auch bei doppeltem
+  Effect-Aufruf im Entwicklungsmodus keine zusätzliche Navigation mehr.
+- Fotokacheln zeigen vollständige Bilder in einheitlichen Rahmen. Foto- und
+  Dokumentdialoge passen in Hoch-/Querformat; das Einpassen der PDF-Anzeige
+  wurde zusätzlich durch Messung der tatsächlichen Zentrierung geprüft.
+- Neuer Befehl `npm run test:responsive`: 28 Browserprüfungen in 14 Profilen,
+  jeweils 20 Seiten plus geöffnete Diagramme, Dialoge, Drehung und Schmerzfelder.
+  Vollständige Matrix erfolgreich; zusätzlich 78/78 Unit-Tests, 9/9 bestehende
+  Playwright-/axe-Tests, Typprüfung und Produktionsbuild erfolgreich.
+- WebKit-Download nicht erreichbar; die Prüfungen liefen mit der vorhandenen
+  Engine `webkit-2336` über `WEBKIT_EXECUTABLE_PATH`. Es handelt sich um
+  Browseremulation, nicht um eine Prüfung auf physischen Apple-/Android-Geräten.
+- Details und Regeln: [docs/RESPONSIVE.md](docs/RESPONSIVE.md). Screenshots und
+  Testergebnisse bleiben lokal unter `test-results/` (git-ignoriert).
+- Der Entwicklungsserver läuft auf Port 3000. Zum Prüfen des Produktionsbuilds
+  wurde bei unverändertem Schema direkt `node node_modules/next/dist/bin/next build`
+  ausgeführt; damit blieb der Server während des Builds verfügbar und es gab
+  keinen Prisma-DLL-Lock durch ein unnötiges `prisma generate`.
 
 ---
 

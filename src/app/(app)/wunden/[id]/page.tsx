@@ -87,7 +87,7 @@ export default async function WundeSeite({
 
       <WundeKopf wunde={wunde} anzahlAufnahmen={eintraege.length} />
 
-      <div className="flex flex-wrap gap-3">
+      <div className="form-actions">
         <Button asChild>
           <Link href={`/wunden/${id}/aufnahmen/neu`}>
             <Plus aria-hidden="true" />

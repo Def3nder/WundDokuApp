@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
   // min-h-11 = 44px: Tippziel-Mindestmass fuer die Bedienung am Tablet.
-  "inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg text-base font-medium transition-colors duration-200 cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-5 [&_svg]:shrink-0",
+  "inline-flex min-h-11 max-w-full items-center justify-center gap-2 whitespace-normal rounded-lg text-base leading-6 font-medium transition-colors duration-200 cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-5 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -18,10 +18,10 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline min-h-0",
       },
       size: {
-        md: "px-4 py-2.5",
-        sm: "min-h-9 px-3 py-1.5 text-sm",
+        md: "px-4 py-2",
+        sm: "min-h-11 px-3 py-2 text-sm",
         lg: "min-h-12 px-6 py-3 text-lg",
-        icon: "size-11 p-0",
+        icon: "size-11 shrink-0 p-0",
       },
     },
     defaultVariants: { variant: "primary", size: "md" },

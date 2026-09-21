@@ -36,7 +36,7 @@ export function Field({
   const describedBy = [hilfeId, fehlerId].filter(Boolean).join(" ") || undefined;
 
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("min-w-0 space-y-1.5", className)}>
       <Label htmlFor={id} pflicht={pflicht}>
         {label}
       </Label>
@@ -68,7 +68,7 @@ export function Field({
 }
 
 const basis =
-  "w-full rounded-lg border bg-input px-3 py-2.5 text-base text-foreground transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid]:border-destructive";
+  "min-w-0 w-full max-w-full rounded-lg border bg-input px-3 py-2 text-base leading-6 text-foreground transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid]:border-destructive";
 
 export const Input = React.forwardRef<
   HTMLInputElement,
@@ -77,12 +77,19 @@ export const Input = React.forwardRef<
   if (type === "number") {
     return <Zahlenfeld ref={ref} className={className} {...props} />;
   }
+  if (type === "date") {
+    return (
+      <span className="datumsrahmen">
+        <input ref={ref} type="date" className={cn(basis, "datumsfeld border-border-strong", className)} {...props} />
+      </span>
+    );
+  }
   return (
     // min-h-11 = 44px Tippziel, 16px Schrift verhindert das Auto-Zoom von iOS.
     <input
       ref={ref}
       type={type}
-      className={cn(basis, "min-h-11 border-border-strong", className)}
+      className={cn(basis, "h-11 border-border-strong", className)}
       {...props}
     />
   );
@@ -118,13 +125,14 @@ const Zahlenfeld = React.forwardRef<
   }
 
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("relative min-w-0", className)}>
       <button
         type="button"
         tabIndex={-1}
+        disabled={props.disabled || props.readOnly}
         aria-label="Wert verringern"
         onClick={() => schritt(-1)}
-        className="absolute inset-y-0 left-0 flex w-9 items-center justify-center rounded-l-lg text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
+        className="absolute inset-y-0 left-0 flex w-11 items-center justify-center rounded-l-lg text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
       >
         <Minus className="size-4" aria-hidden="true" />
       </button>
@@ -133,16 +141,17 @@ const Zahlenfeld = React.forwardRef<
         type="number"
         className={cn(
           basis,
-          "zahlenfeld-ohne-spinner min-h-11 w-full border-border-strong px-9 text-center",
+          "zahlenfeld-ohne-spinner h-11 w-full border-border-strong px-11 text-center",
         )}
         {...props}
       />
       <button
         type="button"
         tabIndex={-1}
+        disabled={props.disabled || props.readOnly}
         aria-label="Wert erhöhen"
         onClick={() => schritt(1)}
-        className="absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-lg text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-lg text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
       >
         <Plus className="size-4" aria-hidden="true" />
       </button>
@@ -171,12 +180,12 @@ export const Select = React.forwardRef<
   // Bewusst das native <select>: auf dem Tablet oeffnet es weiterhin die
   // Systemauswahl, die sich mit einer Hand bedienen laesst - appearance-none
   // ersetzt hier nur den geschlossenen Pfeil, nicht das Aufklappverhalten.
-  <div className={cn("relative", className)}>
+  <div className={cn("relative min-w-0", className)}>
     <select
       ref={ref}
       className={cn(
         basis,
-        "min-h-11 w-full appearance-none border-border-strong cursor-pointer pr-10",
+        "h-11 w-full appearance-none border-border-strong cursor-pointer pr-10",
       )}
       {...props}
     >
