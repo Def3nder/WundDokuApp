@@ -1,7 +1,7 @@
 # WundDoku
 
-Digitale Wunddokumentation für Praxis und Pflege. Bildet den
-DRACO-Wunddokumentationsbogen ab: pro Patient beliebig viele Wunden, je eine
+Digitale Wunddokumentation für Praxis und Pflege. Bildet einen
+Wunddokumentationsbogen ab: pro Patient beliebig viele Wunden, je eine
 Erstaufnahme und unbegrenzt Folgeaufnahmen, mit Wundfotos, Verlaufsdiagrammen
 und Ausdruck im gewohnten Layout.
 
