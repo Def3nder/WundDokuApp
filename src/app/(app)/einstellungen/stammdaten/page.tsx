@@ -17,7 +17,7 @@ export default async function StammdatenSeite() {
   ]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <div className="page-fluid min-w-0 w-full space-y-8">
       <div>
         <h1 className="text-2xl font-semibold">Ärzte und Pflegedienste</h1>
         <p className="mt-1 text-sm text-muted-foreground">Zentrale Auswahllisten für das Anlegen und Bearbeiten von Wunden.</p>

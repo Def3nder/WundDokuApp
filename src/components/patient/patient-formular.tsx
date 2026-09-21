@@ -99,7 +99,9 @@ export function PatientFormular({
                 <Input {...p} className="h-11" name="vorname" defaultValue={w("vorname")} autoComplete="given-name" required />
               )}
             </Field>
+          </div>
 
+          <div className="form-grid items-start gap-5">
             <Field
               id="geburtsdatum"
               label="Geburtsdatum"

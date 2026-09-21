@@ -11,7 +11,7 @@ export default async function NeuerPatientSeite() {
     db.careService.findMany({ where: { geloeschtAm: null }, orderBy: { name: "asc" }, select: { id: true, name: true, ansprechpartner: true } }),
   ]);
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="page-fluid min-w-0 w-full space-y-6">
       <div>
         <Breadcrumb eintraege={[{ label: "Patienten", href: "/" }]} />
         <h1 className="mt-2 text-2xl font-semibold">Patient anlegen</h1>

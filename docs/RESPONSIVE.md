@@ -18,6 +18,13 @@ Smartphoneansicht wird nicht auf die Breite einer Desktopseite skaliert.
 - `form-grid`, `compact-grid`, `detail-grid`, `panel-grid` und `photo-grid`
   verwenden Mindestbreiten ihrer Inhalte. So passen sich auch verschachtelte
   Formulare und Split View an, ohne einen bestimmten Gerätetyp zu erkennen.
+- Alle Erfassungs- und Bearbeitungsformulare nutzen mit `page-fluid` die gesamte
+  Fensterbreite abzüglich der gemeinsamen Außenabstände: Patienten, Wunden,
+  Aufnahmen, Rezept-/Arztbrief-Uploads, neue Benutzer sowie Ärzte/Pflegedienste.
+  Dabei entfällt auch die 80-rem-Grenze des übergeordneten Seitenrahmens.
+  Zusammengehörige Felder bei Patienten und neuen Benutzern bleiben paarweise
+  angeordnet; auf schmalen Bildschirmen stehen sie untereinander. Die zentralen
+  Stammdatenformulare füllen die verfügbaren Spalten innerhalb ihrer Seite.
 - Die Hauptnavigation wechselt bei 1280 CSS-Pixeln zur ausgeschriebenen Leiste.
   Die Kopfzeilenhöhe wird mit der Abschnittsnavigation abgestimmt. Sprungziele
   bleiben unter beiden Leisten sichtbar.

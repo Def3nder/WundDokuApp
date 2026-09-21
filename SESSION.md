@@ -10,6 +10,20 @@ inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
 
 ## Nachtrag — einheitliche Darstellung auf Desktop, iPhone und Tablets (21.09.2026)
 
+- Nach Rückmeldung mit echten iPad-Screenshots: Die bisherige 768-px-Grenze
+  beim Bearbeiten/Anlegen eines Patienten wurde entfernt. `page-fluid` hebt für
+  diese Seiten zusätzlich die 80-rem-Grenze des Seitenrahmens auf. Die Karte
+  füllt bei jeder Breite den Bildschirm bis auf gleiche linke/rechte
+  Außenabstände. Name/Vorname und Geburtsdatum/Patientennummer bleiben paarweise
+  angeordnet (auf schmalen Bildschirmen einspaltig). Gemessen in WebKit/Chrome
+  zwischen 320 und 2560 px, jeweils für Neuanlage und Bearbeitung, ohne Überlauf.
+- Dieselbe volle Breite gilt anschließend auch für Wunden (neu/bearbeiten),
+  Aufnahmen (neu/bearbeiten), Rezept- und Arztbrief-Uploads, neue Benutzer und
+  die zentralen Ärzte-/Pflegedienst-Stammdaten. Im Benutzerformular bleiben
+  Name/Handzeichen und E-Mail/Rolle Feldpaare; das Startpasswort hat keine
+  separate Breitenbegrenzung mehr. Alle acht zusätzlichen Formularansichten
+  wurden in WebKit/Chrome zwischen 320 und 2560 px auf volle Seitenbreite,
+  gleiche Außenabstände und Überlauf geprüft; Stammdaten auch aufgeklappt.
 - Gemeinsame Feldhöhen (44 px, 16 px Schrift), flexible Spalten nach verfügbarer
   Kartenbreite, ausreichend große Schaltflächen und konsistente Kartenabstände.
   `CardContent` verlor vorher durch `sm:pt-0` trotz `pt-6` auf Tablets seinen

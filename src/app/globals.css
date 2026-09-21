@@ -276,6 +276,12 @@
     padding-block: 1.5rem 2rem;
   }
 
+  /* Breite Formulare nutzen auch oberhalb von 80rem den Bildschirm;
+     die gemeinsamen Aussenabstaende und Safe Areas bleiben erhalten. */
+  .app-main:has(> .page-fluid) {
+    max-width: none;
+  }
+
   .app-footer {
     padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
   }

@@ -58,7 +58,9 @@ export function NeuerBenutzer({ abbrechenNach }: { abbrechenNach: string }) {
                 <Input {...p} name="handzeichen" maxLength={6} defaultValue={w("handzeichen")} required />
               )}
             </Field>
+          </div>
 
+          <div className="form-grid gap-5">
             <Field id="email" label="E-Mail" pflicht fehler={f("email")}>
               {(p) => (
                 <Input
@@ -91,7 +93,6 @@ export function NeuerBenutzer({ abbrechenNach }: { abbrechenNach: string }) {
             pflicht
             hilfe="Mindestens 10 Zeichen. Der Benutzer sollte es nach der ersten Anmeldung ändern."
             fehler={f("passwort")}
-            className="max-w-md"
           >
             {(p) => (
               <Input {...p} name="passwort" type="password" autoComplete="new-password" required />
