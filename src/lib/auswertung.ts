@@ -50,6 +50,11 @@ const datumLangFormatter = new Intl.DateTimeFormat("de-DE", {
   month: "long",
   year: "numeric",
 });
+const datumZahlFormatter = new Intl.DateTimeFormat("de-DE", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
 
 function diagrammDatum(wert: unknown): Date | null {
   if (typeof wert !== "string" || !/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(wert)) return null;
@@ -65,6 +70,11 @@ export function diagrammDatumKurz(wert: unknown): string {
 export function diagrammDatumLang(wert: unknown): string {
   const datum = diagrammDatum(wert);
   return datum ? datumLangFormatter.format(datum) : "Datum unbekannt";
+}
+
+export function diagrammDatumZahl(wert: unknown): string {
+  const datum = diagrammDatum(wert);
+  return datum ? datumZahlFormatter.format(datum) : "Datum unbekannt";
 }
 
 /**

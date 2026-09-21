@@ -118,14 +118,39 @@ test("Diagramme, Dialoge und lange Formulare passen auch bei Touch und Drehung",
   await expect(slider).toHaveValue((await slider.getAttribute("max"))!);
   await abmessungen.screenshot({ path: testInfo.outputPath("abmessungen.png"), caret: "initial" });
   await layoutPruefen(page);
+  const hatHover = await page.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches);
   const flaeche = page.getByText("Aktuelle Fläche", { exact: true });
-  if (await page.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches)) await flaeche.hover();
+  if (hatHover) await flaeche.hover();
   else await flaeche.click();
   const vorschau = page.locator('.pointer-events-none .recharts-wrapper');
   await expect(vorschau).toBeVisible();
   const box = await vorschau.boundingBox();
   expect(box!.x + box!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   await page.screenshot({ path: testInfo.outputPath("diagramme.png"), fullPage: true, caret: "initial" });
+
+  // Die beiden bedienbaren Einblendungen muessen vollstaendig ins Fenster
+  // passen - sonst waeren Zeitstrahl bzw. Terminlinks nicht erreichbar.
+  for (const kachelName of [/Seit erster Messung/, /Dokumentierte Termine/]) {
+    const kachel = page.getByRole("button", { name: kachelName });
+    if (hatHover) await kachel.hover();
+    else await kachel.click();
+    await expect(kachel).toHaveAttribute("aria-expanded", "true");
+    const einblendung = page.locator(`[id="${await kachel.getAttribute("aria-controls")}"]`);
+    const rahmen = (await einblendung.boundingBox())!;
+    const sicht = page.viewportSize()!;
+    expect(rahmen.x, kachelName.source).toBeGreaterThanOrEqual(-1);
+    expect(rahmen.y, kachelName.source).toBeGreaterThanOrEqual(-1);
+    expect(rahmen.x + rahmen.width, kachelName.source).toBeLessThanOrEqual(sicht.width + 1);
+    expect(rahmen.y + rahmen.height, kachelName.source).toBeLessThanOrEqual(sicht.height + 1);
+    await layoutPruefen(page);
+    await page.screenshot({
+      path: testInfo.outputPath(`kachel-${kachelName.source.split(" ")[0]}.png`),
+      caret: "initial",
+    });
+    if (hatHover) await page.mouse.move(2, 2);
+    else await page.getByRole("heading", { level: 1 }).click();
+    await expect(kachel).toHaveAttribute("aria-expanded", "false");
+  }
 
   await page.goto(`${patient}/dokumente?typ=REZEPT`);
   const dokument = page.locator("main li button").filter({ hasNot: page.locator('svg.lucide-trash-2') }).first();

@@ -4,7 +4,143 @@ Arbeitsstand für die Fortsetzung in einer neuen Sitzung. Ergänzt die
 inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
 
 **Stand:** 21.09.2026 · Phase 1 bis 6 fertig
-**Prüfstand:** `npm run typecheck` sauber · `npm test` 78/78 grün · `npm run test:a11y` 9/9 grün · Responsive-Matrix 28/28 grün · Produktionsbuild sauber · Browser-Durchgang erfolgreich (Login, Leerzustände, Tastaturbedienung, Lightbox, mobile Navigation, Hell-/Dark-Mode, PDF-Export einzeln und Verlauf, Audit-Log-Filter, Versorgungspartner-Suche bei Patient und Wunde, Warnung bei ungespeicherten Änderungen, Dokumentvorschau mit Zoom) · Dokumentvorschau zusätzlich auf echtem iPad bestätigt (Anzeige und Zoom funktionieren)
+**Prüfstand:** `npm run typecheck` sauber · `npm test` 78/78 grün · `npm run test:a11y` 10/10 grün · Responsive-Matrix 28/28 grün · Produktionsbuild sauber · Browser-Durchgang erfolgreich (Login, Leerzustände, Tastaturbedienung, Lightbox, mobile Navigation, Hell-/Dark-Mode, PDF-Export einzeln und Verlauf, Audit-Log-Filter, Versorgungspartner-Suche bei Patient und Wunde, Warnung bei ungespeicherten Änderungen, Dokumentvorschau mit Zoom) · Dokumentvorschau zusätzlich auf echtem iPad bestätigt (Anzeige und Zoom funktionieren)
+
+---
+
+## Nachtrag — Hydrationsabweichung der SVG-Farben im Dunkelmodus (21.09.2026)
+
+Die im Nachtrag darunter als „vorgefunden, nicht behoben" notierte Meldung auf
+`/wunden/[id]` ist erledigt — und sie war mehr als eine Warnung.
+
+**Ursache.** `AbmessungenVerlauf` und `Verlaufsdiagramme` lasen `resolvedTheme` direkt
+beim Rendern. Der Server kennt das Theme nicht und liefert die hellen Werte;
+`useTheme()` liest auf dem Client dagegen schon im **ersten** Rendergang aus dem
+localStorage. Server- und Client-Markup unterschieden sich also genau in den
+Farbattributen.
+
+**Nicht nur kosmetisch.** React schreibt in die Meldung selbst: „This won't be
+patched up." Die Attribute wurden also *nicht* nachgezogen — im Dunkelmodus
+blieb `fill="#be123c"` (hell) im DOM stehen. Die frühere Einschätzung
+„betrifft nur die Warnung, nicht die Darstellung" war damit zu optimistisch.
+
+**Lösung.** Neuer Haken `useIstDunkel()` in `src/components/theme-provider.tsx`:
+Er meldet den Dunkelmodus erst **nach** der Hydration, vorher immer `false`. Damit
+stimmt der erste Client-Rendergang mit dem Servermarkup überein, umgefärbt wird
+einen Rendergang später. Dasselbe Muster, das `theme-toggle.tsx` schon mit seinem
+`bereit`-Flag nutzt. Sichtbar ändert sich nichts — das helle Markup steht
+ohnehin im ausgelieferten HTML, und umgefärbt wurde auch bisher erst beim
+Hydrieren.
+
+**Die Hex-Werte bleiben, wo sie sind.** Die Farben werden weiterhin in
+JavaScript bestimmt und landen als feste Attributwerte im SVG. Der Grund steht
+unverändert daneben: `var()` und die moderne `rgb()`-Syntax mit Schrägstrich-Alpha
+löst iOS Safari im SVG-`fill`-Kontext nicht zuverlässig auf, einzelne iPads
+zeigten die Zeichnung sonst komplett schwarz. **Ein Rückbau auf CSS-Variablen
+im SVG bleibt also versperrt** — wer die Hydration anders lösen will, muss die
+Farbe trotzdem in JS bestimmen.
+
+Mitgezogen: `balkenHervorhebung` in `verlaufsdiagramme.tsx` (Tooltip-Cursor der
+Wundgrund-Balken) nutzt denselben Haken. Dort fiel nie eine Meldung an, weil der
+Cursor erst beim Überfahren entsteht, also immer nach der Hydration — gleiche
+Ursache, gleiche Behandlung, damit es nur ein Muster gibt.
+
+**Nachweis.** Ein temporärer Playwright-Test schrieb `theme=dark` in den
+localStorage, lud neu und prüfte Konsole und Attribute: vorher die vollständige
+Mismatch-Meldung für `data-wundkontur`, `data-tiefenrand`, `data-tiefenprofil` und
+das `<text>` plus `fill="#be123c"` im DOM, nachher keine Meldung und
+`fill="#fda4af"`. Der Test war nur zum Nachweis da und ist wieder entfernt.
+`responsive.spec.ts` prüft weiterhin nur im Standardtheme, ließe sich jetzt aber
+ohne Rotfärbung um den Dunkelmodus erweitern.
+
+Prüfung: Typprüfung sauber, 78/78 Unit-Tests, 10/10 Playwright-/axe-Tests,
+28/28 Geräteprofile, Produktionsbuild sauber. Das iPhone-Profil fiel im ersten
+Durchgang mit `browserContext.close: ENOENT … .trace` aus — ein Schreibfehler
+von Playwright beim Ablegen der Trace-Datei, kein Layoutbefund; allein neu
+gestartet lief es grün.
+
+---
+
+## Nachtrag — Kennzahl-Kacheln blenden Diagramme ein (21.09.2026)
+
+- **Draufsicht entschlackt:** Die beiden Wert-Chips („Länge 30 mm" / „Breite
+  20 mm") unter der Zeichnung entfallen — dieselben Zahlen stehen direkt
+  darüber in der Messwert-Leiste. Überschrift, Hinweis „Länge und Breite" und
+  die Maßlinien im Oval bleiben.
+- **Flacher:** Beide Schema-Kacheln sind von `h-56` (224 px) auf `h-40`
+  (160 px) geschrumpft. Die Draufsicht nutzt dafür `viewBox="0 0 280 156"` mit
+  Mittelpunkt `zentrumY = 78`: Die Kontur reicht senkrecht höchstens 140
+  Einheiten (`svgAusdehnung`) plus 4 für die überschwingenden Kurvenpunkte —
+  mehr Rand als diese 8 Einheiten ist nicht nötig. **Wer hier weiter kürzt,
+  muss beide Werte gemeinsam anpassen**, sonst wird die größte Aufnahme oben
+  und unten abgeschnitten.
+- **Tiefe halbiert:** Vollausschlag `* 72` → `* 36`, `profilOben` 40 → 18,
+  `viewBox` 150 → 76. Die Mindestdelle bleibt bei 7 px, damit 1 mm nicht als
+  gerade Linie endet. Die Maßangabe steht jetzt **unter** dem tiefsten Punkt
+  (`profilBoden + 15`, mittig) statt mittig am Maßpfeil — bei flachen Wunden
+  lag sie sonst auf der Kurve.
+- **Zwei neue Einblendungen** auf „Seit erster Messung" (komplettes
+  Abmessungsdiagramm inklusive Zeitstrahl) und „Dokumentierte Termine"
+  (fünf jüngste Aufnahmen mit Datum, Fläche und Trendabzeichen, Klick springt
+  in die Aufnahme; bei mehr als fünf eine Fußzeile „5 von N Terminen").
+- Gemeinsamer Baustein `src/components/auswertung/kennzahl-kachel.tsx`; die
+  bestehende Wundflächen-Vorschau läuft jetzt ebenfalls darüber und bleibt
+  `dekorativ` (rein optisch, `pointer-events-none`, für Screenreader
+  ausgeblendet). Alle drei Kacheln sind Schaltflächen mit `aria-expanded` und
+  einem Chevron als Hinweis. Die senkrechte Einpassung ins Fenster gilt für
+  **alle drei** Einblendungen; nur der Höhendeckel bleibt den bedienbaren
+  vorbehalten, denn `pointer-events-none` liesse sich ohnehin nicht scrollen.
+- **Messwert-Leiste auch auf dem Smartphone dreispaltig** (`grid-cols-3` statt
+  `sm:grid-cols-3`), mittig ausgerichtet, mit kleinerer Schrift (Wert 13 px
+  statt 20 px, Beschriftung 10 px ohne Sperrung) und `px-1.5` statt `px-4`.
+  Das spart auf dem iPhone rund 200 px Höhe. **Die 6 px waagerecht sind kein
+  Schönheitswert:** „LÄNGE × BREITE" braucht bei 375 px Bildschirmbreite
+  (91 px Spalte) exakt 75 px und bricht bei `px-2` um. Bei 320 px bricht die
+  erste Spalte weiterhin zweizeilig um — bei 73 px Spaltenbreite passt der
+  längste Wert in keiner lesbaren Schriftgröße in eine Zeile.
+
+**Vier Fallstricke, die beim Bauen echte Zeit gekostet haben:**
+
+1. **Die Einblendung muss ein DOM-Kind der Kachel sein.** Sonst feuert
+   `onMouseLeave`, sobald die Maus von der Kachel in die Einblendung fährt, und
+   Slider bzw. Links sind gar nicht erreichbar.
+2. **Senkrechte Lage braucht `useLayoutEffect` nach dem Rendern.** Die Höhe der
+   Einblendung steht vorher nicht fest. Passt sie unter der Kachel nicht mehr
+   ins Fenster, rückt sie nach oben und überdeckt dabei die Kachel — bewusst:
+   lieber eine verdeckte Kennzahl als ein unerreichbarer Zeitstrahl. Ein erster
+   Versuch mit fester `max-height` aus dem Platz unterhalb der Kachel quetschte
+   das 545 px hohe Abmessungsdiagramm auf 260 px mit Innenscrollen; der Slider
+   lag dann unsichtbar unterhalb.
+3. **Escape schloss die Einblendung und öffnete sie sofort wieder.** Der
+   Handler ruft nach `setOffen(false)` ein `knopf.focus()` auf — React hat da
+   noch nicht neu gerendert, und der ausgelöste Fokus matchte `:focus-visible`
+   (die letzte Eingabe kam ja von der Tastatur), also griff der Öffnen-Zweig.
+   Gelöst über ein `ruecksprung`-Ref, das genau diesen einen Fokus schluckt und
+   nur gesetzt wird, wenn der Knopf nicht ohnehin schon fokussiert ist.
+4. **`:focus-visible` trennt Maus- von Tastaturbedienung.** `onMouseLeave` darf
+   nicht schließen, solange die Tastatur im Inhalt arbeitet. Ein per Maus
+   angeklickter Regler behält aber den Fokus — ohne die
+   `:focus-visible`-Prüfung blieb die Einblendung nach jedem Slider-Klick
+   kleben. Umgekehrt öffnet `onFocus` nur bei `:focus-visible`, sonst öffnet auf
+   Touchgeräten der Fokus und der direkt folgende Klick schließt wieder.
+
+Prüfung: Typprüfung, 78/78 Unit-Tests, 10/10 Playwright-/axe-Tests (darunter der
+neue „Kennzahl-Kacheln"-Test mit Tastatur, Escape und Sprung in die Aufnahme),
+28/28 Geräteprofile inklusive der beiden neuen Einblendungen in jedem Profil,
+Produktionsbuild sauber. Abmessungs-Einblendung zusätzlich in Chrome von Hand
+geprüft (Slider im Popover, Schließen beim Wegbewegen der Maus).
+
+**Vorgefunden, nicht behoben:** Ist der Dunkelmodus aktiv, meldet die Konsole
+auf der Wundseite eine Hydrationsabweichung für die SVG-Farben in
+`AbmessungenVerlauf` (`#be123c` vom Server gegen `#fda4af` vom Client). Die
+Farben kommen aus `resolvedTheme`; der Server kennt das Theme nicht. Betrifft
+nur die Warnung, nicht die Darstellung, und besteht unabhängig von dieser
+Sitzung — die Farblogik wurde hier nicht angefasst.
+
+> **Nachgetragen:** behoben, siehe „Hydrationsabweichung der SVG-Farben im
+> Dunkelmodus" oben. Der Zusatz „betrifft nur die Warnung, nicht die
+> Darstellung" war falsch — React zieht die Attribute nicht nach, im
+> Dunkelmodus blieb die helle Farbe im DOM stehen.
 
 ---
 

@@ -346,16 +346,17 @@ test("interaktive Abmessungen bleiben auf iPad Pro und iPad Mini vollständig si
     );
     expect(gruppenHoehen).toHaveLength(2);
     expect(Math.abs(gruppenHoehen[0] - gruppenHoehen[1])).toBeLessThan(1);
-    expect(gruppenHoehen[0]).toBeLessThanOrEqual(224);
+    expect(gruppenHoehen[0]).toBeLessThanOrEqual(160);
 
     const draufsichtFlaeche = abmessungen
       .getByRole("img", { name: /Schematische Wunddraufsicht/ })
       .locator("svg");
     const flaechenBox = await draufsichtFlaeche.boundingBox();
     expect(flaechenBox).not.toBeNull();
-    expect(flaechenBox!.height).toBeGreaterThan(140);
-    expect(flaechenBox!.height).toBeLessThan(180);
+    expect(flaechenBox!.height).toBeGreaterThan(120);
+    expect(flaechenBox!.height).toBeLessThan(150);
     expect(flaechenBox!.width).toBeGreaterThan(flaechenBox!.height);
+    await expect(draufsichtFlaeche.locator("..").getByText(/^Länge \d/)).toHaveCount(0);
     const konturBox = await draufsichtFlaeche.locator("path").evaluate((element) => {
       const box = (element as SVGGraphicsElement).getBBox();
       return { x: box.x, y: box.y, width: box.width, height: box.height };
@@ -363,7 +364,7 @@ test("interaktive Abmessungen bleiben auf iPad Pro und iPad Mini vollständig si
     expect(konturBox.width).toBeGreaterThan(50);
     expect(konturBox.height).toBeGreaterThan(50);
     expect(Math.abs(konturBox.x + konturBox.width / 2 - 140)).toBeLessThan(2);
-    expect(Math.abs(konturBox.y + konturBox.height / 2 - 90)).toBeLessThan(2);
+    expect(Math.abs(konturBox.y + konturBox.height / 2 - 78)).toBeLessThan(2);
     const wundFarbe = await draufsichtFlaeche.locator("[data-wundkontur]").getAttribute("stroke");
     expect(wundFarbe).toBe(viewport.wundFarbe);
     const tiefenProfil = abmessungen.locator("[data-tiefenprofil]");
@@ -408,6 +409,77 @@ test("interaktive Abmessungen bleiben auf iPad Pro und iPad Mini vollständig si
       seitenbreite.clientWidth,
     );
   }
+});
+
+test("Kennzahl-Kacheln blenden Abmessungen und letzte Termine ein", async ({ page }) => {
+  await anmelden(page);
+  await page.goto("/");
+  const patientHref = verlangeHref(
+    await page.getByRole("link", { name: /Berger, Hannelore/ }).first().getAttribute("href"),
+    "Patientin mit Mehrfachverlauf",
+  );
+  await page.goto(patientHref);
+  const wundeHref = verlangeHref(
+    await page.getByRole("link", { name: /Ulcus cruris venosum/ }).first().getAttribute("href"),
+    "Wunde mit Mehrfachverlauf",
+  );
+  await page.goto(wundeHref);
+
+  // Der aufklappbare Wundverlauf bleibt zu: sonst gaebe es die Abmessungen
+  // zweimal auf der Seite und die Rollenabfragen waeren nicht mehr eindeutig.
+  const abmessungenKachel = page.getByRole("button", { name: /Seit erster Messung/ });
+  const termineKachel = page.getByRole("button", { name: /Dokumentierte Termine/ });
+  await expect(abmessungenKachel).toHaveAttribute("aria-expanded", "false");
+
+  await abmessungenKachel.hover();
+  await expect(abmessungenKachel).toHaveAttribute("aria-expanded", "true");
+  const abmessungen = page.getByRole("region", {
+    name: "Interaktive Darstellung der Wundabmessungen",
+  });
+  const slider = abmessungen.getByRole("slider");
+  await expect(slider).toBeVisible();
+
+  // Die Einblendung darf nie unter den Fensterrand rutschen - sonst waeren
+  // Zeitstrahl und Messwerte nicht erreichbar.
+  const vorschauKasten = (await page.locator(`[id="${await abmessungenKachel.getAttribute("aria-controls")}"]`).boundingBox())!;
+  const fenster = page.viewportSize()!;
+  expect(vorschauKasten.x).toBeGreaterThanOrEqual(0);
+  expect(vorschauKasten.x + vorschauKasten.width).toBeLessThanOrEqual(fenster.width + 1);
+  expect(vorschauKasten.y + vorschauKasten.height).toBeLessThanOrEqual(fenster.height + 1);
+
+  const vorherigeMesswerte = await abmessungen.locator("dl").innerText();
+  await slider.press("Home");
+  await expect(slider).toHaveValue("1");
+  await expect(abmessungen.locator("dl")).not.toHaveText(vorherigeMesswerte);
+  // Tastaturfokus im Inhalt haelt die Einblendung offen.
+  await expect(abmessungenKachel).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(abmessungenKachel).toHaveAttribute("aria-expanded", "false");
+  await expect(abmessungenKachel).toBeFocused();
+
+  await termineKachel.hover();
+  await expect(termineKachel).toHaveAttribute("aria-expanded", "true");
+  const termine = page.locator(`[id="${await termineKachel.getAttribute("aria-controls")}"]`);
+  const eintraege = termine.locator('a[href^="/aufnahmen/"]');
+  await expect(eintraege).toHaveCount(5);
+  await expect(termine).toContainText("5 von 6 Terminen");
+  const daten = await eintraege.evaluateAll((elemente) =>
+    elemente.map((element) => ({
+      datum: element.querySelector("time")!.getAttribute("datetime")!,
+      hoehe: element.getBoundingClientRect().height,
+    })),
+  );
+  // Neueste zuerst; jede Zeile bleibt ueber dem 24-px-Mindestziel.
+  for (let i = 1; i < daten.length; i++) {
+    expect(new Date(daten[i]!.datum).getTime()).toBeLessThanOrEqual(
+      new Date(daten[i - 1]!.datum).getTime(),
+    );
+  }
+  for (const eintrag of daten) expect(eintrag.hoehe).toBeGreaterThanOrEqual(24);
+
+  const ziel = verlangeHref(await eintraege.first().getAttribute("href"), "Termineintrag");
+  await eintraege.first().click();
+  await expect(page).toHaveURL(new RegExp(`${ziel}$`));
 });
 
 test("Versorgungspartner lassen sich suchen, auswählen und neu anlegen", async ({ page }) => {

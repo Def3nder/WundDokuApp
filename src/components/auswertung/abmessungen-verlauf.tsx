@@ -2,23 +2,24 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { Ruler } from "lucide-react";
-import { useTheme } from "next-themes";
+import { useIstDunkel } from "@/components/theme-provider";
 import {
   diagrammDatumLang,
+  diagrammDatumZahl,
   type Verlaufspunkt,
 } from "@/lib/auswertung";
 import { cn } from "@/lib/utils";
 import { formatiereMm2 } from "@/lib/wundmasse";
 
 const deutscheZahl = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
-const terminDatumFormatter = new Intl.DateTimeFormat("de-DE", {
-  day: "2-digit", month: "2-digit", year: "numeric",
-});
 
-function terminDatum(wert: string): string {
-  const datum = new Date(wert);
-  return Number.isNaN(datum.getTime()) ? "Datum unbekannt" : terminDatumFormatter.format(datum);
-}
+// 6 px waagerecht statt 8: „LÄNGE × BREITE" braucht auf dem iPhone (91 px
+// Spaltenbreite) genau 75 px und bricht sonst um.
+const messwertZelle = "min-w-0 px-1.5 py-2.5 text-center sm:p-4";
+const messwertLabel =
+  "text-[10px] font-semibold uppercase leading-tight tracking-normal text-muted-foreground sm:text-xs sm:tracking-[0.1em]";
+const messwertZahl =
+  "messwert mt-1 block text-[13px] font-semibold leading-tight text-heading sm:mt-1.5 sm:text-xl";
 
 function terminPosition(index: number, anzahl: number): string {
   // Gleiche Terminabstaende; begrenzte Praezision vermeidet CSS-Hydrationsfehler.
@@ -52,10 +53,11 @@ function draufsichtBeschreibung(punkt: Verlaufspunkt): string {
 }
 
 export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
-  const { resolvedTheme } = useTheme();
-  const istDunkel = resolvedTheme === "dark";
   // Direkte SVG-Farbwerte statt CSS-Variablen/currentColor: iOS Safari
   // stellte diese Farben auf einzelnen iPads sonst vollständig schwarz dar.
+  // `useIstDunkel` statt `useTheme` direkt: sonst rendert der Server die
+  // hellen und der Client die dunklen Werte - siehe theme-provider.tsx.
+  const istDunkel = useIstDunkel();
   const wundFarbe = istDunkel ? "#fda4af" : "#be123c";
   const tiefenFarbe = istDunkel ? "#c4b5fd" : "#7c3aed";
   const tiefenRandFarbe = istDunkel ? "#4c5c7a" : "#94a3b8";
@@ -107,7 +109,10 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
   const laengenAusdehnung = svgAusdehnung(ausgewaehlt.laengeMm, maxGrundmass);
   const breitenAusdehnung = svgAusdehnung(ausgewaehlt.breiteMm, maxGrundmass);
   const zentrumX = 140;
-  const zentrumY = 90;
+  // Die Kontur reicht senkrecht hoechstens 140 Einheiten (siehe svgAusdehnung)
+  // plus 4 fuer die ueberschwingenden Kurvenpunkte: bei viewBox-Hoehe 156 und
+  // diesem Mittelpunkt bleibt oben und unten genau der noetige Rand.
+  const zentrumY = 78;
   const links = zentrumX - laengenAusdehnung / 2;
   const rechts = zentrumX + laengenAusdehnung / 2;
   const oben = zentrumY - breitenAusdehnung / 2;
@@ -123,8 +128,10 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
       ].join(" ")
     : "";
   const tiefenAnteil = ausgewaehlt.tiefeMm == null ? null : ausgewaehlt.tiefeMm / maxTiefe;
-  const profilOben = 40;
-  const profilBoden = profilOben + Math.max(7, (tiefenAnteil ?? 0) * 72);
+  const profilOben = 18;
+  // Halber Vollausschlag gegenueber der ersten Fassung (72): die Tiefe wirkt
+  // flacher. Die Mindestdelle bleibt, damit 1 mm nicht als gerade Linie endet.
+  const profilBoden = profilOben + Math.max(7, (tiefenAnteil ?? 0) * 36);
   const datumLang = diagrammDatumLang(ausgewaehlt.datum);
   const ausgewaehltIndex = daten.findIndex((punkt) => punkt.id === ausgewaehlt.id);
   const sliderId = `${panelId}-zeitstrahl`;
@@ -145,30 +152,23 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
         <p className="text-xs text-muted-foreground">Schematische Darstellung im gemeinsamen Maßstab</p>
       </div>
 
-      <dl className="mt-3 grid overflow-hidden rounded-lg border border-border bg-surface-muted/35 sm:grid-cols-3">
-        <div className="p-4 sm:border-r sm:border-border">
-          <dt className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-            Länge × Breite
-          </dt>
-          <dd className="messwert mt-1.5 text-xl font-semibold text-heading">
+      {/* Auch auf dem Smartphone dreispaltig. Schrift, Sperrung und Innenabstand
+          schrumpfen dafuer; bei rund 73 px Spaltenbreite (320-px-Geraet) bricht
+          der laengste Wert auf zwei Zeilen um - ab 375 px bleibt alles einzeilig. */}
+      <dl className="mt-3 grid grid-cols-3 overflow-hidden rounded-lg border border-border bg-surface-muted/35">
+        <div className={cn(messwertZelle, "border-r border-border")}>
+          <dt className={messwertLabel}>Länge × Breite</dt>
+          <dd className={messwertZahl}>
             {mass(ausgewaehlt.laengeMm)} × {mass(ausgewaehlt.breiteMm)} mm
           </dd>
         </div>
-        <div className="border-t border-border p-4 sm:border-r sm:border-t-0">
-          <dt className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-            Tiefe
-          </dt>
-          <dd className="messwert mt-1.5 text-xl font-semibold text-heading">
-            {massMitEinheit(ausgewaehlt.tiefeMm)}
-          </dd>
+        <div className={cn(messwertZelle, "border-r border-border")}>
+          <dt className={messwertLabel}>Tiefe</dt>
+          <dd className={messwertZahl}>{massMitEinheit(ausgewaehlt.tiefeMm)}</dd>
         </div>
-        <div className="border-t border-border p-4 sm:border-t-0">
-          <dt className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-            Fläche
-          </dt>
-          <dd className="messwert mt-1.5 text-xl font-semibold text-heading">
-            {formatiereMm2(ausgewaehlt.flaeche)}
-          </dd>
+        <div className={messwertZelle}>
+          <dt className={messwertLabel}>Fläche</dt>
+          <dd className={messwertZahl}>{formatiereMm2(ausgewaehlt.flaeche)}</dd>
         </div>
       </dl>
 
@@ -184,7 +184,7 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
             role="img"
             aria-label={draufsichtBeschreibung(ausgewaehlt)}
             data-schema-gruppe
-            className="flex h-56 items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-muted/30 p-3"
+            className="flex h-40 items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-muted/30 p-3"
           >
             {!hatLaenge && !hatBreite ? (
               <div className="flex flex-col items-center justify-center gap-2 px-5 text-center text-sm text-muted-foreground">
@@ -194,7 +194,7 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
             ) : (
               <div className="w-full max-w-60">
                 <svg
-                  viewBox="0 0 280 180"
+                  viewBox="0 0 280 156"
                   aria-hidden="true"
                   className="block h-auto w-full rounded-lg"
                   style={{
@@ -227,18 +227,6 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
                     </g>
                   )}
                 </svg>
-                <div className="mt-2 flex flex-wrap justify-center gap-2" aria-hidden="true">
-                  {hatLaenge && (
-                    <span className="rounded-md border border-border bg-card/95 px-2 py-1 text-xs tabular shadow-sm">
-                      Länge {mass(ausgewaehlt.laengeMm)} mm
-                    </span>
-                  )}
-                  {hatBreite && (
-                    <span className="rounded-md border border-border bg-card/95 px-2 py-1 text-xs tabular shadow-sm">
-                      Breite {mass(ausgewaehlt.breiteMm)} mm
-                    </span>
-                  )}
-                </div>
               </div>
             )}
           </div>
@@ -258,7 +246,7 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
           </div>
           <div
             data-schema-gruppe
-            className="flex h-56 items-center justify-center rounded-xl border border-border bg-surface-muted/30 p-3"
+            className="flex h-40 items-center justify-center rounded-xl border border-border bg-surface-muted/30 p-3"
           >
             {ausgewaehlt.tiefeMm == null ? (
               <div className="flex flex-col items-center gap-2 px-5 text-center text-sm text-muted-foreground">
@@ -267,7 +255,7 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
               </div>
             ) : (
               <svg
-                viewBox="0 0 320 150"
+                viewBox="0 0 320 76"
                 role="img"
                 aria-label={`Schematisches Seitenprofil, Tiefe ${massMitEinheit(ausgewaehlt.tiefeMm)}`}
                 className="h-auto w-full max-w-sm"
@@ -295,9 +283,12 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
                   <line x1="154" y1={profilOben + 4} x2="166" y2={profilOben + 4} />
                   <line x1="154" y1={profilBoden - 2} x2="166" y2={profilBoden - 2} />
                 </g>
+                {/* Unter dem tiefsten Punkt statt mittig am Masspfeil: bei
+                    flachen Wunden laege die Beschriftung sonst auf der Kurve. */}
                 <text
-                  x="176"
-                  y={(profilOben + 4 + profilBoden) / 2 + 4}
+                  x="160"
+                  y={profilBoden + 15}
+                  textAnchor="middle"
                   fill={tiefenTextFarbe}
                   className="text-[13px] font-semibold"
                 >
@@ -324,7 +315,7 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
         </div>
         <p className="mt-3 text-center text-base font-semibold tabular text-primary">
           <span className="sr-only">Ausgewählt: </span>
-          <time data-ausgewaehlter-termin dateTime={ausgewaehlt.datum}>{terminDatum(ausgewaehlt.datum)}</time>
+          <time data-ausgewaehlter-termin dateTime={ausgewaehlt.datum}>{diagrammDatumZahl(ausgewaehlt.datum)}</time>
         </p>
         <div className="relative mt-1">
           {/* Die Endpunkte liegen in der Mitte des 28-px-Reglers. */}
@@ -362,11 +353,11 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
         <div className="flex justify-between gap-4 text-xs tabular text-muted-foreground">
           <span>
             <span className="block">Erste Aufnahme</span>
-            <time dateTime={daten[0].datum}>{terminDatum(daten[0].datum)}</time>
+            <time dateTime={daten[0].datum}>{diagrammDatumZahl(daten[0].datum)}</time>
           </span>
           <span className="text-right">
             <span className="block">Letzte Aufnahme</span>
-            <time dateTime={daten.at(-1)!.datum}>{terminDatum(daten.at(-1)!.datum)}</time>
+            <time dateTime={daten.at(-1)!.datum}>{diagrammDatumZahl(daten.at(-1)!.datum)}</time>
           </span>
         </div>
       </div>
