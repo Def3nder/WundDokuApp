@@ -16,7 +16,7 @@ export function MobileNavigation({ istAdmin }: { istAdmin: boolean }) {
           type="button"
           variant="ghost"
           size="icon"
-          className="sm:hidden"
+          className="xl:hidden"
           aria-label="Hauptnavigation öffnen"
         >
           <Menu aria-hidden="true" />
@@ -26,7 +26,8 @@ export function MobileNavigation({ istAdmin }: { istAdmin: boolean }) {
         <DropdownMenu.Content
           align="end"
           sideOffset={8}
-          className="z-50 min-w-52 rounded-xl border border-border bg-surface p-1.5 text-foreground shadow-xl"
+          collisionPadding={16}
+          className="z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-52 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-border bg-surface p-1.5 text-foreground shadow-xl"
         >
           <DropdownMenu.Item asChild>
             <Link href="/" className={linkKlasse}>

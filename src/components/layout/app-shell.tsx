@@ -21,18 +21,18 @@ export function AppShell({
 }) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
+      <header className="app-header sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
+        <div className="app-container app-header-row flex items-center gap-2 sm:gap-4">
           <Link
             href="/"
             aria-label="WundDoku – Patientenübersicht"
-            className="flex items-center gap-2 rounded-lg font-heading text-lg font-semibold text-heading"
+            className="tippziel flex shrink-0 items-center gap-2 rounded-lg font-heading text-lg font-semibold text-heading"
           >
             <Activity className="size-6 text-primary" aria-hidden="true" />
             <span className="max-[430px]:hidden">WundDoku</span>
           </Link>
 
-          <nav aria-label="Hauptnavigation" className="ml-2 hidden items-center gap-1 sm:flex">
+          <nav aria-label="Hauptnavigation" className="ml-2 hidden shrink-0 items-center gap-1 xl:flex">
             <Link
               href="/"
               className="tippziel inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-surface-muted hover:text-foreground"
@@ -67,11 +67,11 @@ export function AppShell({
             )}
           </nav>
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-3">
             <ThemeToggle />
             <MobileNavigation istAdmin={benutzer.rolle === "ADMIN"} />
-            <div className="hidden text-right md:block">
-              <p className="text-sm font-medium leading-tight">{benutzer.name}</p>
+            <div className="hidden min-w-0 max-w-48 text-right md:block">
+              <p className="truncate text-sm font-medium leading-tight" title={benutzer.name ?? undefined}>{benutzer.name}</p>
               <p className="text-xs text-muted-foreground">Handzeichen {benutzer.handzeichen}</p>
             </div>
             <form
@@ -91,12 +91,12 @@ export function AppShell({
       <main
         id="hauptinhalt"
         tabIndex={-1}
-        className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8"
+        className="app-container app-main flex-1"
       >
         {children}
       </main>
 
-      <footer className="border-t border-border px-4 py-4 text-center text-xs text-muted-foreground">
+      <footer className="app-footer border-t border-border px-4 pt-4 text-center text-xs text-muted-foreground">
         WundDoku · Patientendaten verbleiben auf diesem Rechner
       </footer>
     </div>

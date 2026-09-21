@@ -30,7 +30,7 @@ export function AbschnittBefund({
 
   return (
     <>
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="form-grid gap-5">
         <Field id="datum" label="Aufnahmedatum" pflicht fehler={fehler("datum")}>
           {(p) => (
             <Input {...p} name="datum" type="date" max={heute} defaultValue={werte.datum} required />

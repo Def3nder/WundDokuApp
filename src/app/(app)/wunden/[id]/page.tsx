@@ -10,9 +10,8 @@ import { WundeKopf } from "@/components/wunde/wunde-kopf";
 import { WundeLoeschen } from "@/components/wunde/wunde-loeschen";
 import { Zeitleiste } from "@/components/wunde/zeitleiste";
 import { wundeLoeschen } from "@/actions/wunden";
-import { gruppiereWundgrund } from "@/lib/auswertung";
+import { baueVerlaufspunkte } from "@/lib/auswertung";
 import { verlangeSitzung } from "@/lib/auth";
-import { EXSUDAT_MENGEN, EXSUDAT_STUFE, labelVon } from "@/lib/enums";
 import { flaecheMm2 } from "@/lib/wundmasse";
 import { leseAuswahl } from "@/lib/utils";
 
@@ -39,7 +38,7 @@ export default async function WundeSeite({
         pflegedienst: true,
         aufnahmen: {
           where: { geloeschtAm: null },
-          orderBy: { datum: "desc" },
+          orderBy: [{ datum: "desc" }, { createdAt: "desc" }],
           include: {
             erstelltVon: { select: { name: true, handzeichen: true } },
             _count: { select: { fotos: { where: { geloeschtAm: null } } } },
@@ -73,26 +72,9 @@ export default async function WundeSeite({
   }));
 
   const hatAufnahmen = eintraege.length > 0;
-  const verlaufsdaten = wunde.aufnahmen
-    .filter((aufnahme) => !aufnahme.istEntwurf)
-    .toReversed()
-    .map((aufnahme) => {
-      const wundgrund = leseAuswahl(aufnahme.wundgrund);
-      return {
-        id: aufnahme.id,
-        datum: aufnahme.datum.toISOString(),
-        flaeche: flaecheMm2(aufnahme),
-        breiteMm: aufnahme.breiteMm,
-        laengeMm: aufnahme.laengeMm,
-        tiefeMm: aufnahme.tiefeMm,
-        schmerzVas: aufnahme.schmerzen ? (aufnahme.schmerzVas ?? null) : 0,
-        exsudatStufe: aufnahme.exsudatMenge
-          ? (EXSUDAT_STUFE[aufnahme.exsudatMenge] ?? null)
-          : null,
-        exsudatLabel: labelVon(EXSUDAT_MENGEN, aufnahme.exsudatMenge),
-        wundgrund: gruppiereWundgrund(wundgrund),
-      };
-    });
+  const verlaufsdaten = baueVerlaufspunkte(
+    wunde.aufnahmen.filter((aufnahme) => !aufnahme.istEntwurf).toReversed(),
+  );
 
   return (
     <div className="space-y-6">
@@ -105,7 +87,7 @@ export default async function WundeSeite({
 
       <WundeKopf wunde={wunde} anzahlAufnahmen={eintraege.length} />
 
-      <div className="flex flex-wrap gap-3">
+      <div className="form-actions">
         <Button asChild>
           <Link href={`/wunden/${id}/aufnahmen/neu`}>
             <Plus aria-hidden="true" />

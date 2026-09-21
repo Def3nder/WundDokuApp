@@ -29,7 +29,9 @@ export function RadioChips({
   abwaehlbar?: boolean;
   onChange?: (wert: string | null) => void;
 }) {
-  const [gewaehlt, setGewaehlt] = useState<string | null>(vorgabe);
+  const [gewaehlt, setGewaehlt] = useState<string | null>(() =>
+    optionen.some((option) => option.wert === vorgabe) ? vorgabe : null,
+  );
   const gruppenId = useId();
   const hilfeId = hilfe ? `${gruppenId}-hilfe` : undefined;
   const fehlerId = fehler ? `${gruppenId}-fehler` : undefined;

@@ -1,6 +1,34 @@
-import { WUNDGRUND, WUNDGRUND_GRUPPEN, labelsVon } from "@/lib/enums";
+import { EXSUDAT_MENGEN, EXSUDAT_STUFE, WUNDGRUND, WUNDGRUND_GRUPPEN, labelVon, labelsVon } from "@/lib/enums";
+import { flaecheMm2 } from "@/lib/wundmasse";
+import { leseAuswahl } from "@/lib/utils";
 
 export type WundgrundGruppeId = (typeof WUNDGRUND_GRUPPEN)[number]["id"];
+
+export type Verlaufspunkt = {
+  id: string;
+  datum: string;
+  flaeche: number | null;
+  breiteMm: number | null;
+  laengeMm: number | null;
+  tiefeMm: number | null;
+  schmerzVas: number | null;
+  exsudatStufe: number | null;
+  exsudatLabel: string;
+  wundgrund: Record<WundgrundGruppeId, number>;
+};
+
+/** Minimale Aufnahmefelder, die ein Verlaufsdiagramm-Datenpunkt braucht. */
+export type AufnahmeFuerVerlauf = {
+  id: string;
+  datum: Date;
+  breiteMm: number | null;
+  laengeMm: number | null;
+  tiefeMm: number | null;
+  schmerzen: boolean;
+  schmerzVas: number | null;
+  exsudatMenge: string | null;
+  wundgrund: string;
+};
 
 export type WundgrundAenderung = {
   hinzugekommen: string[];
@@ -37,6 +65,18 @@ export function diagrammDatumKurz(wert: unknown): string {
 export function diagrammDatumLang(wert: unknown): string {
   const datum = diagrammDatum(wert);
   return datum ? datumLangFormatter.format(datum) : "Datum unbekannt";
+}
+
+/**
+ * Formatiert einen echten Zeitstempel (Millisekunden) fuer Achsenbeschriftungen
+ * einer zeitproportionalen X-Achse (aktuell nur die kleine Wundflaechen-
+ * Vorschau bei "Aktuelle Flaeche"). Anders als `diagrammDatumKurz` erwartet
+ * diese Funktion ausschliesslich Werte, die wir selbst aus `Verlaufspunkt.datum`
+ * berechnet haben - keine von Recharts intern gelieferten Werte unklarer
+ * Herkunft (siehe `diagrammTooltipDatum`).
+ */
+export function diagrammAchsenDatum(zeitstempel: number): string {
+  return datumKurzFormatter.format(new Date(zeitstempel));
 }
 
 /**
@@ -83,4 +123,26 @@ export function zahlenDifferenz(
 ): number | null {
   if (ausgang == null || vergleich == null) return null;
   return Math.round((vergleich - ausgang) * 10) / 10;
+}
+
+/**
+ * Baut die Datenpunkte fuer die Verlaufsdiagramme - dieselbe Aufbereitung
+ * fuer Bildschirm (`Verlaufsdiagramme`) und PDF-Export, damit beide niemals
+ * auseinanderlaufen. Erwartet chronologisch aufsteigend sortierte Aufnahmen.
+ */
+export function baueVerlaufspunkte(
+  aufnahmen: readonly AufnahmeFuerVerlauf[],
+): Verlaufspunkt[] {
+  return aufnahmen.map((aufnahme) => ({
+    id: aufnahme.id,
+    datum: aufnahme.datum.toISOString(),
+    flaeche: flaecheMm2(aufnahme),
+    breiteMm: aufnahme.breiteMm,
+    laengeMm: aufnahme.laengeMm,
+    tiefeMm: aufnahme.tiefeMm,
+    schmerzVas: aufnahme.schmerzen ? (aufnahme.schmerzVas ?? null) : 0,
+    exsudatStufe: aufnahme.exsudatMenge ? (EXSUDAT_STUFE[aufnahme.exsudatMenge] ?? null) : null,
+    exsudatLabel: labelVon(EXSUDAT_MENGEN, aufnahme.exsudatMenge),
+    wundgrund: gruppiereWundgrund(leseAuswahl(aufnahme.wundgrund)),
+  }));
 }

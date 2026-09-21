@@ -20,7 +20,7 @@ export function FotoGalerie({ fotos, kompakt = false }: { fotos: FotoAnsicht[]; 
 
   return (
     <>
-      <div className={cn("grid gap-4 sm:grid-cols-2", !kompakt && "lg:grid-cols-3")}>
+      <div className={cn("gap-4", kompakt ? "grid" : "photo-grid")}>
         {fotos.map((eintrag, index) => (
           <figure key={eintrag.id} className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
             <button
@@ -30,7 +30,7 @@ export function FotoGalerie({ fotos, kompakt = false }: { fotos: FotoAnsicht[]; 
                 setAktiv(index);
               }}
               className="group relative block w-full cursor-zoom-in overflow-hidden bg-surface-muted"
-              style={{ aspectRatio: `${eintrag.breite}/${eintrag.hoehe}` }}
+              style={{ aspectRatio: "4/3" }}
               aria-label={`${bildtext(eintrag, index)} vergrößern`}
             >
               <img
@@ -38,7 +38,7 @@ export function FotoGalerie({ fotos, kompakt = false }: { fotos: FotoAnsicht[]; 
                 alt={bildtext(eintrag, index)}
                 width={eintrag.breite}
                 height={eintrag.hoehe}
-                className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                className="size-full object-contain"
               />
               <span className="absolute bottom-2 right-2 flex size-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-sm backdrop-blur">
                 <Expand className="size-4" aria-hidden="true" />
@@ -58,7 +58,7 @@ export function FotoGalerie({ fotos, kompakt = false }: { fotos: FotoAnsicht[]; 
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm" />
           <Dialog.Content
-            className="fixed inset-3 z-50 flex flex-col overflow-hidden rounded-xl border border-white/15 bg-slate-950 text-white shadow-2xl sm:inset-8"
+            className="media-dialog fixed z-50 flex flex-col overflow-hidden rounded-xl border border-white/15 bg-slate-950 text-white shadow-2xl"
             onCloseAutoFocus={(event) => {
               event.preventDefault();
               ausloeser.current?.focus();

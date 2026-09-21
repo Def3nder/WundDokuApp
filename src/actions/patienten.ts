@@ -7,44 +7,13 @@ import { db } from "@/lib/db";
 import { verlangeSitzung } from "@/lib/auth";
 import { geaenderteFelder, protokolliere } from "@/lib/audit";
 import { patientAusFormData, type PatientEingabe } from "@/lib/schema/patient";
-
-const NEU = "__NEU__";
-
-class AuswahlFehler extends Error {
-  constructor(public feld: string, meldung: string) {
-    super(meldung);
-  }
-}
+import {
+  VersorgungspartnerFehler,
+  versorgungspartnerAufloesen,
+} from "@/lib/versorgungspartner-server";
 
 async function patientDatenMitKontakten(tx: Prisma.TransactionClient, eingabe: PatientEingabe) {
-  let arztId = eingabe.arztId;
-  let arztName: string;
-  let neuerArztId: string | null = null;
-  if (arztId === NEU) {
-    if (!eingabe.neuerArztName) throw new AuswahlFehler("neuerArztName", "Bitte den Namen des neuen Arztes angeben");
-    const arzt = await tx.doctor.create({ data: { name: eingabe.neuerArztName, praxis: eingabe.neueArztPraxis } });
-    arztId = arzt.id;
-    arztName = arzt.name;
-    neuerArztId = arzt.id;
-  } else {
-    const arzt = await tx.doctor.findFirst({ where: { id: arztId, geloeschtAm: null } });
-    if (!arzt) throw new AuswahlFehler("arztId", "Der ausgewählte Arzt ist nicht verfügbar");
-    arztName = arzt.name;
-  }
-
-  let pflegedienstId = eingabe.pflegedienstId;
-  let neuerPflegedienstId: string | null = null;
-  if (pflegedienstId === NEU) {
-    if (!eingabe.neuerPflegedienstName) throw new AuswahlFehler("neuerPflegedienstName", "Bitte den Namen des neuen Pflegedienstes angeben");
-    const dienst = await tx.careService.create({
-      data: { name: eingabe.neuerPflegedienstName, ansprechpartner: eingabe.neuerPflegedienstAnsprechpartner },
-    });
-    pflegedienstId = dienst.id;
-    neuerPflegedienstId = dienst.id;
-  } else if (pflegedienstId) {
-    const dienst = await tx.careService.findFirst({ where: { id: pflegedienstId, geloeschtAm: null } });
-    if (!dienst) throw new AuswahlFehler("pflegedienstId", "Der ausgewählte Pflegedienst ist nicht verfügbar");
-  }
+  const kontakte = await versorgungspartnerAufloesen(tx, eingabe, { arztPflicht: true });
 
   return {
     daten: {
@@ -52,13 +21,15 @@ async function patientDatenMitKontakten(tx: Prisma.TransactionClient, eingabe: P
       vorname: eingabe.vorname,
       geburtsdatum: eingabe.geburtsdatum,
       patientennummer: eingabe.patientennummer,
-      arztId,
-      pflegedienstId,
-      arztTherapieverantwortlich: arztName,
+      arztId: kontakte.arztId,
+      pflegedienstId: kontakte.pflegedienstId,
+      arztTherapieverantwortlich: kontakte.arztName,
       notizen: eingabe.notizen,
     },
-    neuerArztId,
-    neuerPflegedienstId,
+    neuerArztId: kontakte.neuerArztId,
+    neuerArztName: kontakte.arztName,
+    neuerPflegedienstId: kontakte.neuerPflegedienstId,
+    neuerPflegedienstName: kontakte.pflegedienstName,
   };
 }
 
@@ -111,10 +82,10 @@ export async function patientAnlegen(
     });
     neuerId = ergebnis.patient.id;
     await protokolliere(sitzung.user.id, "Patient", ergebnis.patient.id, "ANLEGEN");
-    if (ergebnis.neuerArztId) await protokolliere(sitzung.user.id, "Doctor", ergebnis.neuerArztId, "ANLEGEN");
-    if (ergebnis.neuerPflegedienstId) await protokolliere(sitzung.user.id, "CareService", ergebnis.neuerPflegedienstId, "ANLEGEN");
+    if (ergebnis.neuerArztId) await protokolliere(sitzung.user.id, "Doctor", ergebnis.neuerArztId, "ANLEGEN", ergebnis.neuerArztName ?? undefined);
+    if (ergebnis.neuerPflegedienstId) await protokolliere(sitzung.user.id, "CareService", ergebnis.neuerPflegedienstId, "ANLEGEN", ergebnis.neuerPflegedienstName ?? undefined);
   } catch (fehler) {
-    if (fehler instanceof AuswahlFehler) {
+    if (fehler instanceof VersorgungspartnerFehler) {
       return { fehler: { [fehler.feld]: fehler.message }, werte: werteAus(fd) };
     }
     if (
@@ -160,10 +131,10 @@ export async function patientAendern(
       return kontakte;
     });
     gespeicherteDaten = ergebnis.daten;
-    if (ergebnis.neuerArztId) await protokolliere(sitzung.user.id, "Doctor", ergebnis.neuerArztId, "ANLEGEN");
-    if (ergebnis.neuerPflegedienstId) await protokolliere(sitzung.user.id, "CareService", ergebnis.neuerPflegedienstId, "ANLEGEN");
+    if (ergebnis.neuerArztId) await protokolliere(sitzung.user.id, "Doctor", ergebnis.neuerArztId, "ANLEGEN", ergebnis.neuerArztName ?? undefined);
+    if (ergebnis.neuerPflegedienstId) await protokolliere(sitzung.user.id, "CareService", ergebnis.neuerPflegedienstId, "ANLEGEN", ergebnis.neuerPflegedienstName ?? undefined);
   } catch (fehler) {
-    if (fehler instanceof AuswahlFehler) {
+    if (fehler instanceof VersorgungspartnerFehler) {
       return { fehler: { [fehler.feld]: fehler.message }, werte: werteAus(fd) };
     }
     if (

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { KoerperKarte, type LokalisationWahl } from "@/components/formular/koerperkarte";
 import { FreihandKarte, type FreihandMarker } from "@/components/formular/freihand-karte";
+import { StammdatenSuche } from "@/components/formular/stammdaten-suche";
 import {
   AUSRICHTUNGEN,
   DIAGNOSE_TYPEN,
@@ -17,8 +18,8 @@ import {
   SEITEN,
   ZEITEINHEITEN,
 } from "@/lib/enums";
+import { NEUER_STAMMDATENSATZ } from "@/lib/versorgungspartner";
 import type { FormZustand } from "@/actions/patienten";
-import { lokalisationsAnzeigeSetzen } from "@/actions/wunden";
 
 const START: FormZustand = {};
 
@@ -27,11 +28,16 @@ export type WundeWerte = {
   diagnoseTyp: string;
   diagnoseFreitext: string;
   arztId: string;
+  neuerArztName: string;
+  neueArztPraxis: string;
   pflegedienstId: string;
+  neuerPflegedienstName: string;
+  neuerPflegedienstAnsprechpartner: string;
   lokalisationRegion: string;
   lokalisationSeite: string;
   lokalisationAusrichtung: string;
   lokalisationFreitext: string;
+  lokalisationModus: string;
   lokalisationMarkerX: string;
   lokalisationMarkerY: string;
   lokalisationMarkerRadius: string;
@@ -46,11 +52,16 @@ const LEER: WundeWerte = {
   diagnoseTyp: "",
   diagnoseFreitext: "",
   arztId: "",
+  neuerArztName: "",
+  neueArztPraxis: "",
   pflegedienstId: "",
+  neuerPflegedienstName: "",
+  neuerPflegedienstAnsprechpartner: "",
   lokalisationRegion: "",
   lokalisationSeite: "",
   lokalisationAusrichtung: "",
   lokalisationFreitext: "",
+  lokalisationModus: "MARKER",
   lokalisationMarkerX: "",
   lokalisationMarkerY: "",
   lokalisationMarkerRadius: "",
@@ -67,16 +78,13 @@ export function WundeFormular({
   absendeText = "Speichern",
   aerzte = [],
   pflegedienste = [],
-  anzeigeModus = "KARTE",
 }: {
   action: (zustand: FormZustand, fd: FormData) => Promise<FormZustand>;
   vorgabe?: WundeWerte;
   abbrechenNach: string;
   absendeText?: string;
   aerzte?: { id: string; name: string; praxis: string | null }[];
-  pflegedienste?: { id: string; name: string }[];
-  /** Zuletzt gewählte Anzeigeart der Lokalisation, pro Benutzer gemerkt. */
-  anzeigeModus?: string;
+  pflegedienste?: { id: string; name: string; ansprechpartner: string | null }[];
 }) {
   const [zustand, formAction, laeuft] = useActionState(action, START);
   const [rezidiv, setRezidiv] = useState(vorgabe.rezidiv);
@@ -108,6 +116,8 @@ export function WundeFormular({
   });
   const waehle = (feld: keyof typeof auswahl) => (e: ChangeEvent<HTMLSelectElement>) =>
     setAuswahl((a) => ({ ...a, [feld]: e.target.value }));
+  const auswahlSetzen = (feld: "arztId" | "pflegedienstId") => (wert: string) =>
+    setAuswahl((a) => ({ ...a, [feld]: wert }));
 
   const [lokalisation, setLokalisation] = useState<LokalisationWahl>({
     region: w("lokalisationRegion"),
@@ -115,8 +125,8 @@ export function WundeFormular({
     ausrichtung: w("lokalisationAusrichtung"),
   });
 
-  const [modus, setModus] = useState<"KARTE" | "FREIHAND">(
-    anzeigeModus === "FREIHAND" ? "FREIHAND" : "KARTE",
+  const [modus, setModus] = useState<"MARKER" | "FREIHAND">(
+    w("lokalisationModus") === "FREIHAND" ? "FREIHAND" : "MARKER",
   );
   const [freihandMarker, setFreihandMarker] = useState<FreihandMarker | null>(() => {
     const x = Number.parseFloat(w("lokalisationMarkerX"));
@@ -127,15 +137,18 @@ export function WundeFormular({
       : null;
   });
 
-  function modusWaehlen(neu: "KARTE" | "FREIHAND") {
+  function modusWaehlen(neu: "MARKER" | "FREIHAND") {
     setModus(neu);
-    // Reine Anzeige-Vorliebe, kein Formularfeld - Fehler dabei sind nicht
-    // kritisch und werden bewusst nicht dem Nutzer gemeldet.
-    lokalisationsAnzeigeSetzen(neu).catch(() => {});
   }
 
   return (
-    <form key={zustandGeneration.current} action={formAction} className="space-y-6" noValidate>
+    <form
+      key={zustandGeneration.current}
+      action={formAction}
+      className="space-y-6"
+      data-aenderungen-warnung="wunde"
+      noValidate
+    >
       <FehlerUebersicht fehler={zustand.fehler} />
 
       {zustand.meldung && (
@@ -196,19 +209,109 @@ export function WundeFormular({
       <Card>
         <CardContent className="space-y-5 pt-6">
           <h2 className="text-base font-semibold">Versorgungspartner</h2>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field id="arztId" label="Behandelnder Arzt (optional)" fehler={f("arztId")}>
-              {(p) => <Select {...p} name="arztId" value={auswahl.arztId} onChange={waehle("arztId")}>
-                <option value="">Kein behandelnder Arzt</option>
-                {aerzte.map((arzt) => <option key={arzt.id} value={arzt.id}>{arzt.name}{arzt.praxis ? ` · ${arzt.praxis}` : ""}</option>)}
-              </Select>}
-            </Field>
-            <Field id="pflegedienstId" label="Pflegedienst" fehler={f("pflegedienstId")}>
-              {(p) => <Select {...p} name="pflegedienstId" value={auswahl.pflegedienstId} onChange={waehle("pflegedienstId")}>
-                <option value="">Kein Pflegedienst ausgewählt</option>
-                {pflegedienste.map((dienst) => <option key={dienst.id} value={dienst.id}>{dienst.name}</option>)}
-              </Select>}
-            </Field>
+          <div className="form-grid items-start gap-5">
+            <div className="min-w-0 space-y-3">
+              <Field id="arztId" label="Behandelnder Arzt (optional)" fehler={f("arztId")}>
+                {(p) => (
+                  <StammdatenSuche
+                    eingabeProps={p}
+                    name="arztId"
+                    wert={auswahl.arztId}
+                    onWertAendern={auswahlSetzen("arztId")}
+                    optionen={aerzte.map((arzt) => ({
+                      id: arzt.id,
+                      name: arzt.name,
+                      zusatz: arzt.praxis,
+                    }))}
+                    platzhalter="Arzt suchen, z. B. Name oder Titel"
+                    gruppenLabel="Behandelnden Arzt auswählen"
+                    keineAuswahlText="Kein behandelnder Arzt"
+                    neuText="Neuen Arzt anlegen"
+                  />
+                )}
+              </Field>
+              {auswahl.arztId === NEUER_STAMMDATENSATZ && (
+                <div className="space-y-3 rounded-lg border border-primary/25 bg-primary/5 p-3">
+                  <p className="text-sm font-medium">Neuen zentralen Arzt anlegen</p>
+                  <Field id="neuerArztName" label="Name" pflicht fehler={f("neuerArztName")}>
+                    {(p) => (
+                      <Input
+                        {...p}
+                        name="neuerArztName"
+                        defaultValue={w("neuerArztName")}
+                        required
+                      />
+                    )}
+                  </Field>
+                  <Field id="neueArztPraxis" label="Praxis" fehler={f("neueArztPraxis")}>
+                    {(p) => (
+                      <Input
+                        {...p}
+                        name="neueArztPraxis"
+                        defaultValue={w("neueArztPraxis")}
+                      />
+                    )}
+                  </Field>
+                </div>
+              )}
+            </div>
+
+            <div className="min-w-0 space-y-3">
+              <Field id="pflegedienstId" label="Pflegedienst" fehler={f("pflegedienstId")}>
+                {(p) => (
+                  <StammdatenSuche
+                    eingabeProps={p}
+                    name="pflegedienstId"
+                    wert={auswahl.pflegedienstId}
+                    onWertAendern={auswahlSetzen("pflegedienstId")}
+                    optionen={pflegedienste.map((dienst) => ({
+                      id: dienst.id,
+                      name: dienst.name,
+                      zusatz: dienst.ansprechpartner
+                        ? `Ansprechpartner: ${dienst.ansprechpartner}`
+                        : null,
+                    }))}
+                    platzhalter="Pflegedienst oder Ansprechpartner suchen"
+                    gruppenLabel="Pflegedienst auswählen"
+                    keineAuswahlText="Kein Pflegedienst"
+                    neuText="Neuen Pflegedienst anlegen"
+                  />
+                )}
+              </Field>
+              {auswahl.pflegedienstId === NEUER_STAMMDATENSATZ && (
+                <div className="space-y-3 rounded-lg border border-accent/25 bg-accent/5 p-3">
+                  <p className="text-sm font-medium">Neuen zentralen Pflegedienst anlegen</p>
+                  <Field
+                    id="neuerPflegedienstName"
+                    label="Name"
+                    pflicht
+                    fehler={f("neuerPflegedienstName")}
+                  >
+                    {(p) => (
+                      <Input
+                        {...p}
+                        name="neuerPflegedienstName"
+                        defaultValue={w("neuerPflegedienstName")}
+                        required
+                      />
+                    )}
+                  </Field>
+                  <Field
+                    id="neuerPflegedienstAnsprechpartner"
+                    label="Ansprechpartner"
+                    fehler={f("neuerPflegedienstAnsprechpartner")}
+                  >
+                    {(p) => (
+                      <Input
+                        {...p}
+                        name="neuerPflegedienstAnsprechpartner"
+                        defaultValue={w("neuerPflegedienstAnsprechpartner")}
+                      />
+                    )}
+                  </Field>
+                </div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -217,7 +320,7 @@ export function WundeFormular({
         <CardContent className="space-y-5 pt-6">
           <h2 className="text-base font-semibold">Lokalisation</h2>
 
-          <div className="grid gap-5 sm:grid-cols-3">
+          <div className="compact-grid gap-5">
             <Field id="lokalisationRegion" label="Körperregion" fehler={f("lokalisationRegion")}>
               {(p) => (
                 <Select
@@ -287,20 +390,20 @@ export function WundeFormular({
             <div
               role="group"
               aria-label="Anzeigeart der Lokalisationshilfe"
-              className="inline-flex rounded-lg border border-border-strong p-1"
+              className="flex flex-wrap gap-1 rounded-lg border border-border-strong p-1"
             >
               <button
                 type="button"
-                aria-pressed={modus === "KARTE"}
-                onClick={() => modusWaehlen("KARTE")}
+                aria-pressed={modus === "MARKER"}
+                onClick={() => modusWaehlen("MARKER")}
                 className={cn(
                   "tippziel rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-200",
-                  modus === "KARTE"
+                  modus === "MARKER"
                     ? "bg-secondary text-on-secondary"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                Körperkarte
+                Marker auf Körperkarte
               </button>
               <button
                 type="button"
@@ -317,12 +420,13 @@ export function WundeFormular({
               </button>
             </div>
 
-            {modus === "KARTE" ? (
+            {modus === "MARKER" ? (
               <KoerperKarte wert={lokalisation} onWahl={setLokalisation} />
             ) : (
               <FreihandKarte wert={freihandMarker} onWahl={setFreihandMarker} />
             )}
 
+            <input type="hidden" name="lokalisationModus" value={modus} />
             <input type="hidden" name="lokalisationMarkerX" value={freihandMarker?.x ?? ""} />
             <input type="hidden" name="lokalisationMarkerY" value={freihandMarker?.y ?? ""} />
             <input
@@ -351,7 +455,7 @@ export function WundeFormular({
 
           <fieldset className="space-y-1.5">
             <legend className="mb-1.5 text-sm font-medium">Wunde besteht seit</legend>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Input
                 id="bestehtSeitWert"
                 name="bestehtSeitWert"
@@ -362,7 +466,7 @@ export function WundeFormular({
                 defaultValue={w("bestehtSeitWert")}
                 aria-label="Dauer"
                 aria-invalid={f("bestehtSeitWert") ? true : undefined}
-                className="w-28"
+                  className="w-36"
               />
               <Select
                 id="bestehtSeitEinheit"
@@ -424,7 +528,7 @@ export function WundeFormular({
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="form-actions">
         <Button type="submit" laedt={laeuft}>
           {absendeText}
         </Button>

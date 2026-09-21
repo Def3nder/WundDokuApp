@@ -23,7 +23,11 @@ export function DokumentUpload({
   return (
     <Card>
       <CardContent className="p-5 sm:p-6">
-        <form action={action} className="space-y-5">
+        <form
+          action={action}
+          className="space-y-5"
+          data-aenderungen-warnung="dokument"
+        >
           <input type="hidden" name="typ" value={typ} />
           <Field id="dokument-titel" label="Titel" pflicht>
             {(p) => (
@@ -57,7 +61,7 @@ export function DokumentUpload({
               {zustand.meldung}
             </p>
           )}
-          <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-5">
+          <div className="form-actions justify-end border-t border-border pt-5">
             <Button variant="outline" asChild>
               <Link href={`/patienten/${patientId}/dokumente?typ=${typ}`}>Abbrechen</Link>
             </Button>

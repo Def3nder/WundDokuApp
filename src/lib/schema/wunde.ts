@@ -56,9 +56,25 @@ export const wundeSchema = z
     // "seed-doctor-01"). Ob die ID tatsächlich existiert, prüft ohnehin
     // stammdatenFehler() in src/actions/wunden.ts gegen die Datenbank.
     arztId: z.preprocess(leerZuNull, z.string().trim().min(1, "Ungültiger Arzt").nullable()),
+    neuerArztName: z.preprocess(
+      leerZuNull,
+      z.string().trim().max(150, "Höchstens 150 Zeichen").nullable(),
+    ),
+    neueArztPraxis: z.preprocess(
+      leerZuNull,
+      z.string().trim().max(150, "Höchstens 150 Zeichen").nullable(),
+    ),
     pflegedienstId: z.preprocess(
       leerZuNull,
       z.string().trim().min(1, "Ungültiger Pflegedienst").nullable(),
+    ),
+    neuerPflegedienstName: z.preprocess(
+      leerZuNull,
+      z.string().trim().max(150, "Höchstens 150 Zeichen").nullable(),
+    ),
+    neuerPflegedienstAnsprechpartner: z.preprocess(
+      leerZuNull,
+      z.string().trim().max(150, "Höchstens 150 Zeichen").nullable(),
     ),
 
     lokalisationRegion: z.preprocess(
@@ -74,6 +90,9 @@ export const wundeSchema = z
       leerZuNull,
       z.string().trim().max(500, "Höchstens 500 Zeichen").nullable(),
     ),
+    lokalisationModus: z.enum(["MARKER", "FREIHAND"], {
+      errorMap: () => ({ message: "Bitte eine Art der Lokalisation auswählen" }),
+    }),
     lokalisationMarkerX: prozentOderNull("Marker-Position"),
     lokalisationMarkerY: prozentOderNull("Marker-Position"),
     lokalisationMarkerRadius: prozentOderNull("Marker-Größe"),
@@ -136,11 +155,16 @@ export function wundeAusFormData(fd: FormData) {
     diagnoseTyp: fd.get("diagnoseTyp"),
     diagnoseFreitext: fd.get("diagnoseFreitext"),
     arztId: fd.get("arztId"),
+    neuerArztName: fd.get("neuerArztName"),
+    neueArztPraxis: fd.get("neueArztPraxis"),
     pflegedienstId: fd.get("pflegedienstId"),
+    neuerPflegedienstName: fd.get("neuerPflegedienstName"),
+    neuerPflegedienstAnsprechpartner: fd.get("neuerPflegedienstAnsprechpartner"),
     lokalisationRegion: fd.get("lokalisationRegion"),
     lokalisationSeite: fd.get("lokalisationSeite"),
     lokalisationAusrichtung: fd.get("lokalisationAusrichtung"),
     lokalisationFreitext: fd.get("lokalisationFreitext"),
+    lokalisationModus: fd.get("lokalisationModus"),
     lokalisationMarkerX: fd.get("lokalisationMarkerX"),
     lokalisationMarkerY: fd.get("lokalisationMarkerY"),
     lokalisationMarkerRadius: fd.get("lokalisationMarkerRadius"),

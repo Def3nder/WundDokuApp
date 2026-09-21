@@ -8,7 +8,7 @@ export const metadata = { title: "Patient anlegen" };
 export default async function NeuerPatientSeite() {
   const [aerzte, pflegedienste] = await Promise.all([
     db.doctor.findMany({ where: { geloeschtAm: null }, orderBy: { name: "asc" }, select: { id: true, name: true, praxis: true } }),
-    db.careService.findMany({ where: { geloeschtAm: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    db.careService.findMany({ where: { geloeschtAm: null }, orderBy: { name: "asc" }, select: { id: true, name: true, ansprechpartner: true } }),
   ]);
   return (
     <div className="max-w-3xl space-y-6">

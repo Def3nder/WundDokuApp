@@ -22,7 +22,7 @@ export default async function StammdatenSeite() {
         <h1 className="text-2xl font-semibold">Ärzte und Pflegedienste</h1>
         <p className="mt-1 text-sm text-muted-foreground">Zentrale Auswahllisten für das Anlegen und Bearbeiten von Wunden.</p>
       </div>
-      <div className="grid items-start gap-8 lg:grid-cols-2">
+      <div className="panel-grid items-start gap-8">
         <StammdatenAbschnitt
           titel="Ärzte"
           einzahl="Arzt"
@@ -89,7 +89,11 @@ function StammdatenAbschnitt({ titel, einzahl, icon: Icon, farbe, eintraege, neu
             <Plus className="size-4" aria-hidden="true" />
             {einzahl} hinzufügen
           </summary>
-          <form action={neuAction} className="grid gap-3 border-t border-border p-4">
+          <form
+            action={neuAction}
+            className="grid gap-3 border-t border-border p-4"
+            data-aenderungen-warnung={`stammdaten-neu-${zweitesName}`}
+          >
             <StammdatenFelder zweitesFeld={zweitesFeld} zweitesName={zweitesName} />
             <div className="flex justify-end">
               <Button type="submit"><Plus aria-hidden="true" />{einzahl} hinzufügen</Button>
@@ -111,7 +115,11 @@ function StammdatenAbschnitt({ titel, einzahl, icon: Icon, farbe, eintraege, neu
                 <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" aria-hidden="true" />
               </summary>
               <div className="border-t border-border px-3 py-4">
-                <form action={speichern.bind(null, eintrag.id)} className="grid gap-3">
+                <form
+                  action={speichern.bind(null, eintrag.id)}
+                  className="grid gap-3"
+                  data-aenderungen-warnung={`stammdaten-${eintrag.id}`}
+                >
                   <StammdatenFelder eintrag={eintrag} zweitesFeld={zweitesFeld} zweitesName={zweitesName} />
                   <div className="flex flex-wrap justify-end gap-2">
                     <Button type="submit" variant="outline"><Save aria-hidden="true" />Änderungen speichern</Button>
@@ -141,7 +149,7 @@ function StammdatenFelder({ eintrag, zweitesFeld, zweitesName }: {
     <>
       <Input name="name" defaultValue={eintrag?.name} placeholder="Name" aria-label="Name" required />
       <Input name={zweitesName} defaultValue={eintrag?.[zweitesName] ?? ""} placeholder={zweitesFeld} aria-label={zweitesFeld} />
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="compact-grid gap-3">
         <Input name="telefon" defaultValue={eintrag?.telefon ?? ""} placeholder="Telefon" aria-label="Telefon" />
         <Input name="email" type="email" defaultValue={eintrag?.email ?? ""} placeholder="E-Mail" aria-label="E-Mail" />
       </div>

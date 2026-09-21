@@ -33,10 +33,16 @@ export function NeuerBenutzer({ abbrechenNach }: { abbrechenNach: string }) {
   return (
     <Card>
       <CardContent className="space-y-5 pt-6">
-        <form key={zustandGeneration.current} action={formAction} className="space-y-5" noValidate>
+        <form
+          key={zustandGeneration.current}
+          action={formAction}
+          className="space-y-5"
+          data-aenderungen-warnung="benutzer"
+          noValidate
+        >
           <FehlerUebersicht fehler={zustand.fehler} />
 
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="form-grid gap-5">
             <Field id="name" label="Name" pflicht fehler={f("name")}>
               {(p) => <Input {...p} name="name" defaultValue={w("name")} required />}
             </Field>
@@ -92,7 +98,7 @@ export function NeuerBenutzer({ abbrechenNach }: { abbrechenNach: string }) {
             )}
           </Field>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="form-actions">
             <Button type="submit" laedt={laeuft}>Benutzer anlegen</Button>
             <Button type="button" variant="outline" asChild>
               <Link href={abbrechenNach}>Abbrechen</Link>
