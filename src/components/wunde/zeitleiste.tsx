@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Camera, FileText, ShieldAlert, Sparkles } from "lucide-react";
+import { Camera, CircleCheck, FileText, ShieldAlert, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TrendBadge } from "./trend-badge";
 import { flaechenTrend, formatiereMm2 } from "@/lib/wundmasse";
@@ -30,6 +30,7 @@ export type ZeitleistenEintrag = {
   systemischeZeichen: boolean;
   anzahlFotos: number;
   handzeichen: string | null;
+  wundeGeheilt: boolean;
 };
 
 /**
@@ -78,6 +79,13 @@ export function Zeitleiste({ eintraege }: { eintraege: ZeitleistenEintrag[] }) {
                       <span className="inline-flex items-center gap-1 rounded-full bg-status-schlecht/15 px-2 py-0.5 text-xs font-medium text-status-schlecht">
                         <ShieldAlert className="size-3.5" aria-hidden="true" />
                         {e.systemischeZeichen ? "Systemische Infektion" : "Wundinfektion"}
+                      </span>
+                    )}
+
+                    {e.wundeGeheilt && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
+                        <CircleCheck className="size-3.5" aria-hidden="true" />
+                        Abgeheilt
                       </span>
                     )}
 

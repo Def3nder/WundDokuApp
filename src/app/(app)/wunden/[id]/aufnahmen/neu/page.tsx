@@ -90,6 +90,7 @@ export default async function NeueAufnahmeSeite({
         aufnahmeId={entwurf?.id ?? null}
         initialFotos={entwurf?.fotos.map(fotoZuAnsicht) ?? []}
         absendeText={letzte ? "Folgeaufnahme speichern" : "Erstaufnahme speichern"}
+        istFolgeaufnahme={Boolean(letzte)}
       />
     </div>
   );

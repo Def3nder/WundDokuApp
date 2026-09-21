@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { FileDown, Pencil } from "lucide-react";
+import { CircleCheck, FileDown, Pencil } from "lucide-react";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -191,6 +191,17 @@ export default async function AufnahmeSeite({ params }: { params: Promise<{ id: 
         <Angabe label="Weitere Therapieangaben">{aufnahme.therapieSonstiges}</Angabe>
         <Angabe label="Allgemeine Anmerkungen">{aufnahme.anmerkungen}</Angabe>
       </DetailKarte>
+
+      {aufnahme.wundeGeheilt && (
+        <DetailKarte titel="Abschluss">
+          <Angabe label="Wunde">
+            <span className="inline-flex items-center gap-1.5 text-accent">
+              <CircleCheck className="size-4" aria-hidden="true" />
+              In dieser Aufnahme als abgeheilt festgestellt
+            </span>
+          </Angabe>
+        </DetailKarte>
+      )}
 
       <Card>
         <CardHeader className="pb-3"><CardTitle>Fotos</CardTitle></CardHeader>

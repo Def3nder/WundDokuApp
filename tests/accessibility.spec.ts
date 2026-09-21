@@ -594,3 +594,65 @@ test("Navigation warnt nur bei tatsächlich ungespeicherten Änderungen", async 
     await expect(page.locator("form[data-aenderungen-warnung]")).toBeVisible();
   }
 });
+
+test("abgeschlossene Wunden sind als abgeheilt erkennbar", async ({ page }) => {
+  await anmelden(page);
+  await page.goto("/");
+  const patientHref = verlangeHref(
+    await page.getByRole("link", { name: /Kowalski, Josef/ }).first().getAttribute("href"),
+    "Patient mit abgeschlossener Wunde",
+  );
+  await page.goto(patientHref);
+
+  // Abgeschlossene Wunden stehen in einem eigenen Aufklapper, nicht in der
+  // Liste der offenen.
+  const aufklapper = page.locator("main details").filter({ hasText: /abgeschlossene Wunde/ });
+  await expect(aufklapper).toBeVisible();
+  await aufklapper.locator("summary").click();
+
+  const karte = aufklapper.locator('a[href^="/wunden/"]').first();
+  await expect(karte).toContainText("Abgeschlossen");
+  // Gruene Flaeche - Farbe steht hier nie allein, das Abzeichen oben gehoert dazu.
+  const hintergrund = await karte
+    .locator("div")
+    .first()
+    .evaluate((element) => getComputedStyle(element).backgroundColor);
+  const offeneKarte = page.locator('main ul > li a[href^="/wunden/"]').first();
+  const hintergrundOffen = await offeneKarte
+    .locator("div")
+    .first()
+    .evaluate((element) => getComputedStyle(element).backgroundColor);
+  expect(hintergrund).not.toBe(hintergrundOffen);
+
+  const wundeHref = verlangeHref(await karte.getAttribute("href"), "Abgeschlossene Wunde");
+  await page.goto(wundeHref);
+  await expect(page.getByText(/Abgeschlossen am/)).toBeVisible();
+  const wiedereroeffnen = page.getByRole("button", { name: "Wunde wieder eröffnen" });
+  await expect(wiedereroeffnen).toBeVisible();
+
+  // Die abgeheilte Aufnahme: 0 als Messwert ergibt 0 mm^2, keinen Gedankenstrich.
+  const abgeheilt = page.locator('main ol > li').filter({ hasText: "Abgeheilt" }).first();
+  await expect(abgeheilt).toBeVisible();
+  await expect(abgeheilt).toContainText("0 mm²");
+  await abgeheilt.locator('a[href^="/aufnahmen/"]').click();
+  await expect(page.getByText("In dieser Aufnahme als abgeheilt festgestellt")).toBeVisible();
+
+  // Das Feld steht nur in Folgeaufnahmen und schaltet den versteckten Wert um.
+  await page.goto(`${wundeHref}/aufnahmen/neu`);
+  const abschluss = page.getByRole("navigation", { name: "Abschnitte" }).getByRole("link", {
+    name: "Abschluss",
+    exact: true,
+  });
+  await expect(abschluss).toBeVisible();
+  const gruppe = page.getByRole("radiogroup", { name: "Wunde ist abgeheilt?", exact: true });
+  await expect(page.locator('input[type="hidden"][name="wundeGeheilt"]')).toHaveValue("nein");
+  await gruppe.getByRole("radio", { name: "Ja", exact: true }).click();
+  await expect(page.locator('input[type="hidden"][name="wundeGeheilt"]')).toHaveValue("ja");
+  await expect(page.getByText(/Beim Speichern wird die Wunde als abgeschlossen markiert/)).toBeVisible();
+
+  const axeErgebnis = await new AxeBuilder({ page })
+    .exclude("nextjs-portal")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze();
+  expect(axeErgebnis.violations).toEqual([]);
+});

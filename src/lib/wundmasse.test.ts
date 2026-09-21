@@ -17,10 +17,14 @@ describe("flaecheMm2", () => {
     expect(flaecheMm2({ breiteMm: null, laengeMm: null, tiefeMm: null })).toBeNull();
   });
 
-  it("wertet 0 und negative Eingaben als fehlend", () => {
-    // Eine Wunde mit Breite 0 gibt es nicht - das ist ein Eingabefehler und
-    // darf keine Flaeche von 0 mm^2 in den Verlauf schreiben.
-    expect(flaecheMm2({ breiteMm: 0, laengeMm: 40, tiefeMm: null })).toBeNull();
+  it("nimmt 0 als gueltigen Messwert", () => {
+    // Eine abgeheilte Wunde wird mit 0 vermessen - die Flaechenkurve soll
+    // dann auf 0 auslaufen statt abzubrechen.
+    expect(flaecheMm2({ breiteMm: 0, laengeMm: 40, tiefeMm: null })).toBe(0);
+    expect(flaecheMm2({ breiteMm: 0, laengeMm: 0, tiefeMm: 0 })).toBe(0);
+  });
+
+  it("wertet negative Eingaben als fehlend", () => {
     expect(flaecheMm2({ breiteMm: -5, laengeMm: 40, tiefeMm: null })).toBeNull();
   });
 
@@ -36,6 +40,10 @@ describe("volumenMm3", () => {
 
   it("braucht alle drei Masse", () => {
     expect(volumenMm3({ breiteMm: 10, laengeMm: 20, tiefeMm: null })).toBeNull();
+  });
+
+  it("nimmt 0 als gueltige Tiefe", () => {
+    expect(volumenMm3({ breiteMm: 10, laengeMm: 20, tiefeMm: 0 })).toBe(0);
   });
 });
 
@@ -62,7 +70,16 @@ describe("flaechenTrend", () => {
   it("liefert null ohne Vergleichswert", () => {
     expect(flaechenTrend(476, null)).toBeNull();
     expect(flaechenTrend(null, 1200)).toBeNull();
+    // Vorher 0 bleibt ohne Trend - sonst Division durch null.
     expect(flaechenTrend(476, 0)).toBeNull();
+  });
+
+  it("erkennt die Abheilung auf 0", () => {
+    expect(flaechenTrend(0, 476)).toEqual({
+      differenz: -476,
+      prozent: -100,
+      richtung: "verkleinert",
+    });
   });
 });
 

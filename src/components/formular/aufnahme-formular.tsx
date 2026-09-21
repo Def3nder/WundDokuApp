@@ -4,6 +4,7 @@ import { useActionState, useEffect, useMemo, useRef, useState, type FormEvent } 
 import Link from "next/link";
 import { Check, Cloud, CloudOff } from "lucide-react";
 import { Abschnitt, AbschnittsNavigation, type AbschnittDef } from "./abschnitt";
+import { AbschnittAbschluss } from "./abschnitt-abschluss";
 import { AbschnittBefund } from "./abschnitt-befund";
 import { AbschnittGroesse } from "./abschnitt-groesse";
 import { AbschnittInfektion } from "./abschnitt-infektion";
@@ -26,6 +27,7 @@ const ABSCHNITTE = [
   { id: "schmerz", titel: "Schmerz", beschreibung: "Stärke, Lage und Situationen" },
   { id: "therapie", titel: "Therapieplan", beschreibung: "Versorgung und Kompression" },
   { id: "fotos", titel: "Fotos", beschreibung: "Aufnehmen, beschreiben und sortieren" },
+  { id: "abschluss", titel: "Abschluss", beschreibung: "Abheilung feststellen" },
 ] as const satisfies readonly AbschnittDef[];
 
 const FELDER_PRO_ABSCHNITT: Record<string, readonly string[]> = {
@@ -58,6 +60,7 @@ const FELDER_PRO_ABSCHNITT: Record<string, readonly string[]> = {
     "kompressionMass", "therapieSonstiges", "anmerkungen",
   ],
   fotos: [],
+  abschluss: ["wundeGeheilt"],
 };
 
 export function AufnahmeFormular({
@@ -72,6 +75,7 @@ export function AufnahmeFormular({
   aufnahmeId = null,
   initialFotos = [],
   absendeText = "Aufnahme speichern",
+  istFolgeaufnahme = false,
 }: {
   action: (zustand: FormZustand, fd: FormData) => Promise<FormZustand>;
   vorgabe: AufnahmeWerte;
@@ -84,6 +88,8 @@ export function AufnahmeFormular({
   aufnahmeId?: string | null;
   initialFotos?: FotoAnsicht[];
   absendeText?: string;
+  /** Nur Folgeaufnahmen koennen die Wunde abschliessen. */
+  istFolgeaufnahme?: boolean;
 }) {
   const [zustand, formAction, laeuft] = useActionState(action, START);
   const formularRef = useRef<HTMLFormElement>(null);
@@ -100,14 +106,21 @@ export function AufnahmeFormular({
     if (zustand.fehler || zustand.meldung) autosave.fortsetzen();
   }, [autosave, zustand.fehler, zustand.meldung]);
 
+  const abschnitte = useMemo(
+    () => (istFolgeaufnahme ? ABSCHNITTE : ABSCHNITTE.filter((a) => a.id !== "abschluss")),
+    [istFolgeaufnahme],
+  );
+
   const fehlerhafte = useMemo(() => {
     const felder = new Set(Object.keys(zustand.fehler ?? {}));
     return new Set(
-      ABSCHNITTE.filter((abschnitt) =>
-        FELDER_PRO_ABSCHNITT[abschnitt.id].some((feld) => felder.has(feld)),
-      ).map((abschnitt) => abschnitt.id),
+      abschnitte
+        .filter((abschnitt) =>
+          FELDER_PRO_ABSCHNITT[abschnitt.id].some((feld) => felder.has(feld)),
+        )
+        .map((abschnitt) => abschnitt.id),
     );
-  }, [zustand.fehler]);
+  }, [abschnitte, zustand.fehler]);
 
   const f = (feld: string) => zustand.fehler?.[feld];
   const gespeichertUm = autosave.zeitpunkt
@@ -182,7 +195,7 @@ export function AufnahmeFormular({
         )}
       </div>
 
-      <AbschnittsNavigation abschnitte={ABSCHNITTE} fehlerhafte={fehlerhafte} />
+      <AbschnittsNavigation abschnitte={abschnitte} fehlerhafte={fehlerhafte} />
 
       <Abschnitt nummer={1} def={ABSCHNITTE[0]} hatFehler={fehlerhafte.has("befund")}>
         <AbschnittBefund werte={vorgabe} diagnoseTyp={diagnoseTyp} fehler={f} />
@@ -220,6 +233,12 @@ export function AufnahmeFormular({
           }}
         />
       </Abschnitt>
+
+      {istFolgeaufnahme && (
+        <Abschnitt nummer={7} def={ABSCHNITTE[6]} hatFehler={fehlerhafte.has("abschluss")}>
+          <AbschnittAbschluss werte={vorgabe} fehler={f} />
+        </Abschnitt>
+      )}
 
       <div className="save-bar form-actions sticky bottom-0 z-20 border-t border-border bg-background/95 py-4 backdrop-blur">
         <Button type="submit" laedt={laeuft || fotosWerdenHochgeladen}>

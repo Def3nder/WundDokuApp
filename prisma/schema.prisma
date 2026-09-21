@@ -279,6 +279,14 @@ model Assessment {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  /// In dieser Aufnahme wurde die Abheilung festgestellt. Setzt beim Speichern
+  /// `Wound.abgeschlossenAm` auf das Aufnahmedatum; ein spaeteres Zuruecknehmen
+  /// oder eine neue Folgeaufnahme eroeffnet die Wunde wieder.
+  ///
+  /// Steht am Modellende, passend zur handgeschriebenen ADD-COLUMN-Migration
+  /// (siehe dort) - so bleibt die Spaltenreihenfolge in Schema und Tabelle gleich.
+  wundeGeheilt Boolean @default(false)
+
   fotos Photo[]
 
   @@index([woundId, datum])

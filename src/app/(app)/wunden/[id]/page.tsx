@@ -8,8 +8,9 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Verlaufsdiagramme } from "@/components/auswertung/verlaufsdiagramme";
 import { WundeKopf } from "@/components/wunde/wunde-kopf";
 import { WundeLoeschen } from "@/components/wunde/wunde-loeschen";
+import { WundeWiedereroeffnen } from "@/components/wunde/wunde-wiedereroeffnen";
 import { Zeitleiste } from "@/components/wunde/zeitleiste";
-import { wundeLoeschen } from "@/actions/wunden";
+import { wundeLoeschen, wundeWiedereroeffnen } from "@/actions/wunden";
 import { baueVerlaufspunkte } from "@/lib/auswertung";
 import { verlangeSitzung } from "@/lib/auth";
 import { flaecheMm2 } from "@/lib/wundmasse";
@@ -69,6 +70,7 @@ export default async function WundeSeite({
     systemischeZeichen: a.systemischeZeichen,
     anzahlFotos: a._count.fotos,
     handzeichen: a.erstelltVon?.handzeichen ?? null,
+    wundeGeheilt: a.wundeGeheilt,
   }));
 
   const hatAufnahmen = eintraege.length > 0;
@@ -100,6 +102,9 @@ export default async function WundeSeite({
             Wunde bearbeiten
           </Link>
         </Button>
+        {wunde.abgeschlossenAm && (
+          <WundeWiedereroeffnen action={wundeWiedereroeffnen.bind(null, id)} />
+        )}
         {sitzung.user.rolle === "ADMIN" && (
           <WundeLoeschen
             action={wundeLoeschen.bind(null, id)}

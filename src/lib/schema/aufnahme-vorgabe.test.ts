@@ -73,6 +73,7 @@ function datensatz(): Assessment {
     geloeschtAm: null,
     createdAt: new Date(2026, 8, 18),
     updatedAt: new Date(2026, 8, 18),
+    wundeGeheilt: false,
   };
 }
 

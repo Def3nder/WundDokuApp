@@ -69,6 +69,7 @@ export default async function AufnahmeBearbeitenSeite({
         aufnahmeId={aufnahme.id}
         initialFotos={aufnahme.fotos.map(fotoZuAnsicht)}
         absendeText="Änderungen speichern"
+        istFolgeaufnahme={aufnahme.typ === "FOLGEAUFNAHME"}
       />
     </div>
   );

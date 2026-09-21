@@ -19,14 +19,15 @@ export type Masse = {
  */
 export function flaecheMm2(m: Masse): number | null {
   if (m.breiteMm == null || m.laengeMm == null) return null;
-  if (m.breiteMm <= 0 || m.laengeMm <= 0) return null;
+  // 0 ist ein gueltiger Messwert (abgeheilte Wunde), negative Werte nicht.
+  if (m.breiteMm < 0 || m.laengeMm < 0) return null;
   return round(m.breiteMm * m.laengeMm, 1);
 }
 
 /** Volumennaeherung Breite x Laenge x Tiefe, nur wenn alle drei Masse da sind. */
 export function volumenMm3(m: Masse): number | null {
   const flaeche = flaecheMm2(m);
-  if (flaeche == null || m.tiefeMm == null || m.tiefeMm <= 0) return null;
+  if (flaeche == null || m.tiefeMm == null || m.tiefeMm < 0) return null;
   return round(flaeche * m.tiefeMm, 1);
 }
 

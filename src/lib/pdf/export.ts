@@ -198,6 +198,12 @@ async function renderAufnahme(
     ["Allgemeine Anmerkungen", aufnahme.anmerkungen],
   ]);
 
+  if (aufnahme.wundeGeheilt) {
+    builder.angabenBlock("Abschluss", [
+      ["Wunde", "In dieser Aufnahme als abgeheilt festgestellt"],
+    ]);
+  }
+
   const fotos = await Promise.all(
     aufnahme.fotos.map(async (foto) => ({
       bytes: await fotoAlsJpeg(foto.pfad),

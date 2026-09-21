@@ -53,6 +53,22 @@ const mass = (max: number, feld: string) =>
       .nullable(),
   );
 
+/**
+ * Wie `mass`, laesst aber die 0 zu: Eine abgeheilte Wunde wird mit 0 vermessen.
+ *
+ * Bewusst nur fuer Breite, Laenge und Tiefe - eine Wundauflage oder Binde mit
+ * 0 cm ist keine Messung, sondern ein Tippfehler, dort bleibt `mass`.
+ */
+const massAbNull = (max: number, feld: string) =>
+  z.preprocess(
+    (v) => (typeof v === "string" ? v.replace(",", ".").trim() || null : v),
+    z.coerce
+      .number({ invalid_type_error: `${feld}: bitte eine Zahl angeben` })
+      .min(0, `${feld}: darf nicht negativ sein`)
+      .max(max, `${feld}: höchstens ${max}`)
+      .nullable(),
+  );
+
 const vas = z.preprocess(
   (v) => (typeof v === "string" && v.trim() === "" ? null : v),
   z.coerce
@@ -96,9 +112,9 @@ export const aufnahmeSchema = z
     wundgrundSonstigesText: text(300),
 
     // --- Wundgröße ---
-    breiteMm: mass(2000, "Breite"),
-    laengeMm: mass(2000, "Länge"),
-    tiefeMm: mass(500, "Tiefe"),
+    breiteMm: massAbNull(2000, "Breite"),
+    laengeMm: massAbNull(2000, "Länge"),
+    tiefeMm: massAbNull(500, "Tiefe"),
 
     // --- Exsudation ---
     exsudatMenge: einzel(EXSUDAT_MENGEN),
@@ -165,6 +181,9 @@ export const aufnahmeSchema = z
     kompressionMass: text(200),
 
     therapieSonstiges: text(1000),
+
+    /** Abheilung in dieser Aufnahme festgestellt - schliesst die Wunde ab. */
+    wundeGeheilt: z.coerce.boolean(),
     anmerkungen: text(2000),
   })
   .superRefine((d, ctx) => {

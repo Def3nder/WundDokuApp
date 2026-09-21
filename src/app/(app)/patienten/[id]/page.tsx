@@ -17,6 +17,7 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { alterJahre } from "@/lib/schema/patient";
 import { beschreibeLokalisation, beschreibeDauer } from "@/lib/wundtext";
 import { DIAGNOSE_TYPEN, labelVon } from "@/lib/enums";
+import { cn } from "@/lib/utils";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -237,7 +238,12 @@ function WundeKarte({ wunde }: { wunde: WundeMitZahlen }) {
   return (
     <li>
       <Link href={`/wunden/${wunde.id}`} className="block rounded-xl">
-        <Card className="hover:border-primary">
+        <Card
+          className={cn(
+            "hover:border-primary",
+            wunde.abgeschlossenAm && "border-accent/40 bg-accent/5",
+          )}
+        >
           <CardContent className="flex items-center gap-4 p-5">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">

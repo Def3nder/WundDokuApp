@@ -28,6 +28,7 @@ const JANEIN_FELDER = [
   "schmerzDruck",
   "schmerzUeberall",
   "schmerztagebuch",
+  "wundeGeheilt",
 ] as const;
 
 /** Alle einwertigen Felder des Formulars. */
@@ -188,5 +189,7 @@ export function aufnahmeZuDatensatz(d: AufnahmeEingabe) {
 
     therapieSonstiges: d.therapieSonstiges,
     anmerkungen: d.anmerkungen,
+
+    wundeGeheilt: d.wundeGeheilt,
   };
 }
