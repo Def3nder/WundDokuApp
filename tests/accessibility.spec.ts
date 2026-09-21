@@ -229,21 +229,52 @@ test("interaktive Abmessungen starten bei der neuesten Aufnahme und sind per Tas
   await expect(abmessungen).toBeVisible();
 
   const auswahl = abmessungen.getByRole("group", { name: "Aufnahme auswählen" });
-  const termine = auswahl.getByRole("button");
-  const anzahlTermine = await termine.count();
+  const slider = auswahl.getByRole("slider", { name: "Aufnahme auswählen" });
+  const anzahlTermine = Number(await slider.getAttribute("max"));
   expect(anzahlTermine).toBeGreaterThan(1);
-  await expect(auswahl.locator("[data-termin-abmessungen]").first()).toBeVisible();
+  await expect(auswahl.locator("time")).toHaveCount(3);
+  const ausgewaehltesDatum = auswahl.locator("[data-ausgewaehlter-termin]");
+  const erstesDatum = await auswahl.locator("time").nth(1).getAttribute("datetime");
+  const letztesDatum = await auswahl.locator("time").nth(2).getAttribute("datetime");
+  const bilder = abmessungen.getByRole("img");
+  const letzteBildtexte = await bilder.evaluateAll(elemente => elemente.map(el => el.getAttribute("aria-label")));
+  const letzteMesswerte = await abmessungen.locator("dl").innerText();
 
-  const ersterTermin = termine.first();
-  const neuesterTermin = termine.last();
-  await expect(neuesterTermin).toHaveAttribute("aria-pressed", "true");
-  await neuesterTermin.focus();
-  await neuesterTermin.press("Home");
-  await expect(ersterTermin).toBeFocused();
-  await expect(ersterTermin).toHaveAttribute("aria-pressed", "true");
-  await ersterTermin.press("End");
-  await expect(neuesterTermin).toBeFocused();
-  await expect(neuesterTermin).toHaveAttribute("aria-pressed", "true");
+  await expect(slider).toHaveValue(String(anzahlTermine));
+  await expect(ausgewaehltesDatum).toHaveAttribute("datetime", letztesDatum!);
+  await slider.focus();
+  await slider.press("Home");
+  await expect(slider).toBeFocused();
+  await expect(slider).toHaveValue("1");
+  await expect(ausgewaehltesDatum).toHaveAttribute("datetime", erstesDatum!);
+  for (let i = 0; i < letzteBildtexte.length; i++) {
+    await expect(bilder.nth(i)).not.toHaveAttribute("aria-label", letzteBildtexte[i]!);
+  }
+  await expect(abmessungen.locator("dl")).not.toHaveText(letzteMesswerte);
+  await slider.press("ArrowRight");
+  await expect(slider).toHaveValue("2");
+  await slider.press("End");
+  await expect(slider).toHaveValue(String(anzahlTermine));
+  await expect(ausgewaehltesDatum).toHaveAttribute("datetime", letztesDatum!);
+
+  // Noch vor dem Loslassen muessen Datum, beide Abbildungen und Werte wechseln.
+  await slider.scrollIntoViewIfNeeded();
+  const sliderBox = (await slider.boundingBox())!;
+  const ziel = Math.ceil(anzahlTermine / 2);
+  await page.mouse.move(sliderBox.x + sliderBox.width - 14, sliderBox.y + sliderBox.height / 2);
+  await page.mouse.down();
+  try {
+    await page.mouse.move(sliderBox.x + 14 + (sliderBox.width - 28) * (ziel - 1) / (anzahlTermine - 1), sliderBox.y + sliderBox.height / 2, { steps: 12 });
+    await expect(slider).toHaveValue(String(ziel));
+    await expect(ausgewaehltesDatum).not.toHaveAttribute("datetime", letztesDatum!);
+    for (let i = 0; i < letzteBildtexte.length; i++) {
+      await expect(bilder.nth(i)).not.toHaveAttribute("aria-label", letzteBildtexte[i]!);
+    }
+    await expect(abmessungen.locator("dl")).not.toHaveText(letzteMesswerte);
+  } finally {
+    await page.mouse.up();
+  }
+  await expect(slider).toHaveValue(String(ziel));
 
   const axeErgebnis = await new AxeBuilder({ page })
     .exclude("nextjs-portal")
@@ -341,17 +372,16 @@ test("interaktive Abmessungen bleiben auf iPad Pro und iPad Mini vollständig si
     expect(await tiefenRand.getAttribute("stroke")).toBe(viewport.randFarbe);
 
     const auswahl = abmessungen.getByRole("group", { name: "Aufnahme auswählen" });
-    await expect.poll(() => auswahl.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
-    const messwertZeilen = auswahl.locator("[data-termin-abmessungen]");
-    if (viewport.width < 1280) {
-      await expect(messwertZeilen.first()).toBeHidden();
-    } else {
-      await expect(messwertZeilen.first()).toBeVisible();
-    }
-    const terminPositionen = await auswahl.getByRole("button").evaluateAll((elemente) =>
-      elemente.map((element) => Math.round(element.getBoundingClientRect().top)),
+    await expect(auswahl.getByRole("slider")).toBeVisible();
+    await expect(auswahl.locator("time")).toHaveCount(3);
+    expect(await auswahl.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    const terminPositionen = await auswahl.locator("[data-termin-markierung]").evaluateAll((elemente) =>
+      elemente.map((element) => element.getBoundingClientRect().left),
     );
-    expect(new Set(terminPositionen).size).toBe(1);
+    const abstand = terminPositionen[1] - terminPositionen[0];
+    for (let i = 2; i < terminPositionen.length; i++) {
+      expect(Math.abs(terminPositionen[i] - terminPositionen[i - 1] - abstand)).toBeLessThan(1);
+    }
 
     const seitenbreite = await page.evaluate(() => {
       const clientWidth = document.documentElement.clientWidth;

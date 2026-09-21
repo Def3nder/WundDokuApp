@@ -391,6 +391,43 @@
     box-shadow: 0 0 0 1px currentColor;
   }
 
+  /* Der Zeitstrahl zeichnet Spur und Terminmarken unter dem nativen Range-Feld.
+     Native Bedienung liefert Live-Updates, ganze Schritte und Touch/Tastatur. */
+  .timeline-slider::-webkit-slider-runnable-track {
+    height: 0.25rem;
+    background: transparent;
+  }
+
+  .timeline-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 1.75rem;
+    height: 1.75rem;
+    margin-top: -0.75rem;
+    border: 3px solid var(--surface);
+    border-radius: 50%;
+    background: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary);
+  }
+
+  .timeline-slider::-moz-range-track {
+    height: 0.25rem;
+    background: transparent;
+  }
+
+  .timeline-slider::-moz-range-progress {
+    background: transparent;
+  }
+
+  .timeline-slider::-moz-range-thumb {
+    width: 1.75rem;
+    height: 1.75rem;
+    box-sizing: border-box;
+    border: 3px solid var(--surface);
+    border-radius: 50%;
+    background: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary);
+  }
+
   @media (min-width: 40rem) {
     .app-main { padding-top: 2rem; }
   }

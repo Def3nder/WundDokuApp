@@ -33,7 +33,7 @@ Smartphoneansicht wird nicht auf die Breite einer Desktopseite skaliert.
 - Bildschirmränder und Dialoge berücksichtigen `safe-area-inset-*` und die
   dynamische Viewporthöhe. Bei geringer Fensterhöhe bleibt die Speicherleiste
   im normalen Dokumentfluss.
-- Breite Tabellen und Terminleisten scrollen innerhalb ihres Bereichs.
+- Breite Tabellen scrollen innerhalb ihres Bereichs.
   Die Seite selbst soll nicht horizontal scrollen. Tabellenbereiche sind per
   Tastatur erreichbar.
 - Unsichtbare Diagrammtabellen liegen in einem `nur-screenreader`-Container.
@@ -42,6 +42,13 @@ Smartphoneansicht wird nicht auf die Breite einer Desktopseite skaliert.
   optisch verkleinern.
 - Die kleine Flächenvorschau hat eine gemessene Pixelbreite, damit sie auch
   in Safari beim Öffnen gerendert wird und vollständig in die Seite passt.
+- Unter den beiden Abmessungsabbildungen ersetzt ein nativer Slider die
+  Terminkarten. Aufnahmen sind gleichmäßig verteilt, der Regler rastet in ganzen
+  Aufnahmeschritten ein und aktualisiert Datum, beide Abbildungen und Messwerte
+  schon während des Ziehens. Es werden nur das erste, letzte und ausgewählte
+  Datum beschriftet. Der Zeitstrahl passt ohne seitliches Scrollen in die Karte.
+  Pfeiltasten sowie Pos1/Ende wählen ebenfalls Aufnahmen; bei nur einer Aufnahme
+  ist der Regler deaktiviert. Ohne Aufnahmen bleibt der Leerzustand sichtbar.
 - Fotokacheln nutzen ein gemeinsames Seitenverhältnis und `object-contain`;
   das vollständige Wundfoto bleibt sichtbar. Die Lightbox zeigt das Original.
 

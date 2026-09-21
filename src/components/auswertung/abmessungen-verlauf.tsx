@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Ruler } from "lucide-react";
 import { useTheme } from "next-themes";
 import {
-  diagrammDatumKurz,
   diagrammDatumLang,
   type Verlaufspunkt,
 } from "@/lib/auswertung";
@@ -12,6 +11,19 @@ import { cn } from "@/lib/utils";
 import { formatiereMm2 } from "@/lib/wundmasse";
 
 const deutscheZahl = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
+const terminDatumFormatter = new Intl.DateTimeFormat("de-DE", {
+  day: "2-digit", month: "2-digit", year: "numeric",
+});
+
+function terminDatum(wert: string): string {
+  const datum = new Date(wert);
+  return Number.isNaN(datum.getTime()) ? "Datum unbekannt" : terminDatumFormatter.format(datum);
+}
+
+function terminPosition(index: number, anzahl: number): string {
+  // Gleiche Terminabstaende; begrenzte Praezision vermeidet CSS-Hydrationsfehler.
+  return `${Math.round((index / Math.max(1, anzahl - 1)) * 100_000) / 1000}%`;
+}
 
 function mass(wert: number | null): string {
   return wert == null ? "–" : deutscheZahl.format(wert);
@@ -50,10 +62,7 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
   const tiefenTextFarbe = istDunkel ? "#7dd3fc" : "#164e63";
   const neuesteId = daten.at(-1)?.id ?? null;
   const [ausgewaehltId, setAusgewaehltId] = useState<string | null>(neuesteId);
-  const leisteRef = useRef<HTMLDivElement>(null);
-  const schalterRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const panelId = useId();
-  const hatAusgerichtet = useRef(false);
 
   const ausgewaehlt =
     daten.find((punkt) => punkt.id === ausgewaehltId) ?? daten.at(-1) ?? null;
@@ -83,23 +92,6 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
     if (ausgewaehltId && daten.some((punkt) => punkt.id === ausgewaehltId)) return;
     setAusgewaehltId(daten.at(-1)?.id ?? null);
   }, [ausgewaehltId, daten]);
-
-  useEffect(() => {
-    const leiste = leisteRef.current;
-    if (!leiste) return;
-    hatAusgerichtet.current = false;
-
-    function rechtsAusgerichtetStarten() {
-      if (!leiste || leiste.clientWidth === 0 || hatAusgerichtet.current) return;
-      leiste.scrollLeft = leiste.scrollWidth - leiste.clientWidth;
-      hatAusgerichtet.current = true;
-    }
-
-    rechtsAusgerichtetStarten();
-    const beobachter = new ResizeObserver(rechtsAusgerichtetStarten);
-    beobachter.observe(leiste);
-    return () => beobachter.disconnect();
-  }, [daten.length]);
 
   if (!ausgewaehlt) {
     return (
@@ -134,21 +126,8 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
   const profilOben = 40;
   const profilBoden = profilOben + Math.max(7, (tiefenAnteil ?? 0) * 72);
   const datumLang = diagrammDatumLang(ausgewaehlt.datum);
-
-  function tastaturAuswahl(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    let ziel: number | null = null;
-    if (event.key === "ArrowLeft") ziel = Math.max(0, index - 1);
-    if (event.key === "ArrowRight") ziel = Math.min(daten.length - 1, index + 1);
-    if (event.key === "Home") ziel = 0;
-    if (event.key === "End") ziel = daten.length - 1;
-    if (ziel == null || ziel === index) return;
-
-    event.preventDefault();
-    setAusgewaehltId(daten[ziel].id);
-    const schalter = schalterRefs.current[ziel];
-    schalter?.focus();
-    schalter?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }
+  const ausgewaehltIndex = daten.findIndex((punkt) => punkt.id === ausgewaehlt.id);
+  const sliderId = `${panelId}-zeitstrahl`;
 
   return (
     <div
@@ -330,56 +309,65 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
         </section>
       </div>
 
-      <div className="mt-5 border-t border-border pt-4">
+      <div
+        role="group"
+        aria-labelledby={`${panelId}-auswahl`}
+        className="mt-5 min-w-0 border-t border-border pt-4"
+      >
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p id={`${panelId}-auswahl`} className="text-sm font-medium text-heading">
+          <label id={`${panelId}-auswahl`} htmlFor={sliderId} className="text-sm font-medium text-heading">
             Aufnahme auswählen
-          </p>
-          {daten.length > 5 && (
-            <p className="text-xs text-muted-foreground">Für ältere Aufnahmen nach links scrollen</p>
-          )}
+          </label>
+          <span className="tabular text-xs text-muted-foreground">
+            {ausgewaehltIndex + 1} von {daten.length}
+          </span>
         </div>
-        <div
-          ref={leisteRef}
-          role="group"
-          aria-labelledby={`${panelId}-auswahl`}
-          className="mt-2 flex min-w-0 max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-2"
-        >
-          {daten.map((punkt, index) => {
-            const aktiv = punkt.id === ausgewaehlt.id;
-            return (
-              <button
+        <p className="mt-3 text-center text-base font-semibold tabular text-primary">
+          <span className="sr-only">Ausgewählt: </span>
+          <time data-ausgewaehlter-termin dateTime={ausgewaehlt.datum}>{terminDatum(ausgewaehlt.datum)}</time>
+        </p>
+        <div className="relative mt-1">
+          {/* Die Endpunkte liegen in der Mitte des 28-px-Reglers. */}
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-3.5 top-1/2 h-1 -translate-y-1/2 rounded-full bg-border-strong">
+            <div className="h-full rounded-full bg-primary" style={{ width: terminPosition(ausgewaehltIndex, daten.length) }} />
+            {daten.map((punkt, index) => (
+              <span
                 key={punkt.id}
-                ref={(element) => {
-                  schalterRefs.current[index] = element;
-                }}
-                type="button"
-                aria-pressed={aktiv}
-                aria-controls={panelId}
-                aria-label={`${diagrammDatumKurz(punkt.datum)}, Länge ${massMitEinheit(punkt.laengeMm)}, Breite ${massMitEinheit(punkt.breiteMm)}, Tiefe ${massMitEinheit(punkt.tiefeMm)}`}
-                onClick={() => setAusgewaehltId(punkt.id)}
-                onKeyDown={(event) => tastaturAuswahl(event, index)}
-                style={{
-                  flex: "0 0 calc((100% - 2rem) / 5)",
-                  minWidth: "5rem",
-                }}
+                data-termin-markierung
                 className={cn(
-                  "min-h-11 rounded-lg border px-2 py-2 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 xl:min-h-16 xl:px-3 xl:text-left",
-                  aktiv
-                    ? "border-primary bg-secondary/70 text-heading"
-                    : "border-border bg-card hover:border-primary/60 hover:bg-surface-muted",
+                  "absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full",
+                  index <= ausgewaehltIndex ? "bg-primary" : "bg-border-strong",
                 )}
-              >
-                <span className="block text-sm font-semibold">{diagrammDatumKurz(punkt.datum)}</span>
-                <span
-                  data-termin-abmessungen
-                  className="mt-1 hidden whitespace-nowrap text-xs tabular text-muted-foreground xl:block"
-                >
-                  L {mass(punkt.laengeMm)} · B {mass(punkt.breiteMm)} · T {mass(punkt.tiefeMm)} mm
-                </span>
-              </button>
-            );
-          })}
+                style={{ left: terminPosition(index, daten.length) }}
+              />
+            ))}
+          </div>
+          <input
+            id={sliderId}
+            type="range"
+            min={1}
+            max={daten.length}
+            step={1}
+            value={ausgewaehltIndex + 1}
+            disabled={daten.length === 1}
+            onChange={(event) => {
+              const punkt = daten[Number(event.currentTarget.value) - 1];
+              if (punkt) setAusgewaehltId(punkt.id);
+            }}
+            aria-controls={panelId}
+            aria-valuetext={`${datumLang}, Aufnahme ${ausgewaehltIndex + 1} von ${daten.length}`}
+            className="timeline-slider relative block h-12 w-full cursor-pointer appearance-none rounded-lg bg-transparent disabled:cursor-default"
+          />
+        </div>
+        <div className="flex justify-between gap-4 text-xs tabular text-muted-foreground">
+          <span>
+            <span className="block">Erste Aufnahme</span>
+            <time dateTime={daten[0].datum}>{terminDatum(daten[0].datum)}</time>
+          </span>
+          <span className="text-right">
+            <span className="block">Letzte Aufnahme</span>
+            <time dateTime={daten.at(-1)!.datum}>{terminDatum(daten.at(-1)!.datum)}</time>
+          </span>
         </div>
       </div>
     </div>

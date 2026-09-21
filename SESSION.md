@@ -8,6 +8,29 @@ inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
 
 ---
 
+## Nachtrag — Zeitstrahl im Abmessungsdiagramm (21.09.2026)
+
+- Die Terminkarten unter Draufsicht und Tiefenprofil wurden durch einen
+  Zeitstrahl mit Slider ersetzt. Vereinbart: gleichmäßige Terminabstände,
+  Aktualisierung beider Abbildungen und der Messwerte bereits beim Ziehen,
+  Einrasten auf vorhandenen Aufnahmen sowie nur drei Datumsangaben (erste,
+  letzte und ausgewählte Aufnahme).
+- Der native Range-Regler verwendet ganzzahlige Aufnahmeschritte. Die neueste
+  Aufnahme ist anfangs ausgewählt; Pfeiltasten und Pos1/Ende funktionieren
+  weiterhin. Der gemeinsame Maßstab und fehlende Messwerte bleiben erhalten.
+- Markierungen und Spur berücksichtigen die Breite des Reglers. Das ausgewählte
+  Datum steht oberhalb, die beiden Enddaten unterhalb der Spur, damit auf
+  Smartphones keine Datumsangaben kollidieren. Bei einer Aufnahme ist der Regler
+  deaktiviert; bei keiner Aufnahme bleibt die bisherige Leeranzeige bestehen.
+- Die bestehenden Browsertests prüfen jetzt Live-Wechsel vor dem Loslassen,
+  Tastaturbedienung, gleichmäßige Markierungen und Touch-Auswahl mit dem Slider.
+- Prüfung: 9/9 Barrierefreiheits-/Bedienungstests und 6/6 Geräteprüfungen
+  (320 px, Android-Tablet, iPhone, iPad mini, iPad Pro hoch/quer) erfolgreich.
+  Einzelaufnahme zusätzlich in Chrome/WebKit und Touch-Ziehen vor `touchEnd`
+  in Chrome geprüft. Typprüfung und Produktionsbuild erfolgreich.
+
+---
+
 ## Nachtrag — einheitliche Darstellung auf Desktop, iPhone und Tablets (21.09.2026)
 
 - Nach Rückmeldung mit echten iPad-Screenshots: Die bisherige 768-px-Grenze
