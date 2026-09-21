@@ -1,9 +1,9 @@
 /**
  * Testdaten fuer die Entwicklung.
  *
- * Legt ein Admin-Konto, ein Pflege-Konto und zwei Patienten mit je einer Wunde
- * und mehreren Aufnahmen an, damit Zeitleiste und Verlaufsdiagramme sofort
- * etwas anzeigen. Laeuft mehrfach ohne Schaden (upsert auf Patientennummer).
+ * Legt Benutzer, Stammdaten sowie zwei Patienten mit je einer Wunde und
+ * mehreren Aufnahmen an, damit die Anwendung sofort Beispieldaten anzeigt.
+ * Laeuft mehrfach ohne Schaden (deterministische IDs und Upserts).
  */
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -40,6 +40,44 @@ async function main() {
       rolle: "PFLEGE",
     },
   });
+
+  const aerzte = [
+    { id: "seed-doctor-01", name: "Dr. med. Katharina Schneider", praxis: "Hausarztpraxis am Markt", telefon: "0211 5550101", email: "k.schneider@praxis-am-markt.example" },
+    { id: "seed-doctor-02", name: "Dr. med. Thomas Berger", praxis: "Gefäßzentrum Rhein", telefon: "0211 5550102", email: "t.berger@gefaesszentrum-rhein.example" },
+    { id: "seed-doctor-03", name: "Dr. med. Ayşe Yilmaz", praxis: "Diabetologische Schwerpunktpraxis", telefon: "0211 5550103", email: "a.yilmaz@diabetes-praxis.example" },
+    { id: "seed-doctor-04", name: "Dr. med. Stefan Hoffmann", praxis: "Chirurgische Praxis Nord", telefon: "0211 5550104", email: "s.hoffmann@chirurgie-nord.example" },
+    { id: "seed-doctor-05", name: "Dr. med. Miriam Neumann", praxis: "Dermatologie am Stadtpark", telefon: "0211 5550105", email: "m.neumann@dermatologie-stadtpark.example" },
+    { id: "seed-doctor-06", name: "Dr. med. Jonas Weber", praxis: "Hausärzte im Zentrum", telefon: "0211 5550106", email: "j.weber@hausaerzte-zentrum.example" },
+    { id: "seed-doctor-07", name: "Dr. med. Laura König", praxis: "Praxis für Angiologie", telefon: "0211 5550107", email: "l.koenig@angiologie-praxis.example" },
+    { id: "seed-doctor-08", name: "Dr. med. Michael Braun", praxis: "Internistische Gemeinschaftspraxis", telefon: "0211 5550108", email: "m.braun@internisten-gemeinsam.example" },
+    { id: "seed-doctor-09", name: "Dr. med. Sofia Petrovic", praxis: "Wundambulanz St. Marien", telefon: "0211 5550109", email: "s.petrovic@wundambulanz-marien.example" },
+    { id: "seed-doctor-10", name: "Dr. med. Felix Hartmann", praxis: "Orthopädie und Unfallchirurgie West", telefon: "0211 5550110", email: "f.hartmann@orthopaedie-west.example" },
+  ];
+
+  const pflegedienste = [
+    { id: "seed-care-service-01", name: "Ambulanter Pflegedienst Sonnenschein", ansprechpartner: "Sabine Krüger", telefon: "0211 5550201", email: "kontakt@pflege-sonnenschein.example" },
+    { id: "seed-care-service-02", name: "PflegeMobil Rhein", ansprechpartner: "Daniel Fischer", telefon: "0211 5550202", email: "team@pflegemobil-rhein.example" },
+    { id: "seed-care-service-03", name: "Caritas Sozialstation Mitte", ansprechpartner: "Eva Baumann", telefon: "0211 5550203", email: "mitte@caritas-pflege.example" },
+    { id: "seed-care-service-04", name: "Diakonie Pflege Zuhause", ansprechpartner: "Martin Lange", telefon: "0211 5550204", email: "zuhause@diakonie-pflege.example" },
+    { id: "seed-care-service-05", name: "Wundpflege Aktiv", ansprechpartner: "Nadine Scholz", telefon: "0211 5550205", email: "kontakt@wundpflege-aktiv.example" },
+  ];
+
+  await Promise.all([
+    ...aerzte.map(({ id, ...daten }) =>
+      db.doctor.upsert({
+        where: { id },
+        update: { ...daten, geloeschtAm: null },
+        create: { id, ...daten },
+      }),
+    ),
+    ...pflegedienste.map(({ id, ...daten }) =>
+      db.careService.upsert({
+        where: { id },
+        update: { ...daten, geloeschtAm: null },
+        create: { id, ...daten },
+      }),
+    ),
+  ]);
 
   // --- Patient 1: Ulcus cruris venosum, heilt ab -------------------------
   const p1 = await db.patient.upsert({

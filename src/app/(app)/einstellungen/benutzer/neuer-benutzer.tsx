@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
-import { CircleCheck, UserPlus } from "lucide-react";
+import { useActionState, useRef } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, Input, Select } from "@/components/ui/field";
@@ -12,32 +12,29 @@ import type { FormZustand } from "@/actions/patienten";
 
 const START: FormZustand = {};
 
-export function NeuerBenutzer() {
+export function NeuerBenutzer({ abbrechenNach }: { abbrechenNach: string }) {
   const [zustand, formAction, laeuft] = useActionState(benutzerAnlegen, START);
 
   const w = (feld: string) => zustand.werte?.[feld] ?? "";
   const f = (feld: string) => zustand.fehler?.[feld];
 
+  // Nach jedem Absenden (auch bei einem Fehler) setzt React/Next.js das
+  // <select>-Element auf seinen Ursprungszustand zurueck, ohne dass React
+  // das bei einem unveraenderten defaultValue bemerkt - siehe dieselbe
+  // Anmerkung in wunde-formular.tsx. Ein wechselnder `key` auf dem <form>
+  // erzwingt bei jedem neuen `zustand` einen echten Neuaufbau.
+  const zustandGeneration = useRef(0);
+  const vorherigerZustand = useRef(zustand);
+  if (vorherigerZustand.current !== zustand) {
+    zustandGeneration.current += 1;
+    vorherigerZustand.current = zustand;
+  }
+
   return (
     <Card>
       <CardContent className="space-y-5 pt-6">
-        <h2 className="flex items-center gap-2 text-base font-semibold">
-          <UserPlus className="size-5 text-primary" aria-hidden="true" />
-          Benutzer anlegen
-        </h2>
-
-        <form action={formAction} className="space-y-5" noValidate>
+        <form key={zustandGeneration.current} action={formAction} className="space-y-5" noValidate>
           <FehlerUebersicht fehler={zustand.fehler} />
-
-          {zustand.meldung && (
-            <p
-              role="status"
-              className="flex items-center gap-2 rounded-lg border border-accent/40 bg-accent/10 p-3 text-sm font-medium text-accent"
-            >
-              <CircleCheck className="size-5 shrink-0" aria-hidden="true" />
-              {zustand.meldung}
-            </p>
-          )}
 
           <div className="grid gap-5 sm:grid-cols-2">
             <Field id="name" label="Name" pflicht fehler={f("name")}>
@@ -95,9 +92,12 @@ export function NeuerBenutzer() {
             )}
           </Field>
 
-          <Button type="submit" laedt={laeuft}>
-            Benutzer anlegen
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button type="submit" laedt={laeuft}>Benutzer anlegen</Button>
+            <Button type="button" variant="outline" asChild>
+              <Link href={abbrechenNach}>Abbrechen</Link>
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>

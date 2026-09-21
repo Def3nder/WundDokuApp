@@ -81,6 +81,8 @@ export const SEITEN = optionen([
 export const AUSRICHTUNGEN = optionen([
   { wert: "LATERAL", label: "Lateral" },
   { wert: "MEDIAL", label: "Medial" },
+  { wert: "VENTRAL", label: "Ventral" },
+  { wert: "DORSAL", label: "Dorsal" },
 ] as const);
 
 export const KOERPERREGIONEN = optionen([
@@ -88,6 +90,7 @@ export const KOERPERREGIONEN = optionen([
   { wert: "KNOECHEL", label: "Knöchel" },
   { wert: "FERSE", label: "Ferse" },
   { wert: "FUSSRUECKEN", label: "Fußrücken" },
+  { wert: "FUSSBALLEN", label: "Fußballen" },
   { wert: "FUSSSOHLE", label: "Fußsohle" },
   { wert: "ZEHEN", label: "Zehen" },
   { wert: "KNIE", label: "Knie" },
@@ -95,11 +98,17 @@ export const KOERPERREGIONEN = optionen([
   { wert: "STEISS_SAKRAL", label: "Steiß / Sakralbereich" },
   { wert: "TROCHANTER", label: "Trochanter" },
   { wert: "GESAESS", label: "Gesäß" },
+  { wert: "LENDE", label: "Lendenbereich" },
   { wert: "RUECKEN", label: "Rücken" },
   { wert: "SCHULTER", label: "Schulter" },
+  { wert: "OBERARM", label: "Oberarm" },
+  { wert: "UNTERARM", label: "Unterarm" },
+  { wert: "HANDGELENK", label: "Handgelenk" },
   { wert: "ARM", label: "Arm" },
   { wert: "HAND", label: "Hand" },
   { wert: "KOPF", label: "Kopf" },
+  { wert: "BRUSTKORB", label: "Brustkorb" },
+  { wert: "BAUCH", label: "Bauch" },
   { wert: "RUMPF", label: "Rumpf" },
   { wert: "SONSTIGE", label: "Sonstige Region" },
 ] as const);
