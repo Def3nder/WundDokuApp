@@ -213,9 +213,8 @@ export function aufnahmeZuWerten(a: Assessment): AufnahmeWerte {
 
 /**
  * Übernimmt die letzte Aufnahme als Arbeitsgrundlage einer Folgeaufnahme.
- * Maße bleiben absichtlich leer: Sie müssen bei jedem Verbandwechsel neu
- * gemessen werden, damit keine alten Werte die Verlaufskurve verfälschen.
- * Aus demselben Grund wird die Abheilung nie übernommen - ein stehengebliebener
+ *
+ * Die Abheilung wird als einziges Feld nie übernommen: Ein stehengebliebener
  * Haken würde jede Folgeaufnahme vorab abschließen.
  */
 export function vorbefuellungAus(letzte: Assessment | null): AufnahmeWerte {
@@ -224,9 +223,6 @@ export function vorbefuellungAus(letzte: Assessment | null): AufnahmeWerte {
   return {
     ...aufnahmeZuWerten(letzte),
     datum: datumFuerEingabe(new Date()),
-    breiteMm: "",
-    laengeMm: "",
-    tiefeMm: "",
     wundeGeheilt: false,
   };
 }

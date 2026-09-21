@@ -72,7 +72,7 @@ export default async function NeueAufnahmeSeite({
           <div>
             <p className="font-medium text-foreground">Befund vom {datum(letzte.datum)} übernommen</p>
             <p className="mt-0.5 text-muted-foreground">
-              Breite, Länge und Tiefe bleiben leer und müssen für eine verlässliche Verlaufskurve neu gemessen werden.
+              Alle Angaben lassen sich überschreiben. Breite, Länge und Tiefe bitte neu messen.
             </p>
           </div>
         </div>

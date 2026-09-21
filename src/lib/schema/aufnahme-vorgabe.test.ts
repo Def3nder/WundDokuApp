@@ -86,12 +86,18 @@ describe("Aufnahme-Vorgaben", () => {
     expect(werte.schmerzVas).toBe(3);
   });
 
-  it("übernimmt Befunde, aber niemals alte Messwerte", () => {
+  it("übernimmt Befunde und Messwerte als Arbeitsgrundlage", () => {
     const werte = vorbefuellungAus(datensatz());
     expect(werte.wundgrund).toEqual(["GRANULATION"]);
     expect(werte.anmerkungen).toBe("Kontrolle");
-    expect(werte.breiteMm).toBe("");
-    expect(werte.laengeMm).toBe("");
-    expect(werte.tiefeMm).toBe("");
+    expect(werte.breiteMm).toBe("12.5");
+    expect(werte.laengeMm).toBe("8");
+    expect(werte.tiefeMm).toBe("2");
+  });
+
+  it("übernimmt die Abheilung nie", () => {
+    // Sonst waere jede Folgeaufnahme vorab als abgeschlossen markiert.
+    const werte = vorbefuellungAus({ ...datensatz(), wundeGeheilt: true });
+    expect(werte.wundeGeheilt).toBe(false);
   });
 });

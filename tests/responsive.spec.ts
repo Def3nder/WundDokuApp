@@ -29,6 +29,11 @@ async function routen(page: Page) {
   const patient = await page.getByRole("link", { name: /Berger, Hannelore/ }).first().getAttribute("href");
   expect(patient, "Testpatient fehlt (npm run db:seed)").toBeTruthy();
   await page.goto(patient!);
+  // Abgeschlossene Wunden stehen in einem zugeklappten `<details>` und waeren
+  // fuer die Rollenabfrage sonst unsichtbar.
+  for (const summary of await page.locator("main details:not([open]) > summary").all()) {
+    await summary.click();
+  }
   const wunde = await page.getByRole("link", { name: /Ulcus cruris venosum/ }).first().getAttribute("href");
   expect(wunde).toBeTruthy();
   await page.goto(wunde!);

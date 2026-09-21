@@ -6,6 +6,14 @@ import { cn } from "@/lib/utils";
 
 /** Mindestabstand der Einblendung zum Fensterrand. */
 const RAND = 12;
+/**
+ * Nachlauf beim Verlassen mit der Maus.
+ *
+ * Die Einblendung haengt zwar im DOM an der Kachel, liegt aber mit Abstand
+ * darunter - der Weg dorthin fuehrt ueber eine Luecke. Ohne diesen Nachlauf
+ * klappt sie genau dann zu, wenn man hineinfahren will.
+ */
+const NACHLAUF_MS = 300;
 /** Regulaerer Abstand zwischen Kachelunterkante und Einblendung. */
 const ABSTAND = 8;
 /** Rahmen und Innenabstand der Einblendung (`border` + `p-3`, beidseitig). */
@@ -58,7 +66,16 @@ export function KennzahlKachel({
   // Merkt den Fokussprung zurueck auf den Knopf nach Escape, damit der dabei
   // ausgeloeste Fokus die Einblendung nicht sofort wieder aufklappt.
   const ruecksprung = useRef(false);
+  const schliessZeit = useRef<ReturnType<typeof setTimeout> | null>(null);
   const vorschauId = useId();
+
+  function nachlaufAbbrechen() {
+    if (schliessZeit.current === null) return;
+    clearTimeout(schliessZeit.current);
+    schliessZeit.current = null;
+  }
+
+  useEffect(() => () => nachlaufAbbrechen(), []);
 
   useEffect(() => {
     const anfrage = window.matchMedia("(hover: hover) and (pointer: fine)");
@@ -123,7 +140,10 @@ export function KennzahlKachel({
       className={cn("relative", className)}
       {...(hatHover
         ? {
-            onMouseEnter: () => setOffen(true),
+            onMouseEnter: () => {
+              nachlaufAbbrechen();
+              setOffen(true);
+            },
             onMouseLeave: () => {
               // Nicht schliessen, solange die Tastatur im Inhalt arbeitet. Ein
               // per Maus angeklickter Regler behaelt zwar den Fokus, matcht
@@ -134,7 +154,12 @@ export function KennzahlKachel({
                 aktiv instanceof HTMLElement &&
                 aktiv.matches(":focus-visible") &&
                 kachelRef.current?.contains(aktiv);
-              if (!tastatur) setOffen(false);
+              if (tastatur) return;
+              nachlaufAbbrechen();
+              schliessZeit.current = setTimeout(() => {
+                schliessZeit.current = null;
+                setOffen(false);
+              }, NACHLAUF_MS);
             },
           }
         : {})}
@@ -152,6 +177,7 @@ export function KennzahlKachel({
       }}
       onKeyDown={(event) => {
         if (event.key !== "Escape" || !offen) return;
+        nachlaufAbbrechen();
         setOffen(false);
         const knopf = knopfRef.current;
         if (knopf && document.activeElement !== knopf) {
@@ -165,7 +191,10 @@ export function KennzahlKachel({
         type="button"
         aria-expanded={offen}
         {...(dekorativ ? {} : { "aria-controls": vorschauId })}
-        onClick={() => setOffen((sichtbar) => (hatHover ? true : !sichtbar))}
+        onClick={() => {
+          nachlaufAbbrechen();
+          setOffen((sichtbar) => (hatHover ? true : !sichtbar));
+        }}
         className="block w-full cursor-pointer p-5 text-left"
       >
         <span className="flex items-start justify-between gap-2">

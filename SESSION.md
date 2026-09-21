@@ -3,8 +3,93 @@
 Arbeitsstand für die Fortsetzung in einer neuen Sitzung. Ergänzt die
 inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
 
-**Stand:** 21.09.2026 · Phase 1 bis 6 fertig
-**Prüfstand:** `npm run typecheck` sauber · `npm test` 78/78 grün · `npm run test:a11y` 10/10 grün · Responsive-Matrix 28/28 grün · Produktionsbuild sauber · Browser-Durchgang erfolgreich (Login, Leerzustände, Tastaturbedienung, Lightbox, mobile Navigation, Hell-/Dark-Mode, PDF-Export einzeln und Verlauf, Audit-Log-Filter, Versorgungspartner-Suche bei Patient und Wunde, Warnung bei ungespeicherten Änderungen, Dokumentvorschau mit Zoom) · Dokumentvorschau zusätzlich auf echtem iPad bestätigt (Anzeige und Zoom funktionieren)
+**Stand:** 22.09.2026 · Phase 1 bis 6 fertig
+**Prüfstand:** `npm run typecheck` sauber · `npm test` 86/86 grün · `npm run test:a11y` 11/11 grün · Responsive-Matrix 28/28 grün · Produktionsbuild sauber · Browser-Durchgang erfolgreich (Login, Leerzustände, Tastaturbedienung, Lightbox, mobile Navigation, Hell-/Dark-Mode, PDF-Export einzeln und Verlauf, Audit-Log-Filter, Versorgungspartner-Suche bei Patient und Wunde, Warnung bei ungespeicherten Änderungen, Dokumentvorschau mit Zoom) · Dokumentvorschau zusätzlich auf echtem iPad bestätigt (Anzeige und Zoom funktionieren)
+
+---
+
+## Nachtrag — Abheilung dokumentieren und Wunde abschließen (21./22.09.2026)
+
+Eine Folgeaufnahme kann jetzt feststellen, dass die Wunde abgeheilt ist; die
+Wunde gilt damit als abgeschlossen.
+
+**Die halbe Strecke war schon gebaut.** `Wound.abgeschlossenAm` existierte, und
+die gesamte Leseseite wertete es bereits aus — Filter „Mit offener Wunde",
+Aufteilung auf der Patientenseite, Abzeichen in Wundkarte und Wundkopf. Auch
+`wundeAbschliessen()` und `wundeWiedereroeffnen()` in `src/actions/wunden.ts`
+waren fertig, hatten aber **keinen Aufrufer**, und kein Seed-Datensatz setzte
+das Feld — deshalb war der Zustand nie zu sehen.
+
+- **Neues Feld** `Assessment.wundeGeheilt` (Migration
+  `20260921164948_aufnahme_wunde_geheilt`). Die Migration ist **von Hand**
+  geschrieben: Prisma baut für SQLite bei einer NOT-NULL-Spalte mit Default die
+  ganze Tabelle neu (CREATE/INSERT SELECT/DROP/RENAME); ein schlichtes
+  `ADD COLUMN` ergibt dieselbe Spalte, ohne alle Aufnahmen umzukopieren. Deshalb
+  `prisma migrate dev --create-only`, SQL ersetzen, dann `migrate deploy`.
+- **Siebter Formularabschnitt „Abschluss"**, nur bei Folgeaufnahmen
+  (`istFolgeaufnahme`). `ABSCHNITTE` wird dafür gefiltert, das Feld steht in
+  `FELDER_PRO_ABSCHNITT`.
+- **Aufnahme und Wundstatus gehen gemeinsam in einer `db.$transaction`** — sonst
+  könnte eine gespeicherte Abheilung ohne abgeschlossene Wunde zurückbleiben.
+  Die Entscheidung steckt in `src/lib/wundstatus.ts` (`statuswechsel`), bewusst
+  außerhalb der `"use server"`-Datei, damit sie ohne Datenbank testbar ist.
+- **Abschlussdatum ist das Aufnahmedatum**, nicht der Speicherzeitpunkt — bei
+  nachgetragenen Terminen zählt der Behandlungstag. Von Hand geprüft: Aufnahme
+  auf den 18.09. zurückdatiert, die Wunde schloss auf den 18.09.
+- **Wiedereröffnen:** Eine neue Folgeaufnahme ohne Haken öffnet eine
+  abgeschlossene Wunde wieder; dazu ein Knopf im Wund-Cockpit. Beim *Bearbeiten*
+  öffnet ein entfernter Haken nur dann wieder, wenn **genau diese** Aufnahme den
+  Abschluss trug — sonst würde das Korrigieren einer alten Aufnahme eine später
+  abgeheilte Wunde unbemerkt öffnen.
+- **0 ist jetzt ein gültiger Messwert.** `mass()` verlangte `.positive()`; für
+  Breite, Länge und Tiefe gibt es nun `massAbNull()`. Wundauflagen und
+  Bindenbreiten behalten `.positive()` — 0 cm ist dort ein Tippfehler.
+  `flaecheMm2()` verwarf `<= 0`, prüft jetzt `< 0`: Sonst zeigt eine abgeheilte
+  Wunde „–" statt „0 mm²" und die Flächenkurve bricht ab, statt auf null
+  auszulaufen. Beim Exsudat war nichts zu tun, die Stufe `KEINE` gab es schon.
+- Bei 0 × 0 zeigt die Draufsicht **bewusst keine Kontur**, sondern „Keine
+  Ausdehnung mehr messbar": `svgAusdehnung()` erzwingt `Math.max(10, …)`, eine
+  abgeheilte Wunde bekäme sonst doch ein kleines Oval.
+
+**Zwei Kontrastfehler, die das Feature erst sichtbar gemacht hat** — beide in
+vorhandenem Code, beide erst durch neue Daten ausgelöst:
+
+1. Das Abzeichen „Abgeschlossen" (`text-accent` auf `bg-accent/15`) kam auf
+   4,43:1. `--accent` von `#047857` auf `#046b4e` abgedunkelt → 5,28:1.
+2. Das Trendabzeichen „unverändert" (`text-status-neutral` auf
+   `bg-status-neutral/15`) kam auf 3,95:1 und erschien vorher praktisch nie —
+   seit die Maße vorbefüllt werden, ist der Trend beim Öffnen des Formulars
+   regelmäßig „unverändert". `--status-neutral` von `#64748b` auf `#4b5563`
+   → 6,04:1.
+
+**Merke für dieses Muster:** `text-X` auf `bg-X/15` ist bei den mittleren
+Farbtönen dieser Palette grenzwertig. Bei jedem neuen Abzeichen dieser Bauart
+den Kontrast rechnen, nicht schätzen.
+
+**Auf Nutzerwunsch am 21./22.09.2026 nachgezogen:**
+
+- Breite, Länge und Tiefe werden bei Folgeaufnahmen **doch** vorbefüllt; der
+  Hinweis, warum sie leer blieben, ist weg. Die Abheilung bleibt das einzige
+  Feld, das `vorbefuellungAus()` nie übernimmt.
+- Die drei Kennzahl-Einblendungen schließen erst **300 ms** nach dem Verlassen
+  (`NACHLAUF_MS` in `kennzahl-kachel.tsx`). Die Einblendung hängt zwar im DOM an
+  der Kachel, liegt aber mit Abstand darunter — ohne Nachlauf klappt sie genau
+  dann zu, wenn man hineinfahren will. Ein Wiedereintritt bricht den Nachlauf ab.
+
+**Testdaten sind hier ein Stolperstein.** Die Playwright-Tests nahmen ungeprüft
+die erste Wunde der ersten Patientin. Seit Wunden abgeschlossen werden können,
+steht die gesuchte Wunde je nach Datenstand im **zugeklappten `<details>`** und
+ist für Rollenabfragen unsichtbar — drei Tests fielen deshalb um, nachdem im
+Browser eine Wunde abgeschlossen worden war. `abgeschlosseneWundenZeigen()`
+klappt jetzt vorher auf. Ebenso: feste Zahlen wie „5 von 6 Terminen" gehören
+nicht in Tests, die Zahl wird jetzt aus der Kachel gelesen. Und der
+Geometrie-Test wählt über `slider.press("Home")` eine Aufnahme mit echter
+Ausdehnung, weil die neueste inzwischen 0 sein kann.
+
+Prüfung: Typprüfung, 86/86 Unit-Tests, 11/11 Playwright-/axe-Tests, 28/28
+Geräteprofile, Produktionsbuild sauber. Zusätzlich von Hand: Wiedereröffnen,
+Folgeaufnahme mit 0 × 0 und Haken, Rückdatierung, Löschen der Testaufnahme und
+Wiederherstellen des Ausgangszustands.
 
 ---
 
@@ -457,9 +542,10 @@ haben, nicht nur Symptome behoben haben.
 | `src/app/(app)/aufnahmen/[id]/page.tsx` | Vollständige Leseansicht |
 | `src/app/(app)/aufnahmen/[id]/bearbeiten/page.tsx` | Korrekturansicht |
 
-Breite, Länge und Tiefe werden bei Folgeaufnahmen bewusst **nicht**
-vorbefüllt. Genau diese Werte müssen bei jedem Verbandwechsel neu gemessen
-werden, damit kein stehengebliebener Wert die Verlaufskurve verfälscht.
+Breite, Länge und Tiefe wurden bei Folgeaufnahmen zunächst bewusst **nicht**
+vorbefüllt, damit kein stehengebliebener Wert die Verlaufskurve verfälscht.
+**Auf Nutzerwunsch am 21.09.2026 zurückgenommen** — sie werden jetzt wie alle
+anderen Felder übernommen, siehe den Nachtrag „Abheilung dokumentieren".
 
 ## Phase 4 — fertig
 

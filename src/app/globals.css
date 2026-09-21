@@ -34,7 +34,10 @@
   --on-secondary: #0c4a6e;
 
   /* Semantik */
-  --accent: #047857;
+  /* Etwas dunkler als das urspruengliche #047857: Als Textfarbe auf der eigenen
+     15-%-Flaeche (Abzeichen "Abgeschlossen", "Abgeheilt") kam das nur auf 4,43:1
+     und verfehlte damit die 4,5:1 fuer normalen Text. */
+  --accent: #046b4e;
   --on-accent: #ffffff;
   --warning: #92400e;
   --on-warning: #ffffff;
@@ -52,7 +55,9 @@
   --status-gut: #047857;
   --status-mittel: #92400e;
   --status-schlecht: #b91c1c;
-  --status-neutral: #64748b;
+  /* Dunkler als das urspruengliche #64748b: Als Textfarbe auf der eigenen
+     15-%-Flaeche (Trendabzeichen "unveraendert") kam das nur auf 3,95:1. */
+  --status-neutral: #4b5563;
 
   /* Diagrammserien: in Helligkeit gestaffelt, damit sie auch ohne
      Farbsehen unterscheidbar bleiben (zusaetzlich Strichmuster). */

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
-import { Ruler } from "lucide-react";
+import { CircleCheck, Ruler } from "lucide-react";
 import { useIstDunkel } from "@/components/theme-provider";
 import {
   diagrammDatumLang,
@@ -40,6 +40,9 @@ function svgAusdehnung(wert: number | null, maximum: number): number {
 }
 
 function draufsichtBeschreibung(punkt: Verlaufspunkt): string {
+  if (punkt.laengeMm === 0 && punkt.breiteMm === 0) {
+    return "Keine Ausdehnung mehr messbar, Länge und Breite 0 mm";
+  }
   if (punkt.laengeMm == null && punkt.breiteMm == null) {
     return "Keine Länge oder Breite dokumentiert";
   }
@@ -106,6 +109,8 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
   const hatLaenge = ausgewaehlt.laengeMm != null;
   const hatBreite = ausgewaehlt.breiteMm != null;
   const hatGrundflaeche = hatLaenge && hatBreite;
+  const ohneAusdehnung = ausgewaehlt.laengeMm === 0 && ausgewaehlt.breiteMm === 0;
+  const ohneTiefe = ausgewaehlt.tiefeMm === 0;
   const laengenAusdehnung = svgAusdehnung(ausgewaehlt.laengeMm, maxGrundmass);
   const breitenAusdehnung = svgAusdehnung(ausgewaehlt.breiteMm, maxGrundmass);
   const zentrumX = 140;
@@ -186,7 +191,14 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
             data-schema-gruppe
             className="flex h-40 items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-muted/30 p-3"
           >
-            {!hatLaenge && !hatBreite ? (
+            {ohneAusdehnung ? (
+              // Eine mit 0 vermessene Wunde bekaeme sonst wegen der
+              // Mindestgroesse in `svgAusdehnung` doch noch ein kleines Oval.
+              <div className="flex flex-col items-center justify-center gap-2 px-5 text-center text-sm text-accent">
+                <CircleCheck className="size-7" aria-hidden="true" />
+                Keine Ausdehnung mehr messbar
+              </div>
+            ) : !hatLaenge && !hatBreite ? (
               <div className="flex flex-col items-center justify-center gap-2 px-5 text-center text-sm text-muted-foreground">
                 <Ruler className="size-7" aria-hidden="true" />
                 Länge und Breite nicht dokumentiert
@@ -248,7 +260,12 @@ export function AbmessungenVerlauf({ daten }: { daten: Verlaufspunkt[] }) {
             data-schema-gruppe
             className="flex h-40 items-center justify-center rounded-xl border border-border bg-surface-muted/30 p-3"
           >
-            {ausgewaehlt.tiefeMm == null ? (
+            {ohneTiefe ? (
+              <div className="flex flex-col items-center gap-2 px-5 text-center text-sm text-accent">
+                <CircleCheck className="size-7" aria-hidden="true" />
+                Keine Tiefe mehr messbar
+              </div>
+            ) : ausgewaehlt.tiefeMm == null ? (
               <div className="flex flex-col items-center gap-2 px-5 text-center text-sm text-muted-foreground">
                 <Ruler className="size-7" aria-hidden="true" />
                 Tiefe nicht dokumentiert

@@ -13,6 +13,19 @@ async function anmelden(page: Page) {
   await expect(page.getByRole("heading", { level: 1, name: "Patienten" })).toBeVisible();
 }
 
+/**
+ * Klappt auf der Patientenseite die abgeschlossenen Wunden auf.
+ *
+ * Seit eine Wunde ueber eine Folgeaufnahme abgeschlossen werden kann, steht die
+ * gesuchte Wunde je nach Datenstand im zugeklappten `<details>` - und waere
+ * fuer Rollenabfragen unsichtbar.
+ */
+async function abgeschlosseneWundenZeigen(page: Page) {
+  for (const summary of await page.locator("main details:not([open]) > summary").all()) {
+    await summary.click();
+  }
+}
+
 function verlangeHref(wert: string | null, bezeichnung: string): string {
   expect(wert, `${bezeichnung} muss einen Link besitzen`).toBeTruthy();
   if (!wert) throw new Error(`${bezeichnung} ohne href`);
@@ -216,6 +229,7 @@ test("interaktive Abmessungen starten bei der neuesten Aufnahme und sind per Tas
     "Patientin mit Mehrfachverlauf",
   );
   await page.goto(patientHref);
+  await abgeschlosseneWundenZeigen(page);
   const wundeHref = verlangeHref(
     await page.getByRole("link", { name: /Ulcus cruris venosum/ }).first().getAttribute("href"),
     "Wunde mit Mehrfachverlauf",
@@ -291,6 +305,7 @@ test("interaktive Abmessungen bleiben auf iPad Pro und iPad Mini vollständig si
     "Patientin mit Mehrfachverlauf",
   );
   await page.goto(patientHref);
+  await abgeschlosseneWundenZeigen(page);
   const wundeHref = verlangeHref(
     await page.getByRole("link", { name: /Ulcus cruris venosum/ }).first().getAttribute("href"),
     "Wunde mit Mehrfachverlauf",
@@ -347,6 +362,11 @@ test("interaktive Abmessungen bleiben auf iPad Pro und iPad Mini vollständig si
     expect(gruppenHoehen).toHaveLength(2);
     expect(Math.abs(gruppenHoehen[0] - gruppenHoehen[1])).toBeLessThan(1);
     expect(gruppenHoehen[0]).toBeLessThanOrEqual(160);
+
+    // Fuer die Geometrie eine Aufnahme mit echter Ausdehnung waehlen: Ist die
+    // neueste mit 0 vermessen (abgeheilte Wunde), zeigt die Draufsicht
+    // absichtlich keine Kontur, sondern den Hinweis "Keine Ausdehnung".
+    await abmessungen.getByRole("slider").press("Home");
 
     const draufsichtFlaeche = abmessungen
       .getByRole("img", { name: /Schematische Wunddraufsicht/ })
@@ -419,6 +439,7 @@ test("Kennzahl-Kacheln blenden Abmessungen und letzte Termine ein", async ({ pag
     "Patientin mit Mehrfachverlauf",
   );
   await page.goto(patientHref);
+  await abgeschlosseneWundenZeigen(page);
   const wundeHref = verlangeHref(
     await page.getByRole("link", { name: /Ulcus cruris venosum/ }).first().getAttribute("href"),
     "Wunde mit Mehrfachverlauf",
@@ -462,7 +483,11 @@ test("Kennzahl-Kacheln blenden Abmessungen und letzte Termine ein", async ({ pag
   const termine = page.locator(`[id="${await termineKachel.getAttribute("aria-controls")}"]`);
   const eintraege = termine.locator('a[href^="/aufnahmen/"]');
   await expect(eintraege).toHaveCount(5);
-  await expect(termine).toContainText("5 von 6 Terminen");
+  // Die Gesamtzahl steht in der Kachel selbst - nicht fest verdrahten, sie
+  // waechst mit jeder neuen Aufnahme.
+  const gesamt = Number((await termineKachel.innerText()).match(/\n(\d+)\n/)?.[1]);
+  expect(gesamt, "Anzahl in der Kachel").toBeGreaterThan(5);
+  await expect(termine).toContainText(`5 von ${gesamt} Terminen`);
   const daten = await eintraege.evaluateAll((elemente) =>
     elemente.map((element) => ({
       datum: element.querySelector("time")!.getAttribute("datetime")!,
