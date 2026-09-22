@@ -6,9 +6,18 @@ import { Loader2, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fokussiereRadio, radioZielIndex } from "@/lib/tastatur";
 
+/**
+ * Ein Eintrag je Bereich der Liste.
+ *
+ * `offen` behaelt seinen alten Wert, obwohl die Beschriftung jetzt
+ * "In Behandlung" lautet - so funktionieren vorhandene Links und Lesezeichen
+ * weiter.
+ */
 const FILTER = [
   { wert: "alle", label: "Alle" },
-  { wert: "offen", label: "Mit offener Wunde" },
+  { wert: "offen", label: "In Behandlung" },
+  { wert: "abgeschlossen", label: "Keine Behandlungen" },
+  { wert: "neu", label: "Neue Patienten" },
 ] as const;
 
 /**

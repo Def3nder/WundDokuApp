@@ -153,10 +153,58 @@ test("zentrale Navigation ist vollständig per Tastatur erreichbar", async ({ pa
   await alle.focus();
   await alle.press("ArrowRight");
   await expect(page).toHaveURL(/filter=offen/);
-  await expect(page.getByRole("radio", { name: "Mit offener Wunde" })).toHaveAttribute(
+  await expect(page.getByRole("radio", { name: "In Behandlung" })).toHaveAttribute(
     "aria-checked",
     "true",
   );
+});
+
+test("die Patientenliste trennt nach Behandlungsstand", async ({ page }) => {
+  await anmelden(page);
+  await page.goto("/");
+
+  // Die Zahl in der Ueberschrift muss zu den gezeigten Karten passen - sonst
+  // stimmt die Einteilung nicht.
+  const bereiche = page.locator("main section").filter({ has: page.locator("h2") });
+  const anzahlBereiche = await bereiche.count();
+  expect(anzahlBereiche).toBeGreaterThan(0);
+  for (let i = 0; i < anzahlBereiche; i++) {
+    const bereich = bereiche.nth(i);
+    const ueberschrift = (await bereich.locator("h2").innerText()).replace(/\s+/g, " ");
+    const angekuendigt = Number(ueberschrift.match(/\((\d+)\)/)?.[1]);
+    expect(angekuendigt, ueberschrift).toBeGreaterThan(0);
+    await expect(bereich.locator("li"), ueberschrift).toHaveCount(angekuendigt);
+  }
+
+  // Jeder Chip zeigt genau seinen Bereich - oder den Hinweis, dass er leer ist.
+  for (const [chip, titel] of [
+    ["In Behandlung", "In Behandlung"],
+    ["Keine Behandlungen", "Keine Behandlungen"],
+    ["Neue Patienten", "Neue Patienten"],
+  ] as const) {
+    await page.getByRole("radio", { name: chip, exact: true }).click();
+    await expect(page.getByRole("radio", { name: chip, exact: true })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    const ueberschriften = page.locator("main section h2");
+    if ((await ueberschriften.count()) === 0) {
+      await expect(page.getByText("Keine Patienten in dieser Ansicht")).toBeVisible();
+      continue;
+    }
+    await expect(ueberschriften).toHaveCount(1);
+    await expect(ueberschriften).toContainText(titel);
+    // Im gruenen Bereich traegt jede Karte das Abzeichen; Farbe steht nie allein.
+    if (chip === "Keine Behandlungen") {
+      const karten = page.locator("main section li");
+      await expect(karten.getByText("Keine Behandlungen", { exact: true })).toHaveCount(
+        await karten.count(),
+      );
+    }
+  }
+
+  await page.getByRole("radio", { name: "Alle", exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test("mobile Hauptnavigation ist sichtbar und per Escape schließbar", async ({ page }) => {
@@ -637,17 +685,18 @@ test("abgeschlossene Wunden sind als abgeheilt erkennbar", async ({ page }) => {
 
   const karte = aufklapper.locator('a[href^="/wunden/"]').first();
   await expect(karte).toContainText("Abgeschlossen");
-  // Gruene Flaeche - Farbe steht hier nie allein, das Abzeichen oben gehoert dazu.
-  const hintergrund = await karte
+  // Gruen hinterlegt - Farbe steht hier nie allein, das Abzeichen oben gehoert
+  // dazu. Geprueft wird die Durchsichtigkeit der Tönung (`bg-accent/5`) statt
+  // eines Vergleichs mit einer offenen Wunde: Ob der Patient ueberhaupt noch
+  // eine offene Wunde hat, haengt vom Datenstand ab.
+  const deckkraft = await karte
     .locator("div")
     .first()
-    .evaluate((element) => getComputedStyle(element).backgroundColor);
-  const offeneKarte = page.locator('main ul > li a[href^="/wunden/"]').first();
-  const hintergrundOffen = await offeneKarte
-    .locator("div")
-    .first()
-    .evaluate((element) => getComputedStyle(element).backgroundColor);
-  expect(hintergrund).not.toBe(hintergrundOffen);
+    .evaluate((element) => {
+      const farbe = getComputedStyle(element).backgroundColor;
+      return Number(farbe.match(/[/,]\s*([\d.]+)\s*\)$/)?.[1] ?? 1);
+    });
+  expect(deckkraft, "Wundkarte ist getönt statt deckend").toBeLessThan(1);
 
   const wundeHref = verlangeHref(await karte.getAttribute("href"), "Abgeschlossene Wunde");
   await page.goto(wundeHref);

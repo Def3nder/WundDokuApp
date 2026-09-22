@@ -4,7 +4,64 @@ Arbeitsstand für die Fortsetzung in einer neuen Sitzung. Ergänzt die
 inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
 
 **Stand:** 22.09.2026 · Phase 1 bis 6 fertig
-**Prüfstand:** `npm run typecheck` sauber · `npm test` 86/86 grün · `npm run test:a11y` 11/11 grün · Responsive-Matrix 28/28 grün · Produktionsbuild sauber · Browser-Durchgang erfolgreich (Login, Leerzustände, Tastaturbedienung, Lightbox, mobile Navigation, Hell-/Dark-Mode, PDF-Export einzeln und Verlauf, Audit-Log-Filter, Versorgungspartner-Suche bei Patient und Wunde, Warnung bei ungespeicherten Änderungen, Dokumentvorschau mit Zoom) · Dokumentvorschau zusätzlich auf echtem iPad bestätigt (Anzeige und Zoom funktionieren)
+**Prüfstand:** `npm run typecheck` sauber · `npm test` 86/86 grün · `npm run test:a11y` 12/12 grün · Responsive-Matrix 28/28 grün · Produktionsbuild sauber · Browser-Durchgang erfolgreich (Login, Leerzustände, Tastaturbedienung, Lightbox, mobile Navigation, Hell-/Dark-Mode, PDF-Export einzeln und Verlauf, Audit-Log-Filter, Versorgungspartner-Suche bei Patient und Wunde, Warnung bei ungespeicherten Änderungen, Dokumentvorschau mit Zoom) · Dokumentvorschau zusätzlich auf echtem iPad bestätigt (Anzeige und Zoom funktionieren)
+
+---
+
+## Nachtrag — Patientenliste nach Behandlungsstand gegliedert (22.09.2026)
+
+Seit Wunden abgeschlossen werden können, standen Patienten ohne laufende
+Behandlung mitten zwischen den aktiven Fällen — erkennbar nur an einer Textzeile
+in der Karte. Die Startseite hat jetzt drei Bereiche:
+
+| Bereich | Wer | Kennzeichen |
+|---|---|---|
+| In Behandlung | mindestens eine offene Wunde | wie bisher |
+| Keine Behandlungen | hat Wunden, alle abgeschlossen | grünes Abzeichen auf jeder Karte |
+| Neue Patienten | noch keine Wunde dokumentiert | neutral |
+
+Abgesetzt über `border-t border-border pt-8` ab dem zweiten **sichtbaren**
+Bereich, jede Überschrift mit Anzahl. Leere Bereiche werden samt Überschrift
+weggelassen. **„Keine Behandlungen" ist nach dem jüngsten Abschlussdatum
+sortiert** (neueste oben, `zuletztAbgeschlossen()`); hat ein Patient mehrere
+abgeschlossene Wunden, zählt die zuletzt abgeschlossene. Bei gleichem Datum
+bleibt es alphabetisch — `sort` ist stabil und die Abfrage liefert bereits nach
+Namen sortiert. Die beiden anderen Bereiche bleiben alphabetisch. Der Filter hat statt zwei jetzt vier Chips und zeigt genau seinen
+Bereich; **`filter=offen` behält seinen URL-Wert**, obwohl der Chip nun
+„In Behandlung" heißt — sonst brächen vorhandene Links und Lesezeichen.
+
+**Die Einteilung steht bewusst nur in JavaScript.** Der frühere Prisma-Filter
+(`wunden: { some: { abgeschlossenAm: null } }`) ist entfallen: Dieselbe Regel
+zweimal — einmal als Abfrage, einmal als Gruppierung — läuft irgendwann
+auseinander. Die Abfrage lud ohnehin schon alle Wunden aller Patienten; der
+Filter entscheidet jetzt nur noch, welche Bereiche gerendert werden.
+
+**Neuer Leerzustand:** Trifft die Suche zwar Patienten, ist aber der gewählte
+Bereich leer, erscheint „Keine Patienten in dieser Ansicht" mit Rücksprung auf
+„Alle" — sonst wirkte die Seite fälschlich leer. Der alte Leerzustand für „gar
+keine Treffer" bleibt daneben bestehen.
+
+Die Patientenkarte ist dafür zu `PatientKarte` in derselben Datei herausgelöst
+(dreimal kopiert wäre sie nicht zu pflegen) und hat einen eigenen, schmalen Typ
+— das Muster von `WundeMitZahlen` auf der Patientenseite. **Nicht** von der
+Abfrage ableiten: Die lädt die Wunden mit `select`, ein `Awaited<ReturnType<…
+include …>>` passt dazu nicht.
+
+Der neue Test prüft, dass die Zahl in jeder Bereichsüberschrift zur Anzahl der
+Karten passt, und geht jeden Filter-Chip durch — beides ohne feste Annahmen über
+den Datenbestand, weil die Bereiche je nach Daten leer sein können.
+
+**Zum dritten Mal über dieselbe Falle gestolpert:** Der Test „abgeschlossene
+Wunden sind als abgeheilt erkennbar" verglich den Hintergrund der grünen
+Wundkarte mit dem einer *offenen* Wunde desselben Patienten — sobald dessen
+letzte offene Wunde abgeschlossen wurde, verglich er Grün mit Grün. Er prüft
+jetzt stattdessen, dass die Tönung durchsichtig ist (Alpha < 1). **Merke:** In
+diesen Tests nie „das erste Element seiner Art" als Gegenprobe nehmen — der
+Datenbestand ändert sich durch die Anwendung selbst.
+
+Prüfung: Typprüfung, 86/86 Unit-Tests, 12/12 Playwright-/axe-Tests, 28/28
+Geräteprofile, Produktionsbuild sauber. Am 320-px-Gerät brechen die vier Chips
+in zwei Reihen à 44 px um, ohne waagerechtes Scrollen.
 
 ---
 
