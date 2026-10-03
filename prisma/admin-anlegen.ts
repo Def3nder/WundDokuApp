@@ -5,10 +5,13 @@
  * Konto mit bekanntem Passwort. Es weigert sich, wenn schon ein Benutzer
  * existiert, und ist damit gefahrlos mehrfach aufrufbar.
  *
- *   --pruefen   Exit-Code 0 = Datenbank hat keine Benutzer, 3 = es gibt schon welche
- *   sonst       legt den Administrator aus ADMIN_EMAIL, ADMIN_NAME,
- *               ADMIN_HANDZEICHEN und ADMIN_PASSWORT an (Umgebungsvariablen,
- *               damit das Passwort nicht in der Prozessliste auftaucht)
+ *   --pruefen        Exit-Code 0 = Datenbank hat keine Benutzer, 3 = es gibt schon welche
+ *   --liste          zeigt alle Benutzer (E-Mail, Name, Rolle, aktiv)
+ *   --zuruecksetzen  setzt das Passwort des Benutzers ADMIN_EMAIL auf ADMIN_PASSWORT und
+ *                    aktiviert das Konto (Rolle bleibt unveraendert)
+ *   sonst            legt den Administrator aus ADMIN_EMAIL, ADMIN_NAME,
+ *                    ADMIN_HANDZEICHEN und ADMIN_PASSWORT an (Umgebungsvariablen,
+ *                    damit das Passwort nicht in der Prozessliste auftaucht)
  *
  * Aufgerufen von setup.sh.
  */
@@ -19,6 +22,32 @@ const db = new PrismaClient();
 const VORHANDEN = 3;
 
 async function main() {
+  if (process.argv.includes("--liste")) {
+    const benutzer = await db.user.findMany({ orderBy: { createdAt: "asc" }, select: { email: true, name: true, rolle: true, aktiv: true } });
+    if (benutzer.length === 0) console.log("Die Datenbank enthält keine Benutzer.");
+    for (const b of benutzer) console.log(`${b.email}	${b.name}	${b.rolle}	${b.aktiv ? "aktiv" : "GESPERRT"}`);
+    return;
+  }
+
+  if (process.argv.includes("--zuruecksetzen")) {
+    const email = (process.env.ADMIN_EMAIL ?? "").trim().toLowerCase();
+    const passwort = process.env.ADMIN_PASSWORT ?? "";
+    if (passwort.length < 10 || passwort.length > 200) {
+      console.error("Das Passwort braucht 10 bis 200 Zeichen.");
+      process.exit(2);
+    }
+    const geaendert = await db.user.updateMany({
+      where: { email },
+      data: { passwordHash: await bcrypt.hash(passwort, 12), aktiv: true },
+    });
+    if (geaendert.count === 0) {
+      console.error(`Kein Benutzer mit der E-Mail-Adresse "${email}". Vorhandene Benutzer: --liste`);
+      process.exit(4);
+    }
+    console.log(`Passwort für ${email} gesetzt, Konto aktiv.`);
+    return;
+  }
+
   const anzahl = await db.user.count();
   if (process.argv.includes("--pruefen")) process.exit(anzahl === 0 ? 0 : VORHANDEN);
   if (anzahl > 0) {
