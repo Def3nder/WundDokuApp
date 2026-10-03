@@ -115,8 +115,19 @@ fi
 log 'Installiere exakt die Abhaengigkeiten aus package-lock.json ...'
 npm ci
 
-log 'Erzeuge den Produktions-Build (inkl. Prisma-Client) ...'
-npm run build
+# Node begrenzt den Heap standardmaessig auf einen Bruchteil des Arbeitsspeichers (hier ca. 512 MB);
+# die Typpruefung von next build braucht mehr. Grenze aus RAM + Swap ableiten, ueberschreibbar
+# mit BUILD_HEAP_MB=...
+mem_mb=$(awk '/^(MemTotal|SwapTotal):/ { summe += $2 } END { print int(summe / 1024) }' /proc/meminfo)
+heap_mb=${BUILD_HEAP_MB:-$(( mem_mb * 3 / 4 ))}
+if (( heap_mb < 1536 )); then heap_mb=1536; fi
+if (( heap_mb > 4096 )); then heap_mb=4096; fi
+if (( mem_mb < 3072 )); then
+  log "WARNUNG: Nur ${mem_mb} MB RAM + Swap. Der Build kann am Speicher scheitern; empfohlen sind 2 GB Swap (siehe README)."
+fi
+
+log "Erzeuge den Produktions-Build (inkl. Prisma-Client, Node-Heap ${heap_mb} MB) ..."
+NODE_OPTIONS="--max-old-space-size=${heap_mb}" npm run build
 [[ -f .next/BUILD_ID ]] || fail 'Build fehlt: .next/BUILD_ID'
 log 'Build wurde gefunden.'
 
