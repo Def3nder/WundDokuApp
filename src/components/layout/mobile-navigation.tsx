@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ContactRound, History, Menu, Settings, Users } from "lucide-react";
+import { Clock3, ContactRound, History, Menu, Settings, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const linkKlasse =
@@ -33,6 +33,12 @@ export function MobileNavigation({ istAdmin }: { istAdmin: boolean }) {
             <Link href="/" className={linkKlasse}>
               <Users className="size-5 text-muted-foreground" aria-hidden="true" />
               Patienten
+            </Link>
+          </DropdownMenu.Item>
+          <DropdownMenu.Item asChild>
+            <Link href="/zeiterfassung" className={linkKlasse}>
+              <Clock3 className="size-5 text-muted-foreground" aria-hidden="true" />
+              Zeiterfassung
             </Link>
           </DropdownMenu.Item>
           {istAdmin && (

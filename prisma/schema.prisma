@@ -34,8 +34,48 @@ model User {
   aufnahmen Assessment[]
   dokumente PatientDocument[]
   auditLogs AuditLog[]
+  arbeitszeiten TimeEntry[]
+  arbeitszeitVorgaben TimeSettings[]
 
   @@index([email])
+}
+
+/// Zeiten gehoeren ausschliesslich dem angemeldeten Benutzer.
+model TimeEntry {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  beginn       DateTime
+  ende         DateTime?
+  pauseMinuten Int       @default(0)
+  notiz        String    @default("")
+  /// Bei laufenden, nicht geloeschten Eintraegen gleich userId, sonst null.
+  /// Der Unique-Index verhindert doppeltes Einstempeln auch bei Parallelzugriff.
+  laufendFuer   String?   @unique
+  version      Int       @default(0)
+  geloeschtAm  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId, geloeschtAm, beginn])
+}
+
+/// Datierte Vorgaben bewahren die Sollzeiten vergangener Zeitraeume.
+model TimeSettings {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  abDatum       String   // YYYY-MM-DD, Europe/Berlin
+  standardBeginn String  @default("08:00")
+  standardEnde   String  @default("16:30")
+  wochenMinuten Int      @default(2400)
+  pauseMinuten  Int      @default(30)
+  arbeitstage   String   @default("[1,2,3,4,5]") // ISO: Montag=1, Sonntag=7
+  version       Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, abDatum])
 }
 
 model Patient {

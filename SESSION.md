@@ -3,8 +3,65 @@
 Arbeitsstand für die Fortsetzung in einer neuen Sitzung. Ergänzt die
 inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
 
-**Stand:** 22.09.2026 · Phase 1 bis 6 fertig
-**Prüfstand:** `npm run typecheck` sauber · `npm test` 86/86 grün · `npm run test:a11y` 12/12 grün · Responsive-Matrix 28/28 grün · Produktionsbuild sauber · Browser-Durchgang erfolgreich (Login, Leerzustände, Tastaturbedienung, Lightbox, mobile Navigation, Hell-/Dark-Mode, PDF-Export einzeln und Verlauf, Audit-Log-Filter, Versorgungspartner-Suche bei Patient und Wunde, Warnung bei ungespeicherten Änderungen, Dokumentvorschau mit Zoom) · Dokumentvorschau zusätzlich auf echtem iPad bestätigt (Anzeige und Zoom funktionieren)
+**Stand:** 01.10.2026 · Phase 1 bis 6 fertig · persönliche Zeiterfassung ergänzt
+**Prüfstand:** `npm run typecheck` sauber · `npm test` 114/114 grün · `npm run test:a11y` 12/12 grün · `npm run test:zeiterfassung` 6/6 grün (inkl. WebKit) · Produktionsbuild sauber. Die vollständige Responsive-Matrix war am 22.09.2026 mit 28/28 grün; am 01.10. wurden gezielt die Zeiterfassung und die erweiterte Navigation geprüft. Dokumentvorschau aus der früheren Sitzung zusätzlich auf echtem iPad bestätigt.
+
+---
+
+## Nachtrag — persönliche Zeiterfassung (01.10.2026)
+
+Neue Seiten `/zeiterfassung` und `/zeiterfassung/einstellungen`, für alle
+angemeldeten Rollen über Desktop- und Mobilnavigation erreichbar. Alle Lese-
+und Schreibzugriffe sind an die Sitzungs-ID gebunden. Es gibt bewusst keine
+Admin-Ansicht fremder Zeiten; das vorhandene Admin-Protokoll nennt lediglich
+die Aktion, ohne Zeitwerte oder Notizen.
+
+**Vom Nutzer präzisiert:** Standard-Arbeitszeit bedeutet **Beginn und Ende pro
+Tag**, zusätzlich eine unabhängig konfigurierbare Wochenarbeitszeit in Stunden.
+Die Tageszeiten sind die Vorlage für Nachträge, die Wochenstunden bestimmen
+das Soll, gleichmäßig auf konfigurierbare Arbeitstage verteilt. Standardpause
+pro Buchung vorbelegt und beim Ausstempeln editierbar; kein separater Pausenstempel.
+
+- Stechuhr öffnet vor dem Speichern einen Dialog mit anpassbarem Datum/Uhrzeit.
+  Laufende Zeiten überleben Reload/Abmelden. Nachträge, Korrekturen und Soft
+  Delete sind vorhanden; nach zwölf Stunden erscheint ein Prüfhinweis.
+- Wochen-/Monatsauswertung: Netto, Pause, Soll für die gesamte Periode und
+  Saldo gegen das Soll bis einschließlich heute. Laufende Zeiten zählen erst
+  nach dem Ausstempeln. Die Tagesübersicht zeigt dieselben Zahlen mit Balken.
+- `TimeEntry` und `TimeSettings`, additive Migration
+  `20261001100000_zeiterfassung` bereits auf die Entwicklungsdatenbank angewandt,
+  Prisma-Client generiert. Keine Änderungen an Patienten-/Wunddaten.
+- `TimeSettings.abDatum` bewahrt frühere Sollperioden. Eine Korrektur einer
+  vorhandenen Vorgabe ändert bewusst diese Periode; neue Vorgaben erhalten ein
+  neues Datum. Vor der ersten Vorgabe gelten 40 h/Mo–Fr, 08:00–16:30, 30 min.
+- `src/lib/arbeitszeit.ts`: Kalender und Berechnung konsequent in
+  `Europe/Berlin`, unabhängig von Browser-/Serverzone. Sommerzeit-Lücken werden
+  abgewiesen, für doppelte Herbststunden gibt es eine Auswahl. Bei Nachtschichten
+  wird die Pause anteilig verteilt; kumulierte Rundung erhält die Minutensumme
+  über Tages-, Wochen- und Monatsgrenzen.
+- `src/lib/arbeitszeit-server.ts`: Überlappungsprüfung und Schreiben in einer
+  Transaktion, eindeutiger `laufendFuer`-Index verhindert doppeltes Einstempeln.
+  `version` schützt vor Überschreiben aus alten Tabs. Audit-Einträge entstehen
+  in derselben Transaktion. Zukunftsbuchungen und Schichten über 24 h werden
+  abgewiesen; auch beim Ausstempeln können beide Zeitpunkte korrigiert werden.
+- Formulare senden per `onSubmit`/Transition ab, damit Eingaben nach einer
+  fehlgeschlagenen Validierung erhalten bleiben (kein Action-Formular-Reset).
+- Neuer Befehl `npm run test:zeiterfassung`: eigener Produktions-Testserver auf
+  3101 und isolierte `test-results/arbeitszeit-e2e.db`, niemals die Praxisdaten.
+  Produktionsbuild vorher erstellen. Der Test-Setup initialisiert SQLite per
+  Prisma, bevor `migrate deploy` läuft; die automatische Neuanlage durch die
+  Windows-Schema-Engine scheiterte anfangs mit einer leeren Fehlermeldung.
+
+**Geprüft:** Typprüfung, 114/114 Fach-/Datenbanktests, Produktionsbuild,
+12/12 bestehende Browser-/axe-Tests und 6/6 neue Zeiterfassungstests. Letztere
+decken Konfiguration, Nachtrag, Stempeln, Bearbeiten, Fehlererhalt, Überlappung,
+Löschen, Nutzertrennung, Hell/Dunkel, axe und Breiten 320–1440 px ab; zusätzlich
+Administrator-Navigation und WebKit bei 390/768/1024 px. Vorhandene Engine
+`webkit-2336` über `WEBKIT_EXECUTABLE_PATH` verwendet. Die vollständige alte
+28er-Responsive-Matrix wurde in dieser Sitzung nicht erneut ausgeführt.
+
+**Offene Erweiterungen:** Urlaub/Krankheit/Feiertage, Stundenübertrag und
+CSV-/PDF-Export. Der Entwicklungsserver läuft auf Port 3000.
 
 ---
 

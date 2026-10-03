@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:a11y": "playwright test tests/accessibility.spec.ts",
     "test:responsive": "playwright test --config=playwright.responsive.config.ts",
+    "test:zeiterfassung": "tsx tests/zeiterfassung-setup.ts && playwright test --config=playwright.zeiterfassung.config.ts",
     "test:watch": "vitest",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

@@ -8,8 +8,11 @@ import type { NextRequest } from "next/server";
  * optimistische Vorpruefung bleibt schnell; die verbindliche Pruefung des JWT
  * und der Benutzerrechte passiert in Server Actions und Route Handlern ueber
  * verlangeSitzung() beziehungsweise auth().
+ *
+ * Das Web-App-Manifest enthaelt nur Name und Symbole; Browser rufen es ohne
+ * Cookies ab, es muss also ohne Sitzung erreichbar sein.
  */
-const OEFFENTLICH = ["/login", "/api/auth"];
+const OEFFENTLICH = ["/login", "/api/auth", "/manifest.webmanifest"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -26,6 +26,7 @@ export const metadata: Metadata = {
   },
   description: "Digitale Wunddokumentation für Praxis und Pflege",
   robots: { index: false, follow: false },
+  appleWebApp: { capable: true, title: "WundDoku", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

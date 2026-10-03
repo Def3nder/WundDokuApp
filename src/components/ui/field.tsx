@@ -84,6 +84,13 @@ export const Input = React.forwardRef<
       </span>
     );
   }
+  if (type === "time") {
+    return (
+      <span className="zeitrahmen">
+        <input ref={ref} type="time" className={cn(basis, "zeitfeld border-border-strong", className)} {...props} />
+      </span>
+    );
+  }
   return (
     // min-h-11 = 44px Tippziel, 16px Schrift verhindert das Auto-Zoom von iOS.
     <input

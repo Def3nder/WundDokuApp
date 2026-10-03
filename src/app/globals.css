@@ -448,8 +448,9 @@
 }
 
 @layer utilities {
-  /* iPadOS/Safari gibt Datumsfeldern sonst eine eigene Mindestbreite und Höhe. */
-  .datumsrahmen {
+  /* iPadOS/Safari gibt Datums- und Uhrzeitfeldern sonst eigene Mindestmaße. */
+  .datumsrahmen,
+  .zeitrahmen {
     position: relative;
     display: block;
     box-sizing: border-box;
@@ -460,7 +461,8 @@
     border-radius: var(--radius-sm);
   }
 
-  .datumsrahmen > input.datumsfeld[type="date"] {
+  .datumsrahmen > input.datumsfeld[type="date"],
+  .zeitrahmen > input.zeitfeld[type="time"] {
     -webkit-appearance: none;
     appearance: none;
     position: absolute;
@@ -476,7 +478,8 @@
     line-height: 1.25rem;
   }
 
-  .datumsrahmen > input.datumsfeld[type="date"]::-webkit-date-and-time-value {
+  .datumsrahmen > input.datumsfeld[type="date"]::-webkit-date-and-time-value,
+  .zeitrahmen > input.zeitfeld[type="time"]::-webkit-date-and-time-value {
     min-block-size: 1.25rem;
     text-align: left;
   }

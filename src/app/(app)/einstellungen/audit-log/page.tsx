@@ -18,6 +18,8 @@ const ENTITAETEN = [
   { wert: "PatientDocument", label: "Dokument" },
   { wert: "Doctor", label: "Arzt" },
   { wert: "CareService", label: "Pflegedienst" },
+  { wert: "TimeEntry", label: "Arbeitszeit" },
+  { wert: "TimeSettings", label: "Arbeitszeitvorgabe" },
 ] as const;
 
 function labelVonEntitaet(wert: string): string {

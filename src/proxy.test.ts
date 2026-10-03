@@ -14,6 +14,10 @@ describe("Proxy-Zugriffsschutz", () => {
     expect(proxy(anfrage("/api/auth/session")).headers.get("x-middleware-next")).toBe("1");
   });
 
+  it("laesst das Web-App-Manifest ohne Sitzung passieren", () => {
+    expect(proxy(anfrage("/manifest.webmanifest")).headers.get("x-middleware-next")).toBe("1");
+  });
+
   it("leitet geschuetzte Seiten mit Ruecksprungziel zum Login", () => {
     const antwort = proxy(anfrage("/wunden/w1"));
 
