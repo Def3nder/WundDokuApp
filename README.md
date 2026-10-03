@@ -167,6 +167,16 @@ Das Repository liegt unter `/opt/wunddoku-app` (Branch `main`). Zwei Scripts
 | `./setup.sh` | Einmalige Einrichtung (wiederholbar): Datenverzeichnis `/var/lib/wunddoku` (Datenbank und Wundfotos), `.env` mit frischem `AUTH_SECRET`, systemd-Dienst `wunddoku` anlegen und für den Systemstart anmelden, danach `update.sh` ausführen und den ersten Administrator abfragen. Eine vorhandene `.env` bleibt unverändert. |
 | `./update.sh` | Update: Git-Stand holen, Dienst stoppen, Datenbank nach `~/wunddoku-backups` sichern, `npm ci`, Build, `prisma migrate deploy`, Dienst starten und prüfen. |
 
+Der Build braucht Arbeitsspeicher: `update.sh` erhöht dafür die Heap-Grenze von
+Node anhand von RAM plus Swap (überschreibbar mit `BUILD_HEAP_MB=3072 ./update.sh`).
+Bei weniger als 3 GB RAM plus Swap empfiehlt sich eine Swap-Datei:
+
+```bash
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
 Der Dienst lauscht nur auf `127.0.0.1:3003`; HTTPS und die Domain übernimmt ein
 Reverse Proxy (Beispiel am Ende der Ausgabe von `setup.sh`). Die Domain muss in
 `next.config.ts` unter `serverActions.allowedOrigins` stehen. Der erste
