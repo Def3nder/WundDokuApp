@@ -8,7 +8,7 @@
 #   5. ersten Administrator abfragen und anlegen, falls es noch keinen Benutzer gibt
 #
 # Aufruf als normaler Benutzer (nicht root) aus dem Repository:  ./setup.sh
-# Optional:  DOMAIN=wunddoku.bruechmann.xyz ./setup.sh
+# Optional:  DOMAIN=wunddoku.bruechmann.xyz BIND_HOST=127.0.0.1 ./setup.sh
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -16,7 +16,9 @@ IFS=$'\n\t'
 readonly APP_DIR='/opt/wunddoku-app'
 readonly SERVICE="${SERVICE:-wunddoku}"
 readonly PORT="${PORT:-3003}"
-readonly BIND_HOST='127.0.0.1'
+# 0.0.0.0: erreichbar fuer einen Reverse Proxy auf einem anderen Rechner. Liegt der Proxy auf
+# demselben Server, ist BIND_HOST=127.0.0.1 sicherer.
+readonly BIND_HOST="${BIND_HOST:-0.0.0.0}"
 readonly DATA_DIR='/var/lib/wunddoku'
 readonly DEFAULT_DOMAIN='wunddoku.bruechmann.xyz'
 readonly UNIT_FILE="/etc/systemd/system/${SERVICE}.service"
@@ -171,13 +173,23 @@ else
   fail "Pruefung auf vorhandene Benutzer fehlgeschlagen (Exit-Code $admin_status)."
 fi
 
+if [[ "$BIND_HOST" == '127.0.0.1' ]]; then
+  proxy_ziel='127.0.0.1'
+  bind_hinweis="Die App lauscht nur lokal auf ${BIND_HOST}:${PORT}."
+else
+  proxy_ziel='<IP-dieses-Servers>'
+  bind_hinweis="Die App lauscht auf ${BIND_HOST}:${PORT} und spricht unverschluesseltes HTTP. Den Port per
+Firewall auf die Adresse des Reverse Proxys beschraenken, z. B.:
+  sudo ufw allow from <Proxy-IP> to any port ${PORT} proto tcp"
+fi
+
 cat <<EOF
 
-Einrichtung abgeschlossen. Die App lauscht nur lokal auf ${BIND_HOST}:${PORT};
-der Reverse Proxy fuer https://${domain} muss dorthin weiterleiten, z. B. nginx:
+Einrichtung abgeschlossen. ${bind_hinweis}
+Der Reverse Proxy fuer https://${domain} muss auf ${proxy_ziel}:${PORT} weiterleiten, z. B. nginx:
 
   location / {
-      proxy_pass http://127.0.0.1:${PORT};
+      proxy_pass http://${proxy_ziel}:${PORT};
       proxy_set_header Host \$host;
       proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
       proxy_set_header X-Forwarded-Proto \$scheme;
