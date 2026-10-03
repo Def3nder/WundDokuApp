@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
 # Aktualisiert WundDoku auf dem Server: holt den neuesten Stand aus Git,
-# sichert die Datenbank, baut neu, wendet Datenbankmigrationen an und
-# startet den Dienst neu.
+# sichert Datenbank und Wundfotos, baut neu, testet, wendet Datenbank-
+# migrationen an und startet den Dienst neu.
 #
 # Aufruf als normaler Benutzer (nicht root):  ./update.sh
-# Der Dienstname und der Port lassen sich ueberschreiben:
-#   SERVICE=wunddoku PORT=3003 ./update.sh
+# Einstellbar ueber Umgebungsvariablen:
+#   SERVICE=wunddoku PORT=3003 BUILD_HEAP_MB=3072 SKIP_TESTS=1 ./update.sh
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -15,10 +15,13 @@ readonly APP_DIR='/opt/wunddoku-app'
 readonly BRANCH='main'
 readonly SERVICE="${SERVICE:-wunddoku}"
 readonly PORT="${PORT:-3003}"
-readonly BACKUP_DIR="${BACKUP_DIR:-$HOME/wunddoku-backups}"
+readonly DATA_DIR='/var/lib/wunddoku'
+readonly ENV_FILE='/etc/wunddoku/app.env'
+readonly BACKUP_DIR="${BACKUP_DIR:-/var/backups/wunddoku}"
 readonly BACKUPS_BEHALTEN=10
 
 previous_commit=''
+backup=''
 service_stopped=0
 
 log() {
@@ -39,13 +42,17 @@ on_error() {
   if [[ -n "$previous_commit" ]]; then
     log "Vorheriger Stand: ${previous_commit:0:12}. Zurueck mit:" >&2
     log "  cd $APP_DIR && git reset --hard $previous_commit && npm ci && npm run build && sudo systemctl start $SERVICE" >&2
-    log "Eine Datenbanksicherung liegt in $BACKUP_DIR (Migrationen lassen sich nicht automatisch zurueckrollen)." >&2
+  fi
+  if [[ -n "$backup" ]]; then
+    log "Sicherung vor diesem Update: $backup" >&2
+    log "Migrationen lassen sich nicht automatisch zurueckrollen; Wiederherstellung (Dienst gestoppt):" >&2
+    log "  tar -C $(dirname "$DATA_DIR") -xzf $backup" >&2
   fi
   exit "$exit_code"
 }
 trap on_error ERR
 
-for command in git node npm npx sudo systemctl; do
+for command in git node npm npx sudo systemctl tar; do
   command -v "$command" >/dev/null 2>&1 || fail "Benoetigtes Programm fehlt: $command"
 done
 
@@ -54,7 +61,22 @@ done
 
 cd "$APP_DIR"
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail "$APP_DIR ist kein Git-Repository."
-[[ -f .env ]] || fail "Konfiguration fehlt: $APP_DIR/.env (DATABASE_URL, AUTH_SECRET, AUTH_URL ...)"
+
+if [[ ! -r "$ENV_FILE" ]]; then
+  if [[ -f .env ]]; then
+    fail "Die Konfiguration liegt noch in $APP_DIR/.env. Bitte ./setup.sh ausfuehren; es verschiebt sie nach $ENV_FILE."
+  fi
+  fail "Konfiguration fehlt oder ist nicht lesbar: $ENV_FILE (./setup.sh ausfuehren)."
+fi
+# Dieselbe Datei liest systemd (EnvironmentFile); Prisma und die Scripts brauchen DATABASE_URL.
+set -a
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+set +a
+[[ "${DATABASE_URL:-}" == file:* ]] || fail "DATABASE_URL in $ENV_FILE fehlt oder ist keine SQLite-Datei (file:...)."
+db_file=${DATABASE_URL#file:}
+db_file=${db_file%%\?*}
+[[ "$db_file" == /* ]] || fail "DATABASE_URL in $ENV_FILE muss einen absoluten Pfad enthalten, gefunden: $DATABASE_URL"
 
 node_major=$(node -p 'process.versions.node.split(".")[0]')
 (( node_major >= 20 )) || fail "Node.js 20 oder neuer wird benoetigt, gefunden: $(node --version)"
@@ -67,20 +89,6 @@ if [[ -n $(git status --porcelain --untracked-files=no) ]]; then
   git status --short --untracked-files=no >&2
   fail 'Das Arbeitsverzeichnis enthaelt lokale Aenderungen. Update wurde nicht gestartet.'
 fi
-
-# Datenbankdatei aus DATABASE_URL (SQLite). Relative Pfade gelten, wie bei Prisma, ab prisma/.
-database_file() {
-  local url path
-  url=$(sed -n 's/^DATABASE_URL=//p' .env | tail -n 1)
-  url=${url//\"/}
-  url=${url//\'/}
-  [[ "$url" == file:* ]] || return 1
-  path=${url#file:}
-  path=${path%%\?*}
-  [[ "$path" == /* ]] || path="$APP_DIR/prisma/$path"
-  printf '%s\n' "$path"
-}
-db_file=$(database_file) || fail 'DATABASE_URL in .env fehlt oder ist keine SQLite-Datei (file:...).'
 
 # Sudo-Passwort jetzt abfragen, nicht mitten im Update.
 sudo -v
@@ -96,21 +104,30 @@ remote_commit=$(git rev-parse "origin/$BRANCH")
 log "Git-Stand bestaetigt: ${local_commit:0:12} (vorher ${previous_commit:0:12})"
 
 # Der Dienst wird vor dem Bauen gestoppt: npm ci und next build ersetzen node_modules
-# und .next, ein laufender Server wuerde dabei kaputte Seiten ausliefern.
+# und .next, ein laufender Server wuerde dabei kaputte Seiten ausliefern. Gestoppt ist
+# die Datenbank ausserdem in einem konsistenten Zustand fuer die Sicherung.
 log "Stoppe systemd-Dienst $SERVICE ..."
 sudo systemctl stop "$SERVICE"
 service_stopped=1
 
 if [[ -f "$db_file" ]]; then
-  mkdir -p "$BACKUP_DIR"
-  backup="$BACKUP_DIR/wunddoku-$(date '+%Y%m%d-%H%M%S')-${previous_commit:0:7}.db"
-  cp -p -- "$db_file" "$backup"
-  log "Datenbank gesichert: $backup"
+  # /var/backups gehoert root; das Verzeichnis einmalig fuer den Dienstbenutzer anlegen.
+  if [[ ! -w "$BACKUP_DIR" ]]; then
+    sudo install -d -o "$(id -un)" -g "$(id -gn)" -m 700 "$BACKUP_DIR"
+  fi
+  # Datenbank UND Wundfotos zusammen: getrennt gesicherte Bestaende passen nicht mehr zusammen.
+  backup="$BACKUP_DIR/wunddoku-$(date '+%Y%m%d-%H%M%S')-${previous_commit:0:7}.tar.gz"
+  tar -C "$(dirname "$DATA_DIR")" -czf "$backup" "$(basename "$DATA_DIR")"
+  chmod 600 -- "$backup"
+  log "Daten gesichert: $backup ($(du -h -- "$backup" | cut -f1))"
   # Nur die neuesten Sicherungen behalten.
-  ls -1t -- "$BACKUP_DIR"/wunddoku-*.db | tail -n +"$((BACKUPS_BEHALTEN + 1))" | xargs -r rm --
+  ls -1t -- "$BACKUP_DIR"/wunddoku-*.tar.gz | tail -n +"$((BACKUPS_BEHALTEN + 1))" | xargs -r rm --
 else
   log "Hinweis: Datenbankdatei $db_file existiert noch nicht, keine Sicherung noetig."
 fi
+
+# Next.js sendet sonst beim Bauen anonyme Telemetrie; die App soll nichts nach aussen geben.
+export NEXT_TELEMETRY_DISABLED=1
 
 log 'Installiere exakt die Abhaengigkeiten aus package-lock.json ...'
 npm ci
@@ -130,6 +147,14 @@ log "Erzeuge den Produktions-Build (inkl. Prisma-Client, Node-Heap ${heap_mb} MB
 NODE_OPTIONS="--max-old-space-size=${heap_mb}" npm run build
 [[ -f .next/BUILD_ID ]] || fail 'Build fehlt: .next/BUILD_ID'
 log 'Build wurde gefunden.'
+
+if [[ "${SKIP_TESTS:-0}" == 1 ]]; then
+  log 'Tests uebersprungen (SKIP_TESTS=1).'
+else
+  log 'Fuehre die Tests aus ...'
+  # Ohne die Produktivkonfiguration: Kein Test darf je die echte Datenbank oder die Wundfotos beruehren.
+  ( unset DATABASE_URL STORAGE_DIR AUTH_SECRET AUTH_URL AUTH_TRUST_HOST; npm test )
+fi
 
 log 'Wende Datenbankmigrationen an ...'
 npx prisma migrate deploy
@@ -155,7 +180,7 @@ if command -v curl >/dev/null 2>&1; then
   if (( healthy )); then
     log "Anmeldeseite antwortet auf Port $PORT."
   else
-    log "WARNUNG: Anmeldeseite antwortet nicht auf Port $PORT (anderer Port? Dann PORT=... setzen)."
+    log "WARNUNG: Anmeldeseite antwortet nicht auf Port $PORT (anderer Port? Dann PORT=... setzen; sonst: journalctl -u $SERVICE -n 50)."
   fi
 fi
 
