@@ -31,6 +31,9 @@ exports/
 .env.local
 .env.*.local
 
+# Dev-Server Dateien
+*.log
+
 # Sonstiges
 .DS_Store
 *.pem
