@@ -8,6 +8,47 @@ inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
 
 ---
 
+## Nachtrag — PWA und Zeiterfassung ohne Verbindung (03.10.2026)
+
+App ist als PWA installierbar (iPhone: apple-touch-icon, Android: Manifest) und die
+Zeiterfassung funktioniert ohne Server. Nutzerentscheidung: offline sind
+**Stempeln und Nachträge** (nicht Bearbeiten/Löschen vorhandener Buchungen); die
+Seite darf **nur die eigenen Zeitdaten** zwischenspeichern; Konflikte werden
+**zur Prüfung vorgelegt**, nichts geht still verloren.
+
+- `public/sw.js` (Cache-Namen `wunddoku-*-v1`): cached nur `/_next/static/*`
+  (gehasht, daher cache-first) und HTML unter `/zeiterfassung*` (network-first mit
+  5 s Zeitlimit, dann Cache; Fallback ohne Cache: `public/offline.html`). Alles
+  andere läuft am Worker vorbei – **Patientendaten werden nie gecacht**. Bei einer
+  Weiterleitung auf `/login` (Abmelden/abgelaufen) wird der Seiten-Cache gelöscht.
+  `vorwaermen` lädt `/zeiterfassung` samt Chunks/CSS/Fonts einmal vorab. Nur im
+  Produktionsbetrieb registriert (`ServiceWorkerRegistrierung` im `(app)`-Layout):
+  Dev-Chunks haben keine Hashes, ein Cache würde veralteten Code liefern.
+- `src/proxy.ts`: `/sw.js`, `/offline.html`, `/manifest.webmanifest` öffentlich.
+- Warteschlange: `src/lib/arbeitszeit-speicher.ts` (IndexedDB, nur Rohdaten),
+  `src/lib/arbeitszeit-offline.ts` (reine Logik: wartende Stechuhr, lokale
+  Überschneidungsprüfung, Vorab-Validierung mit demselben Zod-Schema),
+  `src/components/zeiterfassung/offline-kontext.tsx` (Provider: sendet sofort, bei
+  **jedem** Fehler/Offline lokal ablegen; Sync bei `online`/Sichtbarkeit/30 s, per
+  `navigator.locks` nur ein Tab), `stechuhr.tsx`, `offline-hinweis.tsx`.
+- Einstempeln + Ausstempeln offline wird zu **einer** wartenden Buchung (erneutes
+  Speichern ersetzt den Eintrag über `clientId`). Wartende Einträge gehören einer
+  `userId` und werden nur unter diesem Konto gesendet.
+- **Idempotenz statt Schemaänderung:** `bucheArbeitszeit` übernimmt eine Buchung
+  mit identischem Inhalt (neu: gleiche Beginn/Ende/Pause/Notiz; Änderung: gleicher
+  Zielzustand trotz alter Version) unverändert – so erzeugt eine nach verlorener
+  Antwort wiederholte Sendung weder Dublette noch falschen Konflikt. Keine Migration.
+- Stolpern: Der Test setzt Offline per `context.setOffline(true)`; das wirkt in
+  Playwright-Chromium auch auf den Service Worker (geprüft). Tests brauchen den
+  Produktionsbuild. Neu gebaut wurde wieder direkt mit `next build`, weil der
+  Dev-Server die Prisma-DLL sperrt.
+- Geprüft: Typprüfung, 130/130 Unit-Tests, 7/7 `npm run test:zeiterfassung` (inkl.
+  neuem Offline-Test mit axe und WebKit-Lauf). **Nicht** geprüft: echtes iPhone/
+  Android-Gerät, `npm run test:a11y`/`test:responsive` nach dieser Änderung.
+  iOS hat kein Background Sync – übertragen wird beim Öffnen der App.
+
+---
+
 ## Nachtrag — persönliche Zeiterfassung (01.10.2026)
 
 Neue Seiten `/zeiterfassung` und `/zeiterfassung/einstellungen`, für alle

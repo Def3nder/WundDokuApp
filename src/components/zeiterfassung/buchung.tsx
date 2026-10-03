@@ -6,15 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { arbeitszeitLoeschen, arbeitszeitSpeichern } from "@/actions/arbeitszeit";
 import { datumPlus, lokaleZeit, minutenText, vorkommenVon, zeitText, type ZeitVorgabe } from "@/lib/arbeitszeit";
+import { LOKAL_PRAEFIX, type BuchungAnsicht } from "@/lib/arbeitszeit-offline";
+import { useOfflineZeit } from "./offline-kontext";
 import { ZeitDialog, ZeitFormular, ZeitpunktFeld } from "./zeit-formular";
 
-export type BuchungAnsicht = {
-  id: string; beginn: string; ende: string | null; pauseMinuten: number; notiz: string; version: number;
-};
+export type { BuchungAnsicht };
 
-function BuchungsFormular({ eintrag, modus, vorgabe, schliessen }: {
-  eintrag?: BuchungAnsicht; modus: "start" | "stop" | "neu" | "edit"; vorgabe: ZeitVorgabe; schliessen: () => void;
+function BuchungsFormular({ eintrag, modus, vorgabe, schliessen, clientId }: {
+  eintrag?: BuchungAnsicht; modus: "start" | "stop" | "neu" | "edit"; vorgabe: ZeitVorgabe; schliessen: () => void; clientId?: string;
 }) {
+  const offline = useOfflineZeit();
+  // Lokal existierende Buchungen tragen keine Server-ID und -Version.
+  const lokal = Boolean(eintrag?.id.startsWith(LOKAL_PRAEFIX));
+  // Abgeschlossene Serverbuchungen zu korrigieren bleibt der Verbindung vorbehalten:
+  // Ihre Version koennte sich inzwischen auf einem anderen Geraet geaendert haben.
+  const darfOffline = offline !== null && (modus !== "edit" || !eintrag?.ende || lokal);
+  const aktion = darfOffline ? offline.aktion({ clientId }) : arbeitszeitSpeichern;
   const [jetzt] = useState(() => new Date());
   const [beginn, setBeginn] = useState(() => eintrag ? lokaleZeit(new Date(eintrag.beginn)) : modus === "neu" ? `${lokaleZeit(jetzt).slice(0, 10)}T${vorgabe.standardBeginn}` : lokaleZeit(jetzt));
   const [ende, setEnde] = useState(() => {
@@ -28,9 +35,9 @@ function BuchungsFormular({ eintrag, modus, vorgabe, schliessen }: {
   const [beginnVorkommen, setBeginnVorkommen] = useState(eintrag ? vorkommenVon(new Date(eintrag.beginn)) : vorkommenVon(new Date(Math.floor(jetzt.getTime() / 60_000) * 60_000)) as string);
   const [endeVorkommen, setEndeVorkommen] = useState(eintrag?.ende ? vorkommenVon(new Date(eintrag.ende)) : vorkommenVon(new Date(Math.floor(jetzt.getTime() / 60_000) * 60_000)) as string);
   const hatEnde = modus === "stop" || modus === "neu" || Boolean(eintrag?.ende);
-  return <ZeitFormular action={arbeitszeitSpeichern} nachSpeichern={schliessen} kennung={`zeit-${eintrag?.id ?? modus}`} absendeText={modus === "start" ? "Einstempeln speichern" : modus === "stop" ? "Ausstempeln speichern" : "Zeiteintrag speichern"}>
+  return <ZeitFormular action={aktion} nachSpeichern={schliessen} kennung={`zeit-${eintrag?.id ?? modus}`} absendeText={modus === "start" ? "Einstempeln speichern" : modus === "stop" ? "Ausstempeln speichern" : "Zeiteintrag speichern"}>
     {(fehler) => <>
-      {eintrag && <><input type="hidden" name="id" value={eintrag.id} /><input type="hidden" name="version" value={eintrag.version} /></>}
+      {eintrag && !lokal && <><input type="hidden" name="id" value={eintrag.id} /><input type="hidden" name="version" value={eintrag.version} /></>}
       <ZeitpunktFeld name="beginn" label="Arbeitsbeginn" wert={beginn} onChange={setBeginn} vorkommen={beginnVorkommen} setVorkommen={setBeginnVorkommen} fehler={fehler.beginn} />
       {hatEnde ? <ZeitpunktFeld name="ende" label="Arbeitsende" wert={ende} onChange={setEnde} vorkommen={endeVorkommen} setVorkommen={setEndeVorkommen} fehler={fehler.ende} /> : <input type="hidden" name="ende" value="" />}
       <Field id="pauseMinuten" label="Pause (Minuten)" fehler={fehler.pauseMinuten} hilfe={hatEnde ? "Wird von der Anwesenheitszeit abgezogen. Bei mehreren Buchungen die Pause nur einmal eintragen." : "Vorgemerkt für diese Buchung; beim Ausstempeln an die tatsächliche Pause anpassen."}>
@@ -43,12 +50,12 @@ function BuchungsFormular({ eintrag, modus, vorgabe, schliessen }: {
   </ZeitFormular>;
 }
 
-export function BuchungKnopf({ eintrag, modus, vorgabe }: { eintrag?: BuchungAnsicht; modus: "start" | "stop" | "neu" | "edit"; vorgabe: ZeitVorgabe }) {
+export function BuchungKnopf({ eintrag, modus, vorgabe, clientId }: { eintrag?: BuchungAnsicht; modus: "start" | "stop" | "neu" | "edit"; vorgabe: ZeitVorgabe; clientId?: string }) {
   const titel = { start: "Einstempeln", stop: "Ausstempeln", neu: "Zeit nachtragen", edit: "Zeiteintrag bearbeiten" }[modus];
   const Icon = { start: LogIn, stop: LogOut, neu: Plus, edit: Pencil }[modus];
   return <ZeitDialog titel={titel} beschreibung="Datum und Uhrzeit vor dem Speichern prüfen und bei Bedarf ändern. Alle Zeiten gelten für Europe/Berlin."
     ausloeser={<Button type="button" variant={modus === "edit" ? "ghost" : modus === "neu" ? "outline" : "primary"} size={modus === "edit" ? "icon" : "md"} aria-label={modus === "edit" ? `${titel}: ${zeitText(new Date(eintrag!.beginn))}` : undefined}><Icon aria-hidden="true" />{modus !== "edit" && titel}</Button>}>
-    {(schliessen) => <BuchungsFormular eintrag={eintrag} modus={modus} vorgabe={vorgabe} schliessen={schliessen} />}
+    {(schliessen) => <BuchungsFormular eintrag={eintrag} modus={modus} vorgabe={vorgabe} schliessen={schliessen} clientId={clientId} />}
   </ZeitDialog>;
 }
 

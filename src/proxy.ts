@@ -9,10 +9,12 @@ import type { NextRequest } from "next/server";
  * und der Benutzerrechte passiert in Server Actions und Route Handlern ueber
  * verlangeSitzung() beziehungsweise auth().
  *
- * Das Web-App-Manifest enthaelt nur Name und Symbole; Browser rufen es ohne
- * Cookies ab, es muss also ohne Sitzung erreichbar sein.
+ * Manifest, Service Worker und Offline-Seite enthalten nur Programmcode,
+ * Namen und Symbole, keine Daten. Browser rufen sie unter Umstaenden ohne
+ * Cookies ab (Manifest, Installation des Service Workers auf der
+ * Anmeldeseite), sie muessen also ohne Sitzung erreichbar sein.
  */
-const OEFFENTLICH = ["/login", "/api/auth", "/manifest.webmanifest"];
+const OEFFENTLICH = ["/login", "/api/auth", "/manifest.webmanifest", "/sw.js", "/offline.html"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -147,3 +147,86 @@ test("iPad und iPhone: Datumsfelder, Dialoge und Touch-Navigation in WebKit", as
     await context.close();
   } finally { await browser.close(); }
 });
+
+test("stempelt und traegt ohne Verbindung nach, uebertraegt spaeter und legt Konflikte zur Pruefung vor", async ({ page, context, browser }) => {
+  // Der Administrator ist hier nur ein Konto ohne Buchungen; andere Tests bleiben unberuehrt.
+  await anmelden(page, "admin");
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();
+  // Erst wenn Seite und Programmdateien auf dem Geraet liegen, ist Offline-Betrieb moeglich.
+  await expect.poll(() => page.evaluate(async () => {
+    const seiten = await (await caches.open("wunddoku-seiten-v1")).keys();
+    const statisch = await (await caches.open("wunddoku-statisch-v1")).keys();
+    return seiten.length > 0 && statisch.length > 5;
+  }), { timeout: 30_000 }).toBe(true);
+
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Meine Zeiterfassung", exact: true })).toBeVisible();
+  await expect(page.getByText("Keine Verbindung zum Server.")).toBeVisible();
+
+  // Nachtrag ohne Verbindung
+  await page.getByRole("button", { name: "Zeit nachtragen", exact: true }).click();
+  await page.locator("#beginn-datum").fill("2026-09-10");
+  await page.locator("#ende-datum").fill("2026-09-10");
+  await page.getByLabel("Notiz (optional)").fill("Offline nachgetragen");
+  await page.getByRole("button", { name: "Zeiteintrag speichern" }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(page.getByRole("heading", { name: "Noch nicht übertragen (1)" })).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+
+  // Ueberschneidung wird schon auf dem Geraet erkannt
+  await page.getByRole("button", { name: "Zeit nachtragen", exact: true }).click();
+  await page.locator("#beginn-datum").fill("2026-09-10");
+  await page.locator("#ende-datum").fill("2026-09-10");
+  await page.getByRole("button", { name: "Zeiteintrag speichern" }).click();
+  await expect(page.getByRole("alert")).toContainText("überschneidet");
+  await page.getByRole("button", { name: "Dialog schließen" }).click();
+
+  // Einstempeln und Ausstempeln ohne Verbindung ergibt eine einzige wartende Buchung
+  await page.getByRole("button", { name: "Einstempeln", exact: true }).click();
+  await page.locator("#beginn-datum").fill("2026-09-11");
+  await page.locator("#beginn-zeit").fill("08:00");
+  await page.getByRole("button", { name: "Einstempeln speichern" }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(page.getByText("Stechuhr läuft", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("Stechuhr läuft", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Noch nicht übertragen (2)" })).toBeVisible();
+  await page.getByRole("button", { name: "Ausstempeln", exact: true }).click();
+  await page.locator("#ende-datum").fill("2026-09-11");
+  await page.locator("#ende-zeit").fill("12:00");
+  await page.getByRole("button", { name: "Ausstempeln speichern" }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(page.getByText("Stechuhr läuft", { exact: true })).toBeHidden();
+  await expect(page.getByRole("heading", { name: "Noch nicht übertragen (2)" })).toBeVisible();
+
+  // Ein anderes Geraet bucht inzwischen online einen Zeitraum, den dieses Geraet nicht kennt
+  const anderes = await browser.newContext({ baseURL: "http://127.0.0.1:3101" });
+  const zweiteSeite = await anderes.newPage();
+  await anmelden(zweiteSeite, "admin");
+  await zweiteSeite.getByRole("button", { name: "Zeit nachtragen", exact: true }).click();
+  await zweiteSeite.locator("#beginn-datum").fill("2026-09-12");
+  await zweiteSeite.locator("#ende-datum").fill("2026-09-12");
+  await zweiteSeite.getByRole("button", { name: "Zeiteintrag speichern" }).click();
+  await expect(zweiteSeite.getByRole("dialog")).toBeHidden();
+  await anderes.close();
+  await page.getByRole("button", { name: "Zeit nachtragen", exact: true }).click();
+  await page.locator("#beginn-datum").fill("2026-09-12");
+  await page.locator("#beginn-zeit").fill("09:00");
+  await page.locator("#ende-datum").fill("2026-09-12");
+  await page.locator("#ende-zeit").fill("11:00");
+  await page.getByRole("button", { name: "Zeiteintrag speichern" }).click();
+  await expect(page.getByRole("heading", { name: "Noch nicht übertragen (3)" })).toBeVisible();
+
+  // Verbindung kehrt zurueck: zwei Buchungen werden uebernommen, die kollidierende bleibt zur Pruefung
+  await context.setOffline(false);
+  await expect(page.getByRole("heading", { name: "Noch nicht übertragen (1)" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/Zu prüfen: .*überschneidet/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Buchungen im Zeitraum (3)" })).toBeVisible();
+  await expect(page.getByText("Keine Verbindung zum Server.")).toBeHidden();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Noch nicht übertragen (1)" })).toBeVisible();
+  await page.getByRole("button", { name: /^Buchung verwerfen/ }).click();
+  await expect(page.getByRole("heading", { name: /^Noch nicht übertragen/ })).toBeHidden();
+});

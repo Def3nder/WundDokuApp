@@ -46,12 +46,13 @@ Die App läuft auf http://localhost:3000. Die Zugangsdaten des ersten Kontos
 stehen in `.env` (`SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`) — **nach der ersten
 Anmeldung ändern.**
 
-Auf dem iPhone/iPad lässt sich die App über Safari → Teilen → „Zum Home-Bildschirm"
-als Symbol ablegen und startet dann ohne Browserleiste. Das Symbol stammt aus
-`src/app/apple-icon.png` und `public/icon-*.png` (Puls-Linie auf Türkis), das
-Web-App-Manifest aus `src/app/manifest.ts`. Es gibt bewusst keinen Service Worker
-und keinen Offline-Betrieb. Bereits gespeicherte Lesezeichen behalten ihr altes
-Symbol, bis sie neu angelegt werden.
+Auf dem iPhone/iPad (Safari → Teilen → „Zum Home-Bildschirm") und unter Android
+(Chrome → „App installieren") lässt sich die App als Symbol ablegen und startet
+dann ohne Browserleiste. Das Symbol stammt aus `src/app/apple-icon.png` und
+`public/icon-*.png` (Puls-Linie auf Türkis), das Web-App-Manifest aus
+`src/app/manifest.ts`. Die Installation setzt HTTPS voraus (Ausnahme:
+`localhost`); bereits gespeicherte Lesezeichen behalten ihr altes Symbol, bis sie
+neu angelegt werden.
 
 ## Befehle
 
@@ -109,6 +110,34 @@ Stunden und die regelmäßigen Arbeitstage. Die Grundeinstellung ist
 - **Datierte Vorgaben:** Neue Einstellungen gelten ab dem gewählten Datum.
   Vorherige Perioden bleiben erhalten; das Bearbeiten einer alten Vorgabe ist
   eine bewusste Korrektur ihrer Periode. Bereits gebuchte Pausen bleiben gleich.
+
+### Zeiterfassung ohne Verbindung
+
+Die Zeiterfassung funktioniert auch ohne Verbindung zum Server (Funkloch, Server
+nicht erreichbar) – als einziger Teil der App:
+
+- **Offline möglich:** Seite öffnen, Einstempeln, Ausstempeln und Zeiten
+  nachtragen. Diese Buchungen werden auf dem Gerät gespeichert (IndexedDB), unter
+  „Noch nicht übertragen" aufgelistet und automatisch gesendet, sobald der Server
+  wieder erreichbar ist (beim Wiederverbinden, beim Zurückkehren in die App und
+  alle 30 Sekunden). Ein offline begonnenes und beendetes Stempeln wird als eine
+  Buchung gesendet.
+- **Nur online:** Bearbeiten und Löschen bereits übertragener Buchungen, die
+  Arbeitszeit-Einstellungen sowie alle Patienten-, Wund-, Foto- und Dokumentseiten.
+  Letztere werden aus Datenschutzgründen nie auf dem Gerät zwischengespeichert.
+- **Konflikte:** Lehnt der Server eine wartende Buchung ab (z. B. weil sie sich mit
+  einer inzwischen anderswo erfassten überschneidet), geht sie nicht verloren,
+  sondern erscheint als „Zu prüfen" und kann erneut gesendet, korrigiert oder
+  verworfen werden. Wurde eine Antwort verloren und die Buchung deshalb zweimal
+  gesendet, wird sie nur einmal übernommen.
+- **Voraussetzung:** Die Zeiterfassung muss einmal online geöffnet worden sein
+  (das geschieht automatisch nach der Anmeldung). Die Zeiten auf dem Gerät stammen
+  von der Geräteuhr. Wartende Buchungen gehören dem angemeldeten Nutzer und werden
+  nur unter dessen Konto gesendet. Wer sich abmeldet, leert den gespeicherten Stand
+  der Seite, nicht aber noch wartende Buchungen – sie bleiben bis zur Übertragung
+  erhalten.
+- Nur im Produktionsbetrieb aktiv (`npm run build` / `npm start`); der
+  Entwicklungsserver registriert keinen Service Worker.
 
 Alle Zeiten verwenden **Europe/Berlin**, unabhängig vom Gerät. Nachtschichten
 werden an Tages-/Monatsgrenzen aufgeteilt, die Pause anteilig verteilt.

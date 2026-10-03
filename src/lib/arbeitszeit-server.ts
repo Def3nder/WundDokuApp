@@ -8,7 +8,23 @@ function pruefeVergangenheit(datum: Date, jetzt: Date) {
   if (datum.getTime() > jetzt.getTime()) throw new ZeitKonflikt("Arbeitszeiten können nicht in der Zukunft gebucht werden.");
 }
 
-/** Alle Zugriffe werden aus der Sitzung abgeleitet, nie aus einer Nutzer-ID im Formular. */
+type Inhalt = { beginn: Date; ende: Date | null; pauseMinuten: number; notiz: string };
+
+function gleicherInhalt(eintrag: Inhalt, daten: Inhalt): boolean {
+  return eintrag.beginn.getTime() === daten.beginn.getTime()
+    && (eintrag.ende?.getTime() ?? null) === (daten.ende?.getTime() ?? null)
+    && eintrag.pauseMinuten === daten.pauseMinuten && eintrag.notiz === daten.notiz;
+}
+
+/**
+ * Alle Zugriffe werden aus der Sitzung abgeleitet, nie aus einer Nutzer-ID im Formular.
+ *
+ * Offline erfasste Buchungen werden spaeter vom Geraet gesendet und nach
+ * verlorener Antwort unter Umstaenden ein zweites Mal. Eine Buchung mit
+ * identischem Inhalt gilt deshalb als bereits uebernommen und wird unveraendert
+ * zurueckgegeben, statt als Ueberschneidung oder Versionskonflikt abgewiesen
+ * zu werden.
+ */
 export async function bucheArbeitszeit(db: PrismaClient, userId: string, daten: ZeitBuchungDaten, jetzt = new Date()) {
   pruefeVergangenheit(daten.beginn, jetzt);
   if (daten.ende) pruefeVergangenheit(daten.ende, jetzt);
@@ -16,8 +32,16 @@ export async function bucheArbeitszeit(db: PrismaClient, userId: string, daten: 
     if (daten.id) {
       const vorher = await tx.timeEntry.findFirst({ where: { id: daten.id, userId, geloeschtAm: null } });
       if (!vorher) throw new ZeitKonflikt("Dieser Zeiteintrag ist nicht verfügbar.");
-      if (vorher.version !== daten.version) throw new ZeitKonflikt(GEANDERT);
+      if (vorher.version !== daten.version) {
+        if (gleicherInhalt(vorher, daten)) return vorher;
+        throw new ZeitKonflikt(GEANDERT);
+      }
       if (vorher.ende && !daten.ende) throw new ZeitKonflikt("Eine abgeschlossene Buchung benötigt eine Endzeit.");
+    } else {
+      const vorhanden = await tx.timeEntry.findFirst({
+        where: { userId, geloeschtAm: null, beginn: daten.beginn, ende: daten.ende, pauseMinuten: daten.pauseMinuten, notiz: daten.notiz },
+      });
+      if (vorhanden) return vorhanden;
     }
     const ueberlappung = await tx.timeEntry.findFirst({
       where: {

@@ -63,6 +63,27 @@ describe("persistente Arbeitszeit mit Nutzertrennung", () => {
     await expect(bucheArbeitszeit(db, "alice", eingabe("2026-10-05T08:00", "2026-10-05T11:00", { id: e.id, version: 0 }), jetzt)).rejects.toThrow("inzwischen geändert");
     await expect(entferneArbeitszeit(db, "alice", e.id, 0)).rejects.toThrow();
   });
+  it("uebernimmt eine nach verlorener Antwort erneut gesendete Offline-Buchung nur einmal", async () => {
+    const neu = eingabe("2026-10-06T08:00", "2026-10-06T09:00", { pauseMinuten: 15, notiz: "Offline" });
+    const erste = await bucheArbeitszeit(db, "alice", neu, jetzt);
+    const zweite = await bucheArbeitszeit(db, "alice", neu, jetzt);
+    expect(zweite.id).toBe(erste.id);
+    expect(await db.timeEntry.count({ where: { userId: "alice", beginn: neu.beginn } })).toBe(1);
+    expect(await db.auditLog.count({ where: { entitaetId: erste.id } })).toBe(1);
+
+    const laufend = await bucheArbeitszeit(db, "alice", eingabe("2026-10-07T08:00"), jetzt);
+    const beenden = eingabe("2026-10-07T08:00", "2026-10-07T12:00", { id: laufend.id, version: laufend.version });
+    const beendet = await bucheArbeitszeit(db, "alice", beenden, jetzt);
+    const wiederholt = await bucheArbeitszeit(db, "alice", beenden, jetzt);
+    expect(wiederholt.version).toBe(beendet.version);
+    expect(await db.auditLog.count({ where: { entitaetId: laufend.id } })).toBe(2);
+  });
+  it("behandelt eine gleiche Buchung eines anderen Nutzers nicht als bereits vorhanden", async () => {
+    const neu = eingabe("2026-10-08T08:00", "2026-10-08T09:00");
+    const a = await bucheArbeitszeit(db, "alice", neu, jetzt);
+    const b = await bucheArbeitszeit(db, "bob", neu, jetzt);
+    expect(b.id).not.toBe(a.id);
+  });
   it("lehnt zukuenftige Arbeitszeiten ab", async () => {
     await expect(bucheArbeitszeit(db, "alice", eingabe("2026-12-01T08:00"), jetzt)).rejects.toThrow("Zukunft");
   });

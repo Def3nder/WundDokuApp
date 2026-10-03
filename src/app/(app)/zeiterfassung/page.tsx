@@ -1,11 +1,14 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Clock3, Settings2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Settings2 } from "lucide-react";
 import { db } from "@/lib/db";
 import { verlangeSitzung } from "@/lib/auth";
 import { arbeitstageAus, auswertung, datumPlus, datumText, gueltigesDatum, lokaleZeit, minutenText, nettoMinuten, vorgabeAm, wochentag, WOCHENTAGE, zeitAusEingabe, zeitraum, zeitText } from "@/lib/arbeitszeit";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BuchungKnopf, BuchungLoeschen, LaufendeZeit, type BuchungAnsicht } from "@/components/zeiterfassung/buchung";
+import { BuchungKnopf, BuchungLoeschen, type BuchungAnsicht } from "@/components/zeiterfassung/buchung";
+import { OfflineHinweis } from "@/components/zeiterfassung/offline-hinweis";
+import { OfflineZeitProvider } from "@/components/zeiterfassung/offline-kontext";
+import { Stechuhr } from "@/components/zeiterfassung/stechuhr";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Meine Zeiterfassung" };
@@ -31,26 +34,15 @@ export default async function ZeiterfassungSeite({ searchParams }: { searchParam
   const href = (tag: string, art = ansicht) => `/zeiterfassung?ansicht=${art}&datum=${tag}`;
   const titel = ansicht === "monat" ? new Date(`${von}T12:00:00Z`).toLocaleDateString("de-DE", { month: "long", year: "numeric", timeZone: "UTC" }) : `${datumText(von)} – ${datumText(datumPlus(bis, -1))}`;
   const diagrammMax = Math.max(60, ...bericht.tage.flatMap((t) => [t.netto, t.soll]));
-  return <div className="space-y-7">
+  const bekannt = [...eintraege, ...(laufend ? [laufend] : [])].map((e) => ({ id: e.id, beginn: e.beginn.toISOString(), ende: e.ende?.toISOString() ?? null }));
+  return <OfflineZeitProvider userId={sitzung.user.id} bekannt={bekannt}><div className="space-y-7">
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div><h1 className="text-2xl font-semibold">Meine Zeiterfassung</h1><p className="mt-1 text-sm text-muted-foreground">Arbeitszeiten und Überblick für {sitzung.user.name}.</p></div>
       <Button asChild variant="outline"><Link href="/zeiterfassung/einstellungen"><Settings2 aria-hidden="true" />Arbeitszeit-Einstellungen</Link></Button>
     </div>
 
-    <Card className="overflow-hidden border-l-4 border-l-primary">
-      <CardContent className="flex flex-col justify-between gap-5 py-6 sm:flex-row sm:items-center">
-        {laufend ? <LaufendeZeit beginn={laufend.beginn.toISOString()} serverJetzt={jetzt.toISOString()} /> : <div className="space-y-2">
-          <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Clock3 className="size-4" aria-hidden="true" />Stechuhr</p>
-          <h2 className="text-2xl font-semibold">Bereit für den Arbeitstag</h2>
-          <p className="text-sm text-muted-foreground">Aktuell nicht eingestempelt. Datum und Uhrzeit lassen sich vor dem Speichern anpassen.</p>
-        </div>}
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {laufend && <BuchungKnopf key={`${laufend.id}-${laufend.version}-edit`} eintrag={laufendAnsicht} modus="edit" vorgabe={vorgabe} />}
-          <BuchungKnopf key={`${laufend?.id ?? "start"}-${laufend?.version ?? 0}`} eintrag={laufendAnsicht} modus={laufend ? "stop" : "start"} vorgabe={vorgabe} />
-          {laufend && <BuchungLoeschen eintrag={laufendAnsicht!} />}
-        </div>
-      </CardContent>
-    </Card>
+    <OfflineHinweis vorgabe={vorgabe} />
+    <Stechuhr laufend={laufendAnsicht} serverJetzt={jetzt.toISOString()} vorgabe={vorgabe} />
 
     <section aria-labelledby="auswertung-titel" className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -104,5 +96,5 @@ export default async function ZeiterfassungSeite({ searchParams }: { searchParam
       </CardContent></Card>
       <p className="text-xs text-muted-foreground">Alle Angaben in Europe/Berlin. Buchungen zeigen die vollständige Schicht; die Auswertung zählt nur den Anteil im gewählten Zeitraum.</p>
     </section>
-  </div>;
+  </div></OfflineZeitProvider>;
 }

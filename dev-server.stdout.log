@@ -280,3 +280,22 @@
  GET /manifest.webmanifest 200 in 12ms (next.js: 3ms, proxy.ts: 3ms, application-code: 6ms)
  GET /apple-touch-icon.png 404 in 38ms (next.js: 17ms, application-code: 21ms)
  GET /apple-touch-icon-precomposed.png 404 in 24ms (next.js: 6ms, application-code: 18ms)
+ GET /login?weiter=%2Fzeiterfassung 200 in 44ms (next.js: 5ms, proxy.ts: 4ms, application-code: 35ms)
+ GET /manifest.webmanifest 200 in 19ms (next.js: 5ms, proxy.ts: 5ms, application-code: 8ms)
+ GET /login?weiter=%2Fzeiterfassung 200 in 48ms (next.js: 7ms, proxy.ts: 6ms, application-code: 36ms)
+ GET /manifest.webmanifest 200 in 17ms (next.js: 4ms, proxy.ts: 4ms, application-code: 9ms)
+ GET /login?weiter=%2Fzeiterfassung 200 in 43ms (next.js: 6ms, proxy.ts: 4ms, application-code: 33ms)
+ GET /manifest.webmanifest 200 in 19ms (next.js: 5ms, proxy.ts: 7ms, application-code: 8ms)
+▲ Next.js 16.3.5 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://169.254.83.107:3000
+- Environments: .env
+✓ Ready in 5.4s
+✓ Running next.config.ts took 201ms
+- Experiments (use with caution):
+  · serverActions
+
+ GET /login?weiter=%2Fzeiterfassung 200 in 1322ms (next.js: 185ms, proxy.ts: 544ms, application-code: 593ms)
+ GET /manifest.webmanifest 200 in 102ms (next.js: 69ms, proxy.ts: 10ms, application-code: 23ms)
+ GET /login?weiter=%2Fzeiterfassung 200 in 48ms (next.js: 8ms, proxy.ts: 4ms, application-code: 36ms)
+ GET /manifest.webmanifest 200 in 25ms (next.js: 8ms, proxy.ts: 7ms, application-code: 10ms)
