@@ -157,6 +157,22 @@ für Prisma-Generierung stoppen). Bei bereits aktuellem Prisma-Client reicht
 abweichende vorhandene WebKit-Engine kann wie beim Responsive-Test
 `WEBKIT_EXECUTABLE_PATH` gesetzt werden.
 
+## Betrieb auf dem Debian-Server
+
+Das Repository liegt unter `/opt/wunddoku-app` (Branch `main`). Zwei Scripts
+übernehmen den Betrieb; beide als normaler Benutzer, nicht als root:
+
+| Script | Zweck |
+|---|---|
+| `./setup.sh` | Einmalige Einrichtung (wiederholbar): Datenverzeichnis `/var/lib/wunddoku` (Datenbank und Wundfotos), `.env` mit frischem `AUTH_SECRET`, systemd-Dienst `wunddoku` anlegen und für den Systemstart anmelden, danach `update.sh` ausführen und den ersten Administrator abfragen. Eine vorhandene `.env` bleibt unverändert. |
+| `./update.sh` | Update: Git-Stand holen, Dienst stoppen, Datenbank nach `~/wunddoku-backups` sichern, `npm ci`, Build, `prisma migrate deploy`, Dienst starten und prüfen. |
+
+Der Dienst lauscht nur auf `127.0.0.1:3003`; HTTPS und die Domain übernimmt ein
+Reverse Proxy (Beispiel am Ende der Ausgabe von `setup.sh`). Die Domain muss in
+`next.config.ts` unter `serverActions.allowedOrigins` stehen. Der erste
+Administrator wird mit `prisma/admin-anlegen.ts` angelegt – bewusst nicht mit dem
+Seed, der Testpatienten und ein Konto mit bekanntem Passwort erzeugt.
+
 ## Datenschutz und Betrieb
 
 Die App verarbeitet Gesundheitsdaten nach Art. 9 DSGVO. Was die Anwendung

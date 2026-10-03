@@ -6,7 +6,7 @@
 #
 # Aufruf als normaler Benutzer (nicht root):  ./update.sh
 # Der Dienstname und der Port lassen sich ueberschreiben:
-#   SERVICE=wunddoku PORT=3000 ./update.sh
+#   SERVICE=wunddoku PORT=3003 ./update.sh
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -14,7 +14,7 @@ IFS=$'\n\t'
 readonly APP_DIR='/opt/wunddoku-app'
 readonly BRANCH='main'
 readonly SERVICE="${SERVICE:-wunddoku}"
-readonly PORT="${PORT:-3000}"
+readonly PORT="${PORT:-3003}"
 readonly BACKUP_DIR="${BACKUP_DIR:-$HOME/wunddoku-backups}"
 readonly BACKUPS_BEHALTEN=10
 
