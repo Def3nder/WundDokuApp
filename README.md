@@ -177,8 +177,10 @@ sudo mkswap /swapfile && sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 
-Der Dienst lauscht nur auf `127.0.0.1:3003`; HTTPS und die Domain übernimmt ein
-Reverse Proxy (Beispiel am Ende der Ausgabe von `setup.sh`). Die Domain muss in
+Der Dienst lauscht auf `0.0.0.0:3003` (HTTP, unverschlüsselt); HTTPS und die Domain
+übernimmt ein Reverse Proxy (Beispiel am Ende der Ausgabe von `setup.sh`). Den Port
+bitte per Firewall auf die Adresse des Proxys beschränken. Liegt der Proxy auf
+demselben Server, `BIND_HOST=127.0.0.1 ./setup.sh` verwenden. Die Domain muss in
 `next.config.ts` unter `serverActions.allowedOrigins` stehen. Der erste
 Administrator wird mit `prisma/admin-anlegen.ts` angelegt – bewusst nicht mit dem
 Seed, der Testpatienten und ein Konto mit bekanntem Passwort erzeugt.
