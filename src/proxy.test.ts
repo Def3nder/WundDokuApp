@@ -14,6 +14,16 @@ describe("Proxy-Zugriffsschutz", () => {
     expect(proxy(anfrage("/api/auth/session")).headers.get("x-middleware-next")).toBe("1");
   });
 
+  it("laesst Manifest, Service Worker und Offline-Seite ohne Sitzung passieren", () => {
+    for (const pfad of ["/manifest.webmanifest", "/sw.js", "/offline.html"]) {
+      expect(proxy(anfrage(pfad)).headers.get("x-middleware-next")).toBe("1");
+    }
+  });
+
+  it("schuetzt die Zeiterfassung weiterhin ohne Sitzung", () => {
+    expect(proxy(anfrage("/zeiterfassung")).status).toBe(307);
+  });
+
   it("leitet geschuetzte Seiten mit Ruecksprungziel zum Login", () => {
     const antwort = proxy(anfrage("/wunden/w1"));
 

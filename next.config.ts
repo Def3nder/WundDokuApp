@@ -28,23 +28,30 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   // Erlaubt den Zugriff auf den Dev-Server ueber die LAN-IP dieses Rechners
-  // (z. B. vom Tablet aus) - ohne das blockiert Next.js Requests, die nicht
-  // von localhost oder dem Start-Host kommen.
-  allowedDevOrigins: ["192.168.1.65"],
+  // (z. B. vom Tablet aus) und ueber den Reverse Proxy - ohne das blockiert
+  // Next.js Requests, die nicht von localhost oder dem Start-Host kommen und
+  // liefert die /_next/*-Assets nicht aus.
+  allowedDevOrigins: ["192.168.1.65", "wunddoku.bruechmann.xyz"],
   serverExternalPackages: ["sharp", "heic-convert", "@prisma/client", "bcryptjs"],
   experimental: {
     serverActions: {
       // Wundfotos koennen gross sein.
       // 20 MB Nutzdatei plus Multipart-Metadaten des Formulars.
       bodySizeLimit: "22mb",
-      // Sonst lehnt Next.js Server Actions ab, die ueber die LAN-IP aufgerufen
-      // werden (Origin- gegen Host-Pruefung, CSRF-Schutz). Anders als bei
-      // allowedDevOrigins gehoert der Port mit in den Eintrag.
-      allowedOrigins: ["192.168.1.65:3000"],
+      // Sonst lehnt Next.js Server Actions ab, die ueber die LAN-IP oder den
+      // Reverse Proxy aufgerufen werden (Origin- gegen Host-Pruefung,
+      // CSRF-Schutz). Der Eintrag muss dem Origin-Header entsprechen, den der
+      // Browser schickt - also mit Port nur dort, wo er vom Standard abweicht:
+      // Direktzugriff laeuft ueber :3000, der Proxy ueber HTTPS auf 443.
+      allowedOrigins: ["192.168.1.65:3000", "wunddoku.bruechmann.xyz"],
     },
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Der Service Worker muss bei jedem Start auf Aktualisierung geprueft werden.
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }] },
+    ];
   },
 };
 

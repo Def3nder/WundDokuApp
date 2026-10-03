@@ -8,6 +8,8 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 
 export default defineConfig({
   testDir: "./tests",
+  testIgnore: "zeiterfassung.spec.ts", // Eigene Datenbank und eigener Server in playwright.zeiterfassung.config.ts.
+  outputDir: "test-results/a11y",
   fullyParallel: false,
   workers: 1,
   timeout: 120_000,

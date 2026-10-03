@@ -8,8 +8,13 @@ import type { NextRequest } from "next/server";
  * optimistische Vorpruefung bleibt schnell; die verbindliche Pruefung des JWT
  * und der Benutzerrechte passiert in Server Actions und Route Handlern ueber
  * verlangeSitzung() beziehungsweise auth().
+ *
+ * Manifest, Service Worker und Offline-Seite enthalten nur Programmcode,
+ * Namen und Symbole, keine Daten. Browser rufen sie unter Umstaenden ohne
+ * Cookies ab (Manifest, Installation des Service Workers auf der
+ * Anmeldeseite), sie muessen also ohne Sitzung erreichbar sein.
  */
-const OEFFENTLICH = ["/login", "/api/auth"];
+const OEFFENTLICH = ["/login", "/api/auth", "/manifest.webmanifest", "/sw.js", "/offline.html"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

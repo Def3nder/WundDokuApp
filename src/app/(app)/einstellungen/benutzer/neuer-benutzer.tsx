@@ -42,7 +42,7 @@ export function NeuerBenutzer({ abbrechenNach }: { abbrechenNach: string }) {
         >
           <FehlerUebersicht fehler={zustand.fehler} />
 
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="form-grid gap-5">
             <Field id="name" label="Name" pflicht fehler={f("name")}>
               {(p) => <Input {...p} name="name" defaultValue={w("name")} required />}
             </Field>
@@ -58,7 +58,9 @@ export function NeuerBenutzer({ abbrechenNach }: { abbrechenNach: string }) {
                 <Input {...p} name="handzeichen" maxLength={6} defaultValue={w("handzeichen")} required />
               )}
             </Field>
+          </div>
 
+          <div className="form-grid gap-5">
             <Field id="email" label="E-Mail" pflicht fehler={f("email")}>
               {(p) => (
                 <Input
@@ -91,14 +93,13 @@ export function NeuerBenutzer({ abbrechenNach }: { abbrechenNach: string }) {
             pflicht
             hilfe="Mindestens 10 Zeichen. Der Benutzer sollte es nach der ersten Anmeldung ändern."
             fehler={f("passwort")}
-            className="max-w-md"
           >
             {(p) => (
               <Input {...p} name="passwort" type="password" autoComplete="new-password" required />
             )}
           </Field>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="form-actions">
             <Button type="submit" laedt={laeuft}>Benutzer anlegen</Button>
             <Button type="button" variant="outline" asChild>
               <Link href={abbrechenNach}>Abbrechen</Link>

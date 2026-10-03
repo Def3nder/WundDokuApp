@@ -196,7 +196,7 @@ function VergleichInhalt({
             Beide Aufnahmeserien bleiben auf breiten Ansichten direkt nebeneinander.
           </p>
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="panel-grid gap-4">
           <FotoSpalte titel="Ausgangsbefund" aufnahme={ausgang} />
           <FotoSpalte titel="Vergleichsbefund" aufnahme={vergleich} hervorgehoben />
         </div>
@@ -211,7 +211,8 @@ function VergleichInhalt({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-lg border border-border">
+          <p className="mb-3 text-xs text-muted-foreground lg:hidden">Die Tabelle lässt sich seitlich scrollen.</p>
+          <div role="region" aria-label="Differenztabelle" tabIndex={0} className="max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-border">
             <table className="w-full min-w-[760px] border-collapse text-left text-sm">
               <thead className="bg-surface-muted text-xs uppercase tracking-[0.08em] text-muted-foreground">
                 <tr>

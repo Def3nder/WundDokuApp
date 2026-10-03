@@ -60,7 +60,7 @@ export function WundeKopf({
           )}
         </div>
 
-        <dl className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+        <dl className="detail-grid mt-4 gap-x-8 gap-y-4">
           {lokalisation && (
             <div>
               <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">

@@ -13,6 +13,19 @@ async function anmelden(page: Page) {
   await expect(page.getByRole("heading", { level: 1, name: "Patienten" })).toBeVisible();
 }
 
+/**
+ * Klappt auf der Patientenseite die abgeschlossenen Wunden auf.
+ *
+ * Seit eine Wunde ueber eine Folgeaufnahme abgeschlossen werden kann, steht die
+ * gesuchte Wunde je nach Datenstand im zugeklappten `<details>` - und waere
+ * fuer Rollenabfragen unsichtbar.
+ */
+async function abgeschlosseneWundenZeigen(page: Page) {
+  for (const summary of await page.locator("main details:not([open]) > summary").all()) {
+    await summary.click();
+  }
+}
+
 function verlangeHref(wert: string | null, bezeichnung: string): string {
   expect(wert, `${bezeichnung} muss einen Link besitzen`).toBeTruthy();
   if (!wert) throw new Error(`${bezeichnung} ohne href`);
@@ -140,10 +153,58 @@ test("zentrale Navigation ist vollständig per Tastatur erreichbar", async ({ pa
   await alle.focus();
   await alle.press("ArrowRight");
   await expect(page).toHaveURL(/filter=offen/);
-  await expect(page.getByRole("radio", { name: "Mit offener Wunde" })).toHaveAttribute(
+  await expect(page.getByRole("radio", { name: "In Behandlung" })).toHaveAttribute(
     "aria-checked",
     "true",
   );
+});
+
+test("die Patientenliste trennt nach Behandlungsstand", async ({ page }) => {
+  await anmelden(page);
+  await page.goto("/");
+
+  // Die Zahl in der Ueberschrift muss zu den gezeigten Karten passen - sonst
+  // stimmt die Einteilung nicht.
+  const bereiche = page.locator("main section").filter({ has: page.locator("h2") });
+  const anzahlBereiche = await bereiche.count();
+  expect(anzahlBereiche).toBeGreaterThan(0);
+  for (let i = 0; i < anzahlBereiche; i++) {
+    const bereich = bereiche.nth(i);
+    const ueberschrift = (await bereich.locator("h2").innerText()).replace(/\s+/g, " ");
+    const angekuendigt = Number(ueberschrift.match(/\((\d+)\)/)?.[1]);
+    expect(angekuendigt, ueberschrift).toBeGreaterThan(0);
+    await expect(bereich.locator("li"), ueberschrift).toHaveCount(angekuendigt);
+  }
+
+  // Jeder Chip zeigt genau seinen Bereich - oder den Hinweis, dass er leer ist.
+  for (const [chip, titel] of [
+    ["In Behandlung", "In Behandlung"],
+    ["Keine Behandlungen", "Keine Behandlungen"],
+    ["Neue Patienten", "Neue Patienten"],
+  ] as const) {
+    await page.getByRole("radio", { name: chip, exact: true }).click();
+    await expect(page.getByRole("radio", { name: chip, exact: true })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    const ueberschriften = page.locator("main section h2");
+    if ((await ueberschriften.count()) === 0) {
+      await expect(page.getByText("Keine Patienten in dieser Ansicht")).toBeVisible();
+      continue;
+    }
+    await expect(ueberschriften).toHaveCount(1);
+    await expect(ueberschriften).toContainText(titel);
+    // Im gruenen Bereich traegt jede Karte das Abzeichen; Farbe steht nie allein.
+    if (chip === "Keine Behandlungen") {
+      const karten = page.locator("main section li");
+      await expect(karten.getByText("Keine Behandlungen", { exact: true })).toHaveCount(
+        await karten.count(),
+      );
+    }
+  }
+
+  await page.getByRole("radio", { name: "Alle", exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test("mobile Hauptnavigation ist sichtbar und per Escape schließbar", async ({ page }) => {
@@ -216,6 +277,7 @@ test("interaktive Abmessungen starten bei der neuesten Aufnahme und sind per Tas
     "Patientin mit Mehrfachverlauf",
   );
   await page.goto(patientHref);
+  await abgeschlosseneWundenZeigen(page);
   const wundeHref = verlangeHref(
     await page.getByRole("link", { name: /Ulcus cruris venosum/ }).first().getAttribute("href"),
     "Wunde mit Mehrfachverlauf",
@@ -229,21 +291,52 @@ test("interaktive Abmessungen starten bei der neuesten Aufnahme und sind per Tas
   await expect(abmessungen).toBeVisible();
 
   const auswahl = abmessungen.getByRole("group", { name: "Aufnahme auswählen" });
-  const termine = auswahl.getByRole("button");
-  const anzahlTermine = await termine.count();
+  const slider = auswahl.getByRole("slider", { name: "Aufnahme auswählen" });
+  const anzahlTermine = Number(await slider.getAttribute("max"));
   expect(anzahlTermine).toBeGreaterThan(1);
-  await expect(auswahl.locator("[data-termin-abmessungen]").first()).toBeVisible();
+  await expect(auswahl.locator("time")).toHaveCount(3);
+  const ausgewaehltesDatum = auswahl.locator("[data-ausgewaehlter-termin]");
+  const erstesDatum = await auswahl.locator("time").nth(1).getAttribute("datetime");
+  const letztesDatum = await auswahl.locator("time").nth(2).getAttribute("datetime");
+  const bilder = abmessungen.getByRole("img");
+  const letzteBildtexte = await bilder.evaluateAll(elemente => elemente.map(el => el.getAttribute("aria-label")));
+  const letzteMesswerte = await abmessungen.locator("dl").innerText();
 
-  const ersterTermin = termine.first();
-  const neuesterTermin = termine.last();
-  await expect(neuesterTermin).toHaveAttribute("aria-pressed", "true");
-  await neuesterTermin.focus();
-  await neuesterTermin.press("Home");
-  await expect(ersterTermin).toBeFocused();
-  await expect(ersterTermin).toHaveAttribute("aria-pressed", "true");
-  await ersterTermin.press("End");
-  await expect(neuesterTermin).toBeFocused();
-  await expect(neuesterTermin).toHaveAttribute("aria-pressed", "true");
+  await expect(slider).toHaveValue(String(anzahlTermine));
+  await expect(ausgewaehltesDatum).toHaveAttribute("datetime", letztesDatum!);
+  await slider.focus();
+  await slider.press("Home");
+  await expect(slider).toBeFocused();
+  await expect(slider).toHaveValue("1");
+  await expect(ausgewaehltesDatum).toHaveAttribute("datetime", erstesDatum!);
+  for (let i = 0; i < letzteBildtexte.length; i++) {
+    await expect(bilder.nth(i)).not.toHaveAttribute("aria-label", letzteBildtexte[i]!);
+  }
+  await expect(abmessungen.locator("dl")).not.toHaveText(letzteMesswerte);
+  await slider.press("ArrowRight");
+  await expect(slider).toHaveValue("2");
+  await slider.press("End");
+  await expect(slider).toHaveValue(String(anzahlTermine));
+  await expect(ausgewaehltesDatum).toHaveAttribute("datetime", letztesDatum!);
+
+  // Noch vor dem Loslassen muessen Datum, beide Abbildungen und Werte wechseln.
+  await slider.scrollIntoViewIfNeeded();
+  const sliderBox = (await slider.boundingBox())!;
+  const ziel = Math.ceil(anzahlTermine / 2);
+  await page.mouse.move(sliderBox.x + sliderBox.width - 14, sliderBox.y + sliderBox.height / 2);
+  await page.mouse.down();
+  try {
+    await page.mouse.move(sliderBox.x + 14 + (sliderBox.width - 28) * (ziel - 1) / (anzahlTermine - 1), sliderBox.y + sliderBox.height / 2, { steps: 12 });
+    await expect(slider).toHaveValue(String(ziel));
+    await expect(ausgewaehltesDatum).not.toHaveAttribute("datetime", letztesDatum!);
+    for (let i = 0; i < letzteBildtexte.length; i++) {
+      await expect(bilder.nth(i)).not.toHaveAttribute("aria-label", letzteBildtexte[i]!);
+    }
+    await expect(abmessungen.locator("dl")).not.toHaveText(letzteMesswerte);
+  } finally {
+    await page.mouse.up();
+  }
+  await expect(slider).toHaveValue(String(ziel));
 
   const axeErgebnis = await new AxeBuilder({ page })
     .exclude("nextjs-portal")
@@ -260,6 +353,7 @@ test("interaktive Abmessungen bleiben auf iPad Pro und iPad Mini vollständig si
     "Patientin mit Mehrfachverlauf",
   );
   await page.goto(patientHref);
+  await abgeschlosseneWundenZeigen(page);
   const wundeHref = verlangeHref(
     await page.getByRole("link", { name: /Ulcus cruris venosum/ }).first().getAttribute("href"),
     "Wunde mit Mehrfachverlauf",
@@ -315,16 +409,22 @@ test("interaktive Abmessungen bleiben auf iPad Pro und iPad Mini vollständig si
     );
     expect(gruppenHoehen).toHaveLength(2);
     expect(Math.abs(gruppenHoehen[0] - gruppenHoehen[1])).toBeLessThan(1);
-    expect(gruppenHoehen[0]).toBeLessThanOrEqual(224);
+    expect(gruppenHoehen[0]).toBeLessThanOrEqual(160);
+
+    // Fuer die Geometrie eine Aufnahme mit echter Ausdehnung waehlen: Ist die
+    // neueste mit 0 vermessen (abgeheilte Wunde), zeigt die Draufsicht
+    // absichtlich keine Kontur, sondern den Hinweis "Keine Ausdehnung".
+    await abmessungen.getByRole("slider").press("Home");
 
     const draufsichtFlaeche = abmessungen
       .getByRole("img", { name: /Schematische Wunddraufsicht/ })
       .locator("svg");
     const flaechenBox = await draufsichtFlaeche.boundingBox();
     expect(flaechenBox).not.toBeNull();
-    expect(flaechenBox!.height).toBeGreaterThan(140);
-    expect(flaechenBox!.height).toBeLessThan(180);
+    expect(flaechenBox!.height).toBeGreaterThan(120);
+    expect(flaechenBox!.height).toBeLessThan(150);
     expect(flaechenBox!.width).toBeGreaterThan(flaechenBox!.height);
+    await expect(draufsichtFlaeche.locator("..").getByText(/^Länge \d/)).toHaveCount(0);
     const konturBox = await draufsichtFlaeche.locator("path").evaluate((element) => {
       const box = (element as SVGGraphicsElement).getBBox();
       return { x: box.x, y: box.y, width: box.width, height: box.height };
@@ -332,7 +432,7 @@ test("interaktive Abmessungen bleiben auf iPad Pro und iPad Mini vollständig si
     expect(konturBox.width).toBeGreaterThan(50);
     expect(konturBox.height).toBeGreaterThan(50);
     expect(Math.abs(konturBox.x + konturBox.width / 2 - 140)).toBeLessThan(2);
-    expect(Math.abs(konturBox.y + konturBox.height / 2 - 90)).toBeLessThan(2);
+    expect(Math.abs(konturBox.y + konturBox.height / 2 - 78)).toBeLessThan(2);
     const wundFarbe = await draufsichtFlaeche.locator("[data-wundkontur]").getAttribute("stroke");
     expect(wundFarbe).toBe(viewport.wundFarbe);
     const tiefenProfil = abmessungen.locator("[data-tiefenprofil]");
@@ -341,17 +441,16 @@ test("interaktive Abmessungen bleiben auf iPad Pro und iPad Mini vollständig si
     expect(await tiefenRand.getAttribute("stroke")).toBe(viewport.randFarbe);
 
     const auswahl = abmessungen.getByRole("group", { name: "Aufnahme auswählen" });
-    await expect.poll(() => auswahl.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
-    const messwertZeilen = auswahl.locator("[data-termin-abmessungen]");
-    if (viewport.width < 1280) {
-      await expect(messwertZeilen.first()).toBeHidden();
-    } else {
-      await expect(messwertZeilen.first()).toBeVisible();
-    }
-    const terminPositionen = await auswahl.getByRole("button").evaluateAll((elemente) =>
-      elemente.map((element) => Math.round(element.getBoundingClientRect().top)),
+    await expect(auswahl.getByRole("slider")).toBeVisible();
+    await expect(auswahl.locator("time")).toHaveCount(3);
+    expect(await auswahl.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    const terminPositionen = await auswahl.locator("[data-termin-markierung]").evaluateAll((elemente) =>
+      elemente.map((element) => element.getBoundingClientRect().left),
     );
-    expect(new Set(terminPositionen).size).toBe(1);
+    const abstand = terminPositionen[1] - terminPositionen[0];
+    for (let i = 2; i < terminPositionen.length; i++) {
+      expect(Math.abs(terminPositionen[i] - terminPositionen[i - 1] - abstand)).toBeLessThan(1);
+    }
 
     const seitenbreite = await page.evaluate(() => {
       const clientWidth = document.documentElement.clientWidth;
@@ -378,6 +477,82 @@ test("interaktive Abmessungen bleiben auf iPad Pro und iPad Mini vollständig si
       seitenbreite.clientWidth,
     );
   }
+});
+
+test("Kennzahl-Kacheln blenden Abmessungen und letzte Termine ein", async ({ page }) => {
+  await anmelden(page);
+  await page.goto("/");
+  const patientHref = verlangeHref(
+    await page.getByRole("link", { name: /Berger, Hannelore/ }).first().getAttribute("href"),
+    "Patientin mit Mehrfachverlauf",
+  );
+  await page.goto(patientHref);
+  await abgeschlosseneWundenZeigen(page);
+  const wundeHref = verlangeHref(
+    await page.getByRole("link", { name: /Ulcus cruris venosum/ }).first().getAttribute("href"),
+    "Wunde mit Mehrfachverlauf",
+  );
+  await page.goto(wundeHref);
+
+  // Der aufklappbare Wundverlauf bleibt zu: sonst gaebe es die Abmessungen
+  // zweimal auf der Seite und die Rollenabfragen waeren nicht mehr eindeutig.
+  const abmessungenKachel = page.getByRole("button", { name: /Seit erster Messung/ });
+  const termineKachel = page.getByRole("button", { name: /Dokumentierte Termine/ });
+  await expect(abmessungenKachel).toHaveAttribute("aria-expanded", "false");
+
+  await abmessungenKachel.hover();
+  await expect(abmessungenKachel).toHaveAttribute("aria-expanded", "true");
+  const abmessungen = page.getByRole("region", {
+    name: "Interaktive Darstellung der Wundabmessungen",
+  });
+  const slider = abmessungen.getByRole("slider");
+  await expect(slider).toBeVisible();
+
+  // Die Einblendung darf nie unter den Fensterrand rutschen - sonst waeren
+  // Zeitstrahl und Messwerte nicht erreichbar.
+  const vorschauKasten = (await page.locator(`[id="${await abmessungenKachel.getAttribute("aria-controls")}"]`).boundingBox())!;
+  const fenster = page.viewportSize()!;
+  expect(vorschauKasten.x).toBeGreaterThanOrEqual(0);
+  expect(vorschauKasten.x + vorschauKasten.width).toBeLessThanOrEqual(fenster.width + 1);
+  expect(vorschauKasten.y + vorschauKasten.height).toBeLessThanOrEqual(fenster.height + 1);
+
+  const vorherigeMesswerte = await abmessungen.locator("dl").innerText();
+  await slider.press("Home");
+  await expect(slider).toHaveValue("1");
+  await expect(abmessungen.locator("dl")).not.toHaveText(vorherigeMesswerte);
+  // Tastaturfokus im Inhalt haelt die Einblendung offen.
+  await expect(abmessungenKachel).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(abmessungenKachel).toHaveAttribute("aria-expanded", "false");
+  await expect(abmessungenKachel).toBeFocused();
+
+  await termineKachel.hover();
+  await expect(termineKachel).toHaveAttribute("aria-expanded", "true");
+  const termine = page.locator(`[id="${await termineKachel.getAttribute("aria-controls")}"]`);
+  const eintraege = termine.locator('a[href^="/aufnahmen/"]');
+  await expect(eintraege).toHaveCount(5);
+  // Die Gesamtzahl steht in der Kachel selbst - nicht fest verdrahten, sie
+  // waechst mit jeder neuen Aufnahme.
+  const gesamt = Number((await termineKachel.innerText()).match(/\n(\d+)\n/)?.[1]);
+  expect(gesamt, "Anzahl in der Kachel").toBeGreaterThan(5);
+  await expect(termine).toContainText(`5 von ${gesamt} Terminen`);
+  const daten = await eintraege.evaluateAll((elemente) =>
+    elemente.map((element) => ({
+      datum: element.querySelector("time")!.getAttribute("datetime")!,
+      hoehe: element.getBoundingClientRect().height,
+    })),
+  );
+  // Neueste zuerst; jede Zeile bleibt ueber dem 24-px-Mindestziel.
+  for (let i = 1; i < daten.length; i++) {
+    expect(new Date(daten[i]!.datum).getTime()).toBeLessThanOrEqual(
+      new Date(daten[i - 1]!.datum).getTime(),
+    );
+  }
+  for (const eintrag of daten) expect(eintrag.hoehe).toBeGreaterThanOrEqual(24);
+
+  const ziel = verlangeHref(await eintraege.first().getAttribute("href"), "Termineintrag");
+  await eintraege.first().click();
+  await expect(page).toHaveURL(new RegExp(`${ziel}$`));
 });
 
 test("Versorgungspartner lassen sich suchen, auswählen und neu anlegen", async ({ page }) => {
@@ -491,4 +666,67 @@ test("Navigation warnt nur bei tatsächlich ungespeicherten Änderungen", async 
     await page.goto(route);
     await expect(page.locator("form[data-aenderungen-warnung]")).toBeVisible();
   }
+});
+
+test("abgeschlossene Wunden sind als abgeheilt erkennbar", async ({ page }) => {
+  await anmelden(page);
+  await page.goto("/");
+  const patientHref = verlangeHref(
+    await page.getByRole("link", { name: /Kowalski, Josef/ }).first().getAttribute("href"),
+    "Patient mit abgeschlossener Wunde",
+  );
+  await page.goto(patientHref);
+
+  // Abgeschlossene Wunden stehen in einem eigenen Aufklapper, nicht in der
+  // Liste der offenen.
+  const aufklapper = page.locator("main details").filter({ hasText: /abgeschlossene Wunde/ });
+  await expect(aufklapper).toBeVisible();
+  await aufklapper.locator("summary").click();
+
+  const karte = aufklapper.locator('a[href^="/wunden/"]').first();
+  await expect(karte).toContainText("Abgeschlossen");
+  // Gruen hinterlegt - Farbe steht hier nie allein, das Abzeichen oben gehoert
+  // dazu. Geprueft wird die Durchsichtigkeit der Tönung (`bg-accent/5`) statt
+  // eines Vergleichs mit einer offenen Wunde: Ob der Patient ueberhaupt noch
+  // eine offene Wunde hat, haengt vom Datenstand ab.
+  const deckkraft = await karte
+    .locator("div")
+    .first()
+    .evaluate((element) => {
+      const farbe = getComputedStyle(element).backgroundColor;
+      return Number(farbe.match(/[/,]\s*([\d.]+)\s*\)$/)?.[1] ?? 1);
+    });
+  expect(deckkraft, "Wundkarte ist getönt statt deckend").toBeLessThan(1);
+
+  const wundeHref = verlangeHref(await karte.getAttribute("href"), "Abgeschlossene Wunde");
+  await page.goto(wundeHref);
+  await expect(page.getByText(/Abgeschlossen am/)).toBeVisible();
+  const wiedereroeffnen = page.getByRole("button", { name: "Wunde wieder eröffnen" });
+  await expect(wiedereroeffnen).toBeVisible();
+
+  // Die abgeheilte Aufnahme: 0 als Messwert ergibt 0 mm^2, keinen Gedankenstrich.
+  const abgeheilt = page.locator('main ol > li').filter({ hasText: "Abgeheilt" }).first();
+  await expect(abgeheilt).toBeVisible();
+  await expect(abgeheilt).toContainText("0 mm²");
+  await abgeheilt.locator('a[href^="/aufnahmen/"]').click();
+  await expect(page.getByText("In dieser Aufnahme als abgeheilt festgestellt")).toBeVisible();
+
+  // Das Feld steht nur in Folgeaufnahmen und schaltet den versteckten Wert um.
+  await page.goto(`${wundeHref}/aufnahmen/neu`);
+  const abschluss = page.getByRole("navigation", { name: "Abschnitte" }).getByRole("link", {
+    name: "Abschluss",
+    exact: true,
+  });
+  await expect(abschluss).toBeVisible();
+  const gruppe = page.getByRole("radiogroup", { name: "Wunde ist abgeheilt?", exact: true });
+  await expect(page.locator('input[type="hidden"][name="wundeGeheilt"]')).toHaveValue("nein");
+  await gruppe.getByRole("radio", { name: "Ja", exact: true }).click();
+  await expect(page.locator('input[type="hidden"][name="wundeGeheilt"]')).toHaveValue("ja");
+  await expect(page.getByText(/Beim Speichern wird die Wunde als abgeschlossen markiert/)).toBeVisible();
+
+  const axeErgebnis = await new AxeBuilder({ page })
+    .exclude("nextjs-portal")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze();
+  expect(axeErgebnis.violations).toEqual([]);
 });

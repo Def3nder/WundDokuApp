@@ -44,7 +44,7 @@ export function Abschnitt({
     <section
       id={def.id}
       className={cn(
-        "scroll-mt-20 rounded-xl border bg-card shadow-sm",
+        "form-section min-w-0 rounded-xl border bg-card shadow-sm",
         hatFehler ? "border-destructive/50" : "border-border",
       )}
     >
@@ -54,7 +54,7 @@ export function Abschnitt({
           onClick={() => setOffen((o) => !o)}
           aria-expanded={offen}
           aria-controls={`${def.id}-inhalt`}
-          className="flex w-full items-center gap-3 rounded-xl p-5 text-left cursor-pointer sm:p-6"
+          className="card-header flex w-full items-center gap-3 rounded-xl text-left cursor-pointer"
         >
           <span
             aria-hidden="true"
@@ -99,7 +99,7 @@ export function Abschnitt({
         id={`${def.id}-inhalt`}
         // hidden statt Ausbauen: die Felder muessen im Formular bleiben.
         hidden={!offen}
-        className="space-y-6 border-t border-border p-5 sm:p-6"
+        className="card-content min-w-0 space-y-6 border-t border-border"
       >
         {children}
       </div>
@@ -123,7 +123,7 @@ export function AbschnittsNavigation({
   return (
     <nav
       aria-label="Abschnitte"
-      className="sticky top-16 z-30 -mx-4 overflow-x-auto border-b border-border bg-background/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6"
+      className="section-navigation sticky z-30 overflow-x-auto overscroll-x-contain border-b border-border bg-background/95 py-2 backdrop-blur"
     >
       <ol className="flex gap-1">
         {abschnitte.map((a, i) => {
@@ -133,7 +133,7 @@ export function AbschnittsNavigation({
               <a
                 href={`#${a.id}`}
                 className={cn(
-                  "inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-colors duration-200",
+                  "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-colors duration-200",
                   fehler
                     ? "text-destructive hover:bg-destructive/10"
                     : "text-muted-foreground hover:bg-surface-muted hover:text-foreground",

@@ -46,7 +46,7 @@ export default async function AufnahmeBearbeitenSeite({
   const action = aufnahmeAendern.bind(null, id);
 
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="page-fluid min-w-0 w-full space-y-6">
       <div>
         <Breadcrumb eintraege={[
           { label: "Patienten", href: "/" },
@@ -69,6 +69,7 @@ export default async function AufnahmeBearbeitenSeite({
         aufnahmeId={aufnahme.id}
         initialFotos={aufnahme.fotos.map(fotoZuAnsicht)}
         absendeText="Änderungen speichern"
+        istFolgeaufnahme={aufnahme.typ === "FOLGEAUFNAHME"}
       />
     </div>
   );

@@ -18,6 +18,8 @@ const ENTITAETEN = [
   { wert: "PatientDocument", label: "Dokument" },
   { wert: "Doctor", label: "Arzt" },
   { wert: "CareService", label: "Pflegedienst" },
+  { wert: "TimeEntry", label: "Arbeitszeit" },
+  { wert: "TimeSettings", label: "Arbeitszeitvorgabe" },
 ] as const;
 
 function labelVonEntitaet(wert: string): string {
@@ -96,7 +98,7 @@ export default async function AuditLogSeite({
           {eintraege.length === 0 ? (
             <p className="py-12 text-center text-sm text-muted-foreground">Keine Einträge vorhanden.</p>
           ) : (
-            <div className="overflow-x-auto rounded-lg">
+          <div role="region" aria-label="Änderungsprotokoll, seitlich scrollbar" tabIndex={0} className="max-w-full overflow-x-auto overscroll-x-contain rounded-lg">
               <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                 <thead className="bg-surface-muted text-xs uppercase tracking-[0.08em] text-muted-foreground">
                   <tr>

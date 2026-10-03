@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Camera, FileText, ShieldAlert, Sparkles } from "lucide-react";
+import { Camera, CircleCheck, FileText, ShieldAlert, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TrendBadge } from "./trend-badge";
 import { flaechenTrend, formatiereMm2 } from "@/lib/wundmasse";
@@ -30,6 +30,7 @@ export type ZeitleistenEintrag = {
   systemischeZeichen: boolean;
   anzahlFotos: number;
   handzeichen: string | null;
+  wundeGeheilt: boolean;
 };
 
 /**
@@ -81,17 +82,24 @@ export function Zeitleiste({ eintraege }: { eintraege: ZeitleistenEintrag[] }) {
                       </span>
                     )}
 
+                    {e.wundeGeheilt && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
+                        <CircleCheck className="size-3.5" aria-hidden="true" />
+                        Abgeheilt
+                      </span>
+                    )}
+
                     {trend && <TrendBadge trend={trend} />}
                   </div>
 
                   <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-                    <div className="flex gap-1.5">
+                <div className="flex min-w-0 flex-wrap gap-x-1.5">
                       <dt className="text-muted-foreground">Fläche</dt>
                       <dd className="tabular font-medium">{formatiereMm2(e.flaeche)}</dd>
                     </div>
 
                     {e.breiteMm != null && e.laengeMm != null && (
-                      <div className="flex gap-1.5">
+                  <div className="flex min-w-0 flex-wrap gap-x-1.5">
                         <dt className="text-muted-foreground">Maße</dt>
                         <dd className="tabular font-medium">
                           {e.breiteMm} × {e.laengeMm}
@@ -101,7 +109,7 @@ export function Zeitleiste({ eintraege }: { eintraege: ZeitleistenEintrag[] }) {
                     )}
 
                     {e.exsudatMenge && (
-                      <div className="flex gap-1.5">
+                  <div className="flex min-w-0 flex-wrap gap-x-1.5">
                         <dt className="text-muted-foreground">Exsudat</dt>
                         <dd className="font-medium">
                           {labelVon(EXSUDAT_MENGEN, e.exsudatMenge)}
@@ -110,7 +118,7 @@ export function Zeitleiste({ eintraege }: { eintraege: ZeitleistenEintrag[] }) {
                     )}
 
                     {e.schmerzen && e.schmerzVas != null && (
-                      <div className="flex gap-1.5">
+                  <div className="flex min-w-0 flex-wrap gap-x-1.5">
                         <dt className="text-muted-foreground">Schmerz</dt>
                         <dd className="tabular font-medium">VAS {e.schmerzVas}/10</dd>
                       </div>

@@ -222,6 +222,66 @@ async function main() {
     });
   }
 
+  // Abgeheilte Wunde: sonst waere der abgeschlossene Zustand nirgends zu sehen
+  // (gruen hinterlegte Wundkarte, Aufklapper auf der Patientenseite, Filter
+  // "Mit offener Wunde"). Bewusst bei Kowalski und nicht bei Berger - deren
+  // erste Wunde ist der Einstiegspunkt mehrerer Playwright-Tests.
+  const geheilteBezeichnung = "Post-OP Wunde Unterschenkel rechts";
+  const bestehtGeheilteWunde = await db.wound.findFirst({
+    where: { patientId: p2.id, bezeichnung: geheilteBezeichnung },
+  });
+  if (!bestehtGeheilteWunde) {
+    const abschlussdatum = tageVorher(7);
+    const w3 = await db.wound.create({
+      data: {
+        patientId: p2.id,
+        bezeichnung: geheilteBezeichnung,
+        diagnoseTyp: "POST_OP",
+        lokalisationRegion: "UNTERSCHENKEL",
+        lokalisationSeite: "RECHTS",
+        bestehtSeitWert: 6,
+        bestehtSeitEinheit: "WOCHEN",
+        abgeschlossenAm: abschlussdatum,
+      },
+    });
+
+    await db.assessment.create({
+      data: {
+        woundId: w3.id,
+        typ: "ERSTAUFNAHME",
+        datum: tageVorher(35),
+        erstelltVonId: pflege.id,
+        breiteMm: 22,
+        laengeMm: 30,
+        tiefeMm: 3,
+        wundumgebung: j(["GEROETET"]),
+        wundgrund: j(["GRANULATION"]),
+        exsudatMenge: "KEINE_BIS_SCHWACH",
+        wundabdeckung: j(["KOMPRESSE"]),
+        fixierung: j(["SELBSTKLEBEND"]),
+      },
+    });
+
+    await db.assessment.create({
+      data: {
+        woundId: w3.id,
+        typ: "FOLGEAUFNAHME",
+        datum: abschlussdatum,
+        erstelltVonId: pflege.id,
+        // Abgeheilt: vollstaendig mit 0 vermessen, damit die Flaechenkurve
+        // auf null auslaeuft statt abzubrechen.
+        breiteMm: 0,
+        laengeMm: 0,
+        tiefeMm: 0,
+        wundumgebung: j(["UNAUFFAELLIG"]),
+        wundgrund: j(["EPITHELGEWEBE"]),
+        exsudatMenge: "KEINE",
+        anmerkungen: "Vollständig epithelisiert, Verband nicht mehr erforderlich.",
+        wundeGeheilt: true,
+      },
+    });
+  }
+
   const [nBenutzer, nPatienten, nWunden, nAufnahmen] = await Promise.all([
     db.user.count(), db.patient.count(), db.wound.count(), db.assessment.count(),
   ]);

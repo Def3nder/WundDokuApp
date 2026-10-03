@@ -10,7 +10,7 @@ export default async function NeuerBenutzerSeite() {
   if (sitzung?.user?.rolle !== "ADMIN") redirect("/");
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="page-fluid min-w-0 w-full space-y-6">
       <div>
         <Breadcrumb eintraege={[
           { label: "Benutzer", href: "/einstellungen/benutzer" },

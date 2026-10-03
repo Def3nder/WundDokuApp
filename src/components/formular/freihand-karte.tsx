@@ -125,7 +125,7 @@ export function FreihandKarte({
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {wert
             ? "Auf den Marker ziehen, um ihn zu verschieben. An freier Stelle klicken und ziehen, um ihn neu zu zeichnen."

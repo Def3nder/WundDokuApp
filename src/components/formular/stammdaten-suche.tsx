@@ -137,7 +137,7 @@ export function StammdatenSuche({
           aria-describedby={
             [eingabeProps["aria-describedby"], statusId].filter(Boolean).join(" ") || undefined
           }
-          className="pl-10 pr-10"
+              className="pl-10 pr-12"
         />
         {suche && (
           <button
@@ -145,14 +145,14 @@ export function StammdatenSuche({
             tabIndex={-1}
             onClick={() => setSuche("")}
             aria-label="Suche leeren"
-            className="absolute right-2.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
+              className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
           >
             <X className="size-4" aria-hidden="true" />
           </button>
         )}
       </div>
 
-      <div id={statusId} className="flex min-h-5 items-center justify-between gap-3 text-xs">
+      <div id={statusId} className="flex min-h-5 flex-wrap items-start justify-between gap-x-3 gap-y-1 text-xs">
         <span className="text-muted-foreground" aria-live="polite">
           {gefiltert.length === 0
             ? "Keine Treffer"
@@ -163,7 +163,7 @@ export function StammdatenSuche({
         {wert === NEUER_STAMMDATENSATZ ? (
           <span className="font-medium text-primary">Neuer Eintrag</span>
         ) : ausgewaehlt ? (
-          <span className="truncate font-medium text-foreground">
+          <span className="min-w-0 font-medium text-foreground">
             Ausgewählt: {ausgewaehlt.name}
           </span>
         ) : null}

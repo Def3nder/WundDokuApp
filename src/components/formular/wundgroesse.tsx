@@ -45,7 +45,7 @@ export function Wundgroesse({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="compact-grid gap-4">
         <Field id="breiteMm" label="Breite (mm)" fehler={fehler("breiteMm")}>
           {(p) => (
             <Input

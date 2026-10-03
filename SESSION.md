@@ -3,8 +3,468 @@
 Arbeitsstand für die Fortsetzung in einer neuen Sitzung. Ergänzt die
 inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
 
-**Stand:** 20.09.2026 · Phase 1 bis 6 fertig
-**Prüfstand:** `npm run typecheck` sauber · `npm test` 78/78 grün · `npm run test:a11y` 7/7 grün · `npm run build` sauber · Browser-Durchgang erfolgreich (Login, Leerzustände, Tastaturbedienung, Lightbox, mobile Navigation, Hell-/Dark-Mode, PDF-Export einzeln und Verlauf, Audit-Log-Filter, Versorgungspartner-Suche bei Patient und Wunde, Warnung bei ungespeicherten Änderungen, Dokumentvorschau mit Zoom) · Dokumentvorschau zusätzlich auf echtem iPad bestätigt (Anzeige und Zoom funktionieren)
+**Stand:** 01.10.2026 · Phase 1 bis 6 fertig · persönliche Zeiterfassung ergänzt
+**Prüfstand:** `npm run typecheck` sauber · `npm test` 114/114 grün · `npm run test:a11y` 12/12 grün · `npm run test:zeiterfassung` 6/6 grün (inkl. WebKit) · Produktionsbuild sauber. Die vollständige Responsive-Matrix war am 22.09.2026 mit 28/28 grün; am 01.10. wurden gezielt die Zeiterfassung und die erweiterte Navigation geprüft. Dokumentvorschau aus der früheren Sitzung zusätzlich auf echtem iPad bestätigt.
+
+---
+
+## Nachtrag — PWA und Zeiterfassung ohne Verbindung (03.10.2026)
+
+App ist als PWA installierbar (iPhone: apple-touch-icon, Android: Manifest) und die
+Zeiterfassung funktioniert ohne Server. Nutzerentscheidung: offline sind
+**Stempeln und Nachträge** (nicht Bearbeiten/Löschen vorhandener Buchungen); die
+Seite darf **nur die eigenen Zeitdaten** zwischenspeichern; Konflikte werden
+**zur Prüfung vorgelegt**, nichts geht still verloren.
+
+- `public/sw.js` (Cache-Namen `wunddoku-*-v1`): cached nur `/_next/static/*`
+  (gehasht, daher cache-first) und HTML unter `/zeiterfassung*` (network-first mit
+  5 s Zeitlimit, dann Cache; Fallback ohne Cache: `public/offline.html`). Alles
+  andere läuft am Worker vorbei – **Patientendaten werden nie gecacht**. Bei einer
+  Weiterleitung auf `/login` (Abmelden/abgelaufen) wird der Seiten-Cache gelöscht.
+  `vorwaermen` lädt `/zeiterfassung` samt Chunks/CSS/Fonts einmal vorab. Nur im
+  Produktionsbetrieb registriert (`ServiceWorkerRegistrierung` im `(app)`-Layout):
+  Dev-Chunks haben keine Hashes, ein Cache würde veralteten Code liefern.
+- `src/proxy.ts`: `/sw.js`, `/offline.html`, `/manifest.webmanifest` öffentlich.
+- Warteschlange: `src/lib/arbeitszeit-speicher.ts` (IndexedDB, nur Rohdaten),
+  `src/lib/arbeitszeit-offline.ts` (reine Logik: wartende Stechuhr, lokale
+  Überschneidungsprüfung, Vorab-Validierung mit demselben Zod-Schema),
+  `src/components/zeiterfassung/offline-kontext.tsx` (Provider: sendet sofort, bei
+  **jedem** Fehler/Offline lokal ablegen; Sync bei `online`/Sichtbarkeit/30 s, per
+  `navigator.locks` nur ein Tab), `stechuhr.tsx`, `offline-hinweis.tsx`.
+- Einstempeln + Ausstempeln offline wird zu **einer** wartenden Buchung (erneutes
+  Speichern ersetzt den Eintrag über `clientId`). Wartende Einträge gehören einer
+  `userId` und werden nur unter diesem Konto gesendet.
+- **Idempotenz statt Schemaänderung:** `bucheArbeitszeit` übernimmt eine Buchung
+  mit identischem Inhalt (neu: gleiche Beginn/Ende/Pause/Notiz; Änderung: gleicher
+  Zielzustand trotz alter Version) unverändert – so erzeugt eine nach verlorener
+  Antwort wiederholte Sendung weder Dublette noch falschen Konflikt. Keine Migration.
+- Stolpern: Der Test setzt Offline per `context.setOffline(true)`; das wirkt in
+  Playwright-Chromium auch auf den Service Worker (geprüft). Tests brauchen den
+  Produktionsbuild. Neu gebaut wurde wieder direkt mit `next build`, weil der
+  Dev-Server die Prisma-DLL sperrt.
+- Geprüft: Typprüfung, 130/130 Unit-Tests, 7/7 `npm run test:zeiterfassung` (inkl.
+  neuem Offline-Test mit axe und WebKit-Lauf). **Nicht** geprüft: echtes iPhone/
+  Android-Gerät, `npm run test:a11y`/`test:responsive` nach dieser Änderung.
+  iOS hat kein Background Sync – übertragen wird beim Öffnen der App.
+
+---
+
+## Nachtrag — persönliche Zeiterfassung (01.10.2026)
+
+Neue Seiten `/zeiterfassung` und `/zeiterfassung/einstellungen`, für alle
+angemeldeten Rollen über Desktop- und Mobilnavigation erreichbar. Alle Lese-
+und Schreibzugriffe sind an die Sitzungs-ID gebunden. Es gibt bewusst keine
+Admin-Ansicht fremder Zeiten; das vorhandene Admin-Protokoll nennt lediglich
+die Aktion, ohne Zeitwerte oder Notizen.
+
+**Vom Nutzer präzisiert:** Standard-Arbeitszeit bedeutet **Beginn und Ende pro
+Tag**, zusätzlich eine unabhängig konfigurierbare Wochenarbeitszeit in Stunden.
+Die Tageszeiten sind die Vorlage für Nachträge, die Wochenstunden bestimmen
+das Soll, gleichmäßig auf konfigurierbare Arbeitstage verteilt. Standardpause
+pro Buchung vorbelegt und beim Ausstempeln editierbar; kein separater Pausenstempel.
+
+- Stechuhr öffnet vor dem Speichern einen Dialog mit anpassbarem Datum/Uhrzeit.
+  Laufende Zeiten überleben Reload/Abmelden. Nachträge, Korrekturen und Soft
+  Delete sind vorhanden; nach zwölf Stunden erscheint ein Prüfhinweis.
+- Wochen-/Monatsauswertung: Netto, Pause, Soll für die gesamte Periode und
+  Saldo gegen das Soll bis einschließlich heute. Laufende Zeiten zählen erst
+  nach dem Ausstempeln. Die Tagesübersicht zeigt dieselben Zahlen mit Balken.
+- `TimeEntry` und `TimeSettings`, additive Migration
+  `20261001100000_zeiterfassung` bereits auf die Entwicklungsdatenbank angewandt,
+  Prisma-Client generiert. Keine Änderungen an Patienten-/Wunddaten.
+- `TimeSettings.abDatum` bewahrt frühere Sollperioden. Eine Korrektur einer
+  vorhandenen Vorgabe ändert bewusst diese Periode; neue Vorgaben erhalten ein
+  neues Datum. Vor der ersten Vorgabe gelten 40 h/Mo–Fr, 08:00–16:30, 30 min.
+- `src/lib/arbeitszeit.ts`: Kalender und Berechnung konsequent in
+  `Europe/Berlin`, unabhängig von Browser-/Serverzone. Sommerzeit-Lücken werden
+  abgewiesen, für doppelte Herbststunden gibt es eine Auswahl. Bei Nachtschichten
+  wird die Pause anteilig verteilt; kumulierte Rundung erhält die Minutensumme
+  über Tages-, Wochen- und Monatsgrenzen.
+- `src/lib/arbeitszeit-server.ts`: Überlappungsprüfung und Schreiben in einer
+  Transaktion, eindeutiger `laufendFuer`-Index verhindert doppeltes Einstempeln.
+  `version` schützt vor Überschreiben aus alten Tabs. Audit-Einträge entstehen
+  in derselben Transaktion. Zukunftsbuchungen und Schichten über 24 h werden
+  abgewiesen; auch beim Ausstempeln können beide Zeitpunkte korrigiert werden.
+- Formulare senden per `onSubmit`/Transition ab, damit Eingaben nach einer
+  fehlgeschlagenen Validierung erhalten bleiben (kein Action-Formular-Reset).
+- Neuer Befehl `npm run test:zeiterfassung`: eigener Produktions-Testserver auf
+  3101 und isolierte `test-results/arbeitszeit-e2e.db`, niemals die Praxisdaten.
+  Produktionsbuild vorher erstellen. Der Test-Setup initialisiert SQLite per
+  Prisma, bevor `migrate deploy` läuft; die automatische Neuanlage durch die
+  Windows-Schema-Engine scheiterte anfangs mit einer leeren Fehlermeldung.
+
+**Geprüft:** Typprüfung, 114/114 Fach-/Datenbanktests, Produktionsbuild,
+12/12 bestehende Browser-/axe-Tests und 6/6 neue Zeiterfassungstests. Letztere
+decken Konfiguration, Nachtrag, Stempeln, Bearbeiten, Fehlererhalt, Überlappung,
+Löschen, Nutzertrennung, Hell/Dunkel, axe und Breiten 320–1440 px ab; zusätzlich
+Administrator-Navigation und WebKit bei 390/768/1024 px. Vorhandene Engine
+`webkit-2336` über `WEBKIT_EXECUTABLE_PATH` verwendet. Die vollständige alte
+28er-Responsive-Matrix wurde in dieser Sitzung nicht erneut ausgeführt.
+
+**Offene Erweiterungen:** Urlaub/Krankheit/Feiertage, Stundenübertrag und
+CSV-/PDF-Export. Der Entwicklungsserver läuft auf Port 3000.
+
+---
+
+## Nachtrag — Patientenliste nach Behandlungsstand gegliedert (22.09.2026)
+
+Seit Wunden abgeschlossen werden können, standen Patienten ohne laufende
+Behandlung mitten zwischen den aktiven Fällen — erkennbar nur an einer Textzeile
+in der Karte. Die Startseite hat jetzt drei Bereiche:
+
+| Bereich | Wer | Kennzeichen |
+|---|---|---|
+| In Behandlung | mindestens eine offene Wunde | wie bisher |
+| Keine Behandlungen | hat Wunden, alle abgeschlossen | grünes Abzeichen auf jeder Karte |
+| Neue Patienten | noch keine Wunde dokumentiert | neutral |
+
+Abgesetzt über `border-t border-border pt-8` ab dem zweiten **sichtbaren**
+Bereich, jede Überschrift mit Anzahl. Leere Bereiche werden samt Überschrift
+weggelassen. **„Keine Behandlungen" ist nach dem jüngsten Abschlussdatum
+sortiert** (neueste oben, `zuletztAbgeschlossen()`); hat ein Patient mehrere
+abgeschlossene Wunden, zählt die zuletzt abgeschlossene. Bei gleichem Datum
+bleibt es alphabetisch — `sort` ist stabil und die Abfrage liefert bereits nach
+Namen sortiert. Die beiden anderen Bereiche bleiben alphabetisch. Der Filter hat statt zwei jetzt vier Chips und zeigt genau seinen
+Bereich; **`filter=offen` behält seinen URL-Wert**, obwohl der Chip nun
+„In Behandlung" heißt — sonst brächen vorhandene Links und Lesezeichen.
+
+**Die Einteilung steht bewusst nur in JavaScript.** Der frühere Prisma-Filter
+(`wunden: { some: { abgeschlossenAm: null } }`) ist entfallen: Dieselbe Regel
+zweimal — einmal als Abfrage, einmal als Gruppierung — läuft irgendwann
+auseinander. Die Abfrage lud ohnehin schon alle Wunden aller Patienten; der
+Filter entscheidet jetzt nur noch, welche Bereiche gerendert werden.
+
+**Neuer Leerzustand:** Trifft die Suche zwar Patienten, ist aber der gewählte
+Bereich leer, erscheint „Keine Patienten in dieser Ansicht" mit Rücksprung auf
+„Alle" — sonst wirkte die Seite fälschlich leer. Der alte Leerzustand für „gar
+keine Treffer" bleibt daneben bestehen.
+
+Die Patientenkarte ist dafür zu `PatientKarte` in derselben Datei herausgelöst
+(dreimal kopiert wäre sie nicht zu pflegen) und hat einen eigenen, schmalen Typ
+— das Muster von `WundeMitZahlen` auf der Patientenseite. **Nicht** von der
+Abfrage ableiten: Die lädt die Wunden mit `select`, ein `Awaited<ReturnType<…
+include …>>` passt dazu nicht.
+
+Der neue Test prüft, dass die Zahl in jeder Bereichsüberschrift zur Anzahl der
+Karten passt, und geht jeden Filter-Chip durch — beides ohne feste Annahmen über
+den Datenbestand, weil die Bereiche je nach Daten leer sein können.
+
+**Zum dritten Mal über dieselbe Falle gestolpert:** Der Test „abgeschlossene
+Wunden sind als abgeheilt erkennbar" verglich den Hintergrund der grünen
+Wundkarte mit dem einer *offenen* Wunde desselben Patienten — sobald dessen
+letzte offene Wunde abgeschlossen wurde, verglich er Grün mit Grün. Er prüft
+jetzt stattdessen, dass die Tönung durchsichtig ist (Alpha < 1). **Merke:** In
+diesen Tests nie „das erste Element seiner Art" als Gegenprobe nehmen — der
+Datenbestand ändert sich durch die Anwendung selbst.
+
+Prüfung: Typprüfung, 86/86 Unit-Tests, 12/12 Playwright-/axe-Tests, 28/28
+Geräteprofile, Produktionsbuild sauber. Am 320-px-Gerät brechen die vier Chips
+in zwei Reihen à 44 px um, ohne waagerechtes Scrollen.
+
+---
+
+## Nachtrag — Abheilung dokumentieren und Wunde abschließen (21./22.09.2026)
+
+Eine Folgeaufnahme kann jetzt feststellen, dass die Wunde abgeheilt ist; die
+Wunde gilt damit als abgeschlossen.
+
+**Die halbe Strecke war schon gebaut.** `Wound.abgeschlossenAm` existierte, und
+die gesamte Leseseite wertete es bereits aus — Filter „Mit offener Wunde",
+Aufteilung auf der Patientenseite, Abzeichen in Wundkarte und Wundkopf. Auch
+`wundeAbschliessen()` und `wundeWiedereroeffnen()` in `src/actions/wunden.ts`
+waren fertig, hatten aber **keinen Aufrufer**, und kein Seed-Datensatz setzte
+das Feld — deshalb war der Zustand nie zu sehen.
+
+- **Neues Feld** `Assessment.wundeGeheilt` (Migration
+  `20260921164948_aufnahme_wunde_geheilt`). Die Migration ist **von Hand**
+  geschrieben: Prisma baut für SQLite bei einer NOT-NULL-Spalte mit Default die
+  ganze Tabelle neu (CREATE/INSERT SELECT/DROP/RENAME); ein schlichtes
+  `ADD COLUMN` ergibt dieselbe Spalte, ohne alle Aufnahmen umzukopieren. Deshalb
+  `prisma migrate dev --create-only`, SQL ersetzen, dann `migrate deploy`.
+- **Siebter Formularabschnitt „Abschluss"**, nur bei Folgeaufnahmen
+  (`istFolgeaufnahme`). `ABSCHNITTE` wird dafür gefiltert, das Feld steht in
+  `FELDER_PRO_ABSCHNITT`.
+- **Aufnahme und Wundstatus gehen gemeinsam in einer `db.$transaction`** — sonst
+  könnte eine gespeicherte Abheilung ohne abgeschlossene Wunde zurückbleiben.
+  Die Entscheidung steckt in `src/lib/wundstatus.ts` (`statuswechsel`), bewusst
+  außerhalb der `"use server"`-Datei, damit sie ohne Datenbank testbar ist.
+- **Abschlussdatum ist das Aufnahmedatum**, nicht der Speicherzeitpunkt — bei
+  nachgetragenen Terminen zählt der Behandlungstag. Von Hand geprüft: Aufnahme
+  auf den 18.09. zurückdatiert, die Wunde schloss auf den 18.09.
+- **Wiedereröffnen:** Eine neue Folgeaufnahme ohne Haken öffnet eine
+  abgeschlossene Wunde wieder; dazu ein Knopf im Wund-Cockpit. Beim *Bearbeiten*
+  öffnet ein entfernter Haken nur dann wieder, wenn **genau diese** Aufnahme den
+  Abschluss trug — sonst würde das Korrigieren einer alten Aufnahme eine später
+  abgeheilte Wunde unbemerkt öffnen.
+- **0 ist jetzt ein gültiger Messwert.** `mass()` verlangte `.positive()`; für
+  Breite, Länge und Tiefe gibt es nun `massAbNull()`. Wundauflagen und
+  Bindenbreiten behalten `.positive()` — 0 cm ist dort ein Tippfehler.
+  `flaecheMm2()` verwarf `<= 0`, prüft jetzt `< 0`: Sonst zeigt eine abgeheilte
+  Wunde „–" statt „0 mm²" und die Flächenkurve bricht ab, statt auf null
+  auszulaufen. Beim Exsudat war nichts zu tun, die Stufe `KEINE` gab es schon.
+- Bei 0 × 0 zeigt die Draufsicht **bewusst keine Kontur**, sondern „Keine
+  Ausdehnung mehr messbar": `svgAusdehnung()` erzwingt `Math.max(10, …)`, eine
+  abgeheilte Wunde bekäme sonst doch ein kleines Oval.
+
+**Zwei Kontrastfehler, die das Feature erst sichtbar gemacht hat** — beide in
+vorhandenem Code, beide erst durch neue Daten ausgelöst:
+
+1. Das Abzeichen „Abgeschlossen" (`text-accent` auf `bg-accent/15`) kam auf
+   4,43:1. `--accent` von `#047857` auf `#046b4e` abgedunkelt → 5,28:1.
+2. Das Trendabzeichen „unverändert" (`text-status-neutral` auf
+   `bg-status-neutral/15`) kam auf 3,95:1 und erschien vorher praktisch nie —
+   seit die Maße vorbefüllt werden, ist der Trend beim Öffnen des Formulars
+   regelmäßig „unverändert". `--status-neutral` von `#64748b` auf `#4b5563`
+   → 6,04:1.
+
+**Merke für dieses Muster:** `text-X` auf `bg-X/15` ist bei den mittleren
+Farbtönen dieser Palette grenzwertig. Bei jedem neuen Abzeichen dieser Bauart
+den Kontrast rechnen, nicht schätzen.
+
+**Auf Nutzerwunsch am 21./22.09.2026 nachgezogen:**
+
+- Breite, Länge und Tiefe werden bei Folgeaufnahmen **doch** vorbefüllt; der
+  Hinweis, warum sie leer blieben, ist weg. Die Abheilung bleibt das einzige
+  Feld, das `vorbefuellungAus()` nie übernimmt.
+- Die drei Kennzahl-Einblendungen schließen erst **300 ms** nach dem Verlassen
+  (`NACHLAUF_MS` in `kennzahl-kachel.tsx`). Die Einblendung hängt zwar im DOM an
+  der Kachel, liegt aber mit Abstand darunter — ohne Nachlauf klappt sie genau
+  dann zu, wenn man hineinfahren will. Ein Wiedereintritt bricht den Nachlauf ab.
+
+**Testdaten sind hier ein Stolperstein.** Die Playwright-Tests nahmen ungeprüft
+die erste Wunde der ersten Patientin. Seit Wunden abgeschlossen werden können,
+steht die gesuchte Wunde je nach Datenstand im **zugeklappten `<details>`** und
+ist für Rollenabfragen unsichtbar — drei Tests fielen deshalb um, nachdem im
+Browser eine Wunde abgeschlossen worden war. `abgeschlosseneWundenZeigen()`
+klappt jetzt vorher auf. Ebenso: feste Zahlen wie „5 von 6 Terminen" gehören
+nicht in Tests, die Zahl wird jetzt aus der Kachel gelesen. Und der
+Geometrie-Test wählt über `slider.press("Home")` eine Aufnahme mit echter
+Ausdehnung, weil die neueste inzwischen 0 sein kann.
+
+Prüfung: Typprüfung, 86/86 Unit-Tests, 11/11 Playwright-/axe-Tests, 28/28
+Geräteprofile, Produktionsbuild sauber. Zusätzlich von Hand: Wiedereröffnen,
+Folgeaufnahme mit 0 × 0 und Haken, Rückdatierung, Löschen der Testaufnahme und
+Wiederherstellen des Ausgangszustands.
+
+---
+
+## Nachtrag — Hydrationsabweichung der SVG-Farben im Dunkelmodus (21.09.2026)
+
+Die im Nachtrag darunter als „vorgefunden, nicht behoben" notierte Meldung auf
+`/wunden/[id]` ist erledigt — und sie war mehr als eine Warnung.
+
+**Ursache.** `AbmessungenVerlauf` und `Verlaufsdiagramme` lasen `resolvedTheme` direkt
+beim Rendern. Der Server kennt das Theme nicht und liefert die hellen Werte;
+`useTheme()` liest auf dem Client dagegen schon im **ersten** Rendergang aus dem
+localStorage. Server- und Client-Markup unterschieden sich also genau in den
+Farbattributen.
+
+**Nicht nur kosmetisch.** React schreibt in die Meldung selbst: „This won't be
+patched up." Die Attribute wurden also *nicht* nachgezogen — im Dunkelmodus
+blieb `fill="#be123c"` (hell) im DOM stehen. Die frühere Einschätzung
+„betrifft nur die Warnung, nicht die Darstellung" war damit zu optimistisch.
+
+**Lösung.** Neuer Haken `useIstDunkel()` in `src/components/theme-provider.tsx`:
+Er meldet den Dunkelmodus erst **nach** der Hydration, vorher immer `false`. Damit
+stimmt der erste Client-Rendergang mit dem Servermarkup überein, umgefärbt wird
+einen Rendergang später. Dasselbe Muster, das `theme-toggle.tsx` schon mit seinem
+`bereit`-Flag nutzt. Sichtbar ändert sich nichts — das helle Markup steht
+ohnehin im ausgelieferten HTML, und umgefärbt wurde auch bisher erst beim
+Hydrieren.
+
+**Die Hex-Werte bleiben, wo sie sind.** Die Farben werden weiterhin in
+JavaScript bestimmt und landen als feste Attributwerte im SVG. Der Grund steht
+unverändert daneben: `var()` und die moderne `rgb()`-Syntax mit Schrägstrich-Alpha
+löst iOS Safari im SVG-`fill`-Kontext nicht zuverlässig auf, einzelne iPads
+zeigten die Zeichnung sonst komplett schwarz. **Ein Rückbau auf CSS-Variablen
+im SVG bleibt also versperrt** — wer die Hydration anders lösen will, muss die
+Farbe trotzdem in JS bestimmen.
+
+Mitgezogen: `balkenHervorhebung` in `verlaufsdiagramme.tsx` (Tooltip-Cursor der
+Wundgrund-Balken) nutzt denselben Haken. Dort fiel nie eine Meldung an, weil der
+Cursor erst beim Überfahren entsteht, also immer nach der Hydration — gleiche
+Ursache, gleiche Behandlung, damit es nur ein Muster gibt.
+
+**Nachweis.** Ein temporärer Playwright-Test schrieb `theme=dark` in den
+localStorage, lud neu und prüfte Konsole und Attribute: vorher die vollständige
+Mismatch-Meldung für `data-wundkontur`, `data-tiefenrand`, `data-tiefenprofil` und
+das `<text>` plus `fill="#be123c"` im DOM, nachher keine Meldung und
+`fill="#fda4af"`. Der Test war nur zum Nachweis da und ist wieder entfernt.
+`responsive.spec.ts` prüft weiterhin nur im Standardtheme, ließe sich jetzt aber
+ohne Rotfärbung um den Dunkelmodus erweitern.
+
+Prüfung: Typprüfung sauber, 78/78 Unit-Tests, 10/10 Playwright-/axe-Tests,
+28/28 Geräteprofile, Produktionsbuild sauber. Das iPhone-Profil fiel im ersten
+Durchgang mit `browserContext.close: ENOENT … .trace` aus — ein Schreibfehler
+von Playwright beim Ablegen der Trace-Datei, kein Layoutbefund; allein neu
+gestartet lief es grün.
+
+---
+
+## Nachtrag — Kennzahl-Kacheln blenden Diagramme ein (21.09.2026)
+
+- **Draufsicht entschlackt:** Die beiden Wert-Chips („Länge 30 mm" / „Breite
+  20 mm") unter der Zeichnung entfallen — dieselben Zahlen stehen direkt
+  darüber in der Messwert-Leiste. Überschrift, Hinweis „Länge und Breite" und
+  die Maßlinien im Oval bleiben.
+- **Flacher:** Beide Schema-Kacheln sind von `h-56` (224 px) auf `h-40`
+  (160 px) geschrumpft. Die Draufsicht nutzt dafür `viewBox="0 0 280 156"` mit
+  Mittelpunkt `zentrumY = 78`: Die Kontur reicht senkrecht höchstens 140
+  Einheiten (`svgAusdehnung`) plus 4 für die überschwingenden Kurvenpunkte —
+  mehr Rand als diese 8 Einheiten ist nicht nötig. **Wer hier weiter kürzt,
+  muss beide Werte gemeinsam anpassen**, sonst wird die größte Aufnahme oben
+  und unten abgeschnitten.
+- **Tiefe halbiert:** Vollausschlag `* 72` → `* 36`, `profilOben` 40 → 18,
+  `viewBox` 150 → 76. Die Mindestdelle bleibt bei 7 px, damit 1 mm nicht als
+  gerade Linie endet. Die Maßangabe steht jetzt **unter** dem tiefsten Punkt
+  (`profilBoden + 15`, mittig) statt mittig am Maßpfeil — bei flachen Wunden
+  lag sie sonst auf der Kurve.
+- **Zwei neue Einblendungen** auf „Seit erster Messung" (komplettes
+  Abmessungsdiagramm inklusive Zeitstrahl) und „Dokumentierte Termine"
+  (fünf jüngste Aufnahmen mit Datum, Fläche und Trendabzeichen, Klick springt
+  in die Aufnahme; bei mehr als fünf eine Fußzeile „5 von N Terminen").
+- Gemeinsamer Baustein `src/components/auswertung/kennzahl-kachel.tsx`; die
+  bestehende Wundflächen-Vorschau läuft jetzt ebenfalls darüber und bleibt
+  `dekorativ` (rein optisch, `pointer-events-none`, für Screenreader
+  ausgeblendet). Alle drei Kacheln sind Schaltflächen mit `aria-expanded` und
+  einem Chevron als Hinweis. Die senkrechte Einpassung ins Fenster gilt für
+  **alle drei** Einblendungen; nur der Höhendeckel bleibt den bedienbaren
+  vorbehalten, denn `pointer-events-none` liesse sich ohnehin nicht scrollen.
+- **Messwert-Leiste auch auf dem Smartphone dreispaltig** (`grid-cols-3` statt
+  `sm:grid-cols-3`), mittig ausgerichtet, mit kleinerer Schrift (Wert 13 px
+  statt 20 px, Beschriftung 10 px ohne Sperrung) und `px-1.5` statt `px-4`.
+  Das spart auf dem iPhone rund 200 px Höhe. **Die 6 px waagerecht sind kein
+  Schönheitswert:** „LÄNGE × BREITE" braucht bei 375 px Bildschirmbreite
+  (91 px Spalte) exakt 75 px und bricht bei `px-2` um. Bei 320 px bricht die
+  erste Spalte weiterhin zweizeilig um — bei 73 px Spaltenbreite passt der
+  längste Wert in keiner lesbaren Schriftgröße in eine Zeile.
+
+**Vier Fallstricke, die beim Bauen echte Zeit gekostet haben:**
+
+1. **Die Einblendung muss ein DOM-Kind der Kachel sein.** Sonst feuert
+   `onMouseLeave`, sobald die Maus von der Kachel in die Einblendung fährt, und
+   Slider bzw. Links sind gar nicht erreichbar.
+2. **Senkrechte Lage braucht `useLayoutEffect` nach dem Rendern.** Die Höhe der
+   Einblendung steht vorher nicht fest. Passt sie unter der Kachel nicht mehr
+   ins Fenster, rückt sie nach oben und überdeckt dabei die Kachel — bewusst:
+   lieber eine verdeckte Kennzahl als ein unerreichbarer Zeitstrahl. Ein erster
+   Versuch mit fester `max-height` aus dem Platz unterhalb der Kachel quetschte
+   das 545 px hohe Abmessungsdiagramm auf 260 px mit Innenscrollen; der Slider
+   lag dann unsichtbar unterhalb.
+3. **Escape schloss die Einblendung und öffnete sie sofort wieder.** Der
+   Handler ruft nach `setOffen(false)` ein `knopf.focus()` auf — React hat da
+   noch nicht neu gerendert, und der ausgelöste Fokus matchte `:focus-visible`
+   (die letzte Eingabe kam ja von der Tastatur), also griff der Öffnen-Zweig.
+   Gelöst über ein `ruecksprung`-Ref, das genau diesen einen Fokus schluckt und
+   nur gesetzt wird, wenn der Knopf nicht ohnehin schon fokussiert ist.
+4. **`:focus-visible` trennt Maus- von Tastaturbedienung.** `onMouseLeave` darf
+   nicht schließen, solange die Tastatur im Inhalt arbeitet. Ein per Maus
+   angeklickter Regler behält aber den Fokus — ohne die
+   `:focus-visible`-Prüfung blieb die Einblendung nach jedem Slider-Klick
+   kleben. Umgekehrt öffnet `onFocus` nur bei `:focus-visible`, sonst öffnet auf
+   Touchgeräten der Fokus und der direkt folgende Klick schließt wieder.
+
+Prüfung: Typprüfung, 78/78 Unit-Tests, 10/10 Playwright-/axe-Tests (darunter der
+neue „Kennzahl-Kacheln"-Test mit Tastatur, Escape und Sprung in die Aufnahme),
+28/28 Geräteprofile inklusive der beiden neuen Einblendungen in jedem Profil,
+Produktionsbuild sauber. Abmessungs-Einblendung zusätzlich in Chrome von Hand
+geprüft (Slider im Popover, Schließen beim Wegbewegen der Maus).
+
+**Vorgefunden, nicht behoben:** Ist der Dunkelmodus aktiv, meldet die Konsole
+auf der Wundseite eine Hydrationsabweichung für die SVG-Farben in
+`AbmessungenVerlauf` (`#be123c` vom Server gegen `#fda4af` vom Client). Die
+Farben kommen aus `resolvedTheme`; der Server kennt das Theme nicht. Betrifft
+nur die Warnung, nicht die Darstellung, und besteht unabhängig von dieser
+Sitzung — die Farblogik wurde hier nicht angefasst.
+
+> **Nachgetragen:** behoben, siehe „Hydrationsabweichung der SVG-Farben im
+> Dunkelmodus" oben. Der Zusatz „betrifft nur die Warnung, nicht die
+> Darstellung" war falsch — React zieht die Attribute nicht nach, im
+> Dunkelmodus blieb die helle Farbe im DOM stehen.
+
+---
+
+## Nachtrag — Zeitstrahl im Abmessungsdiagramm (21.09.2026)
+
+- Die Terminkarten unter Draufsicht und Tiefenprofil wurden durch einen
+  Zeitstrahl mit Slider ersetzt. Vereinbart: gleichmäßige Terminabstände,
+  Aktualisierung beider Abbildungen und der Messwerte bereits beim Ziehen,
+  Einrasten auf vorhandenen Aufnahmen sowie nur drei Datumsangaben (erste,
+  letzte und ausgewählte Aufnahme).
+- Der native Range-Regler verwendet ganzzahlige Aufnahmeschritte. Die neueste
+  Aufnahme ist anfangs ausgewählt; Pfeiltasten und Pos1/Ende funktionieren
+  weiterhin. Der gemeinsame Maßstab und fehlende Messwerte bleiben erhalten.
+- Markierungen und Spur berücksichtigen die Breite des Reglers. Das ausgewählte
+  Datum steht oberhalb, die beiden Enddaten unterhalb der Spur, damit auf
+  Smartphones keine Datumsangaben kollidieren. Bei einer Aufnahme ist der Regler
+  deaktiviert; bei keiner Aufnahme bleibt die bisherige Leeranzeige bestehen.
+- Die bestehenden Browsertests prüfen jetzt Live-Wechsel vor dem Loslassen,
+  Tastaturbedienung, gleichmäßige Markierungen und Touch-Auswahl mit dem Slider.
+- Prüfung: 9/9 Barrierefreiheits-/Bedienungstests und 6/6 Geräteprüfungen
+  (320 px, Android-Tablet, iPhone, iPad mini, iPad Pro hoch/quer) erfolgreich.
+  Einzelaufnahme zusätzlich in Chrome/WebKit und Touch-Ziehen vor `touchEnd`
+  in Chrome geprüft. Typprüfung und Produktionsbuild erfolgreich.
+
+---
+
+## Nachtrag — einheitliche Darstellung auf Desktop, iPhone und Tablets (21.09.2026)
+
+- Nach Rückmeldung mit echten iPad-Screenshots: Die bisherige 768-px-Grenze
+  beim Bearbeiten/Anlegen eines Patienten wurde entfernt. `page-fluid` hebt für
+  diese Seiten zusätzlich die 80-rem-Grenze des Seitenrahmens auf. Die Karte
+  füllt bei jeder Breite den Bildschirm bis auf gleiche linke/rechte
+  Außenabstände. Name/Vorname und Geburtsdatum/Patientennummer bleiben paarweise
+  angeordnet (auf schmalen Bildschirmen einspaltig). Gemessen in WebKit/Chrome
+  zwischen 320 und 2560 px, jeweils für Neuanlage und Bearbeitung, ohne Überlauf.
+- Dieselbe volle Breite gilt anschließend auch für Wunden (neu/bearbeiten),
+  Aufnahmen (neu/bearbeiten), Rezept- und Arztbrief-Uploads, neue Benutzer und
+  die zentralen Ärzte-/Pflegedienst-Stammdaten. Im Benutzerformular bleiben
+  Name/Handzeichen und E-Mail/Rolle Feldpaare; das Startpasswort hat keine
+  separate Breitenbegrenzung mehr. Alle acht zusätzlichen Formularansichten
+  wurden in WebKit/Chrome zwischen 320 und 2560 px auf volle Seitenbreite,
+  gleiche Außenabstände und Überlauf geprüft; Stammdaten auch aufgeklappt.
+- Gemeinsame Feldhöhen (44 px, 16 px Schrift), flexible Spalten nach verfügbarer
+  Kartenbreite, ausreichend große Schaltflächen und konsistente Kartenabstände.
+  `CardContent` verlor vorher durch `sm:pt-0` trotz `pt-6` auf Tablets seinen
+  oberen Abstand. Die Grundabstände liegen nun in der CSS-Komponentenschicht.
+- Patientenkopf: „Bearbeiten“ bleibt oben rechts, auf dem Smartphone als Symbol.
+  Die Stammdaten nutzen darunter die gesamte Breite und werden nicht mehr durch
+  den Button in eine schmale Textspalte gedrängt.
+- Datumsfelder verwenden die bewährte Safari-Begrenzung jetzt zentral in `Input`,
+  auch beim Aufnahmedatum. Eine separate Hülle im Patientenformular entfällt.
+- Kopfzeile, Abschnittsnavigation und Sprungabstände passen zusammen; Safe Areas
+  und dynamische Viewporthöhen werden berücksichtigt. Bei geringer Fensterhöhe
+  ist die Speicherleiste nicht klebend.
+- **Wichtige Ursache für verkleinerte Smartphoneansichten:** Die unsichtbare
+  Screenreader-Tabelle der Verlaufsdiagramme hatte trotz `width: 1px` eine
+  intrinsische Breite von rund 567 px. Beim Öffnen der Diagramme wuchs der mobile
+  Viewport bei 320 px Bildschirmbreite auf 599 px. Die Klasse `nur-screenreader`
+  liegt jetzt auf einem umschließenden `div`; die Tabelle bleibt zugänglich,
+  die gemessene Seitenbreite bleibt bei 320 px.
+- Flächenvorschau: Die feste 560-px-Diagrammbreite wird jetzt durch den verfügbaren
+  Platz begrenzt. Explizite Pixelbreiten bleiben wegen der bekannten
+  Safari-Problematik erhalten. Schmerzskalen passen ihre Zahlenreihen an die
+  Spaltenbreite an; der Slider hat browserübergreifende Track-/Thumb-Stile.
+- Zifferblatt: CSS-/SVG-Koordinaten sind auf drei Nachkommastellen gerundet,
+  damit unterschiedliche CSS-Serialisierung keine Hydrationswarnungen erzeugt.
+- Patientensuche: Das Laden einer unveränderten Suche erzeugt auch bei doppeltem
+  Effect-Aufruf im Entwicklungsmodus keine zusätzliche Navigation mehr.
+- Fotokacheln zeigen vollständige Bilder in einheitlichen Rahmen. Foto- und
+  Dokumentdialoge passen in Hoch-/Querformat; das Einpassen der PDF-Anzeige
+  wurde zusätzlich durch Messung der tatsächlichen Zentrierung geprüft.
+- Neuer Befehl `npm run test:responsive`: 28 Browserprüfungen in 14 Profilen,
+  jeweils 20 Seiten plus geöffnete Diagramme, Dialoge, Drehung und Schmerzfelder.
+  Vollständige Matrix erfolgreich; zusätzlich 78/78 Unit-Tests, 9/9 bestehende
+  Playwright-/axe-Tests, Typprüfung und Produktionsbuild erfolgreich.
+- WebKit-Download nicht erreichbar; die Prüfungen liefen mit der vorhandenen
+  Engine `webkit-2336` über `WEBKIT_EXECUTABLE_PATH`. Es handelt sich um
+  Browseremulation, nicht um eine Prüfung auf physischen Apple-/Android-Geräten.
+- Details und Regeln: [docs/RESPONSIVE.md](docs/RESPONSIVE.md). Screenshots und
+  Testergebnisse bleiben lokal unter `test-results/` (git-ignoriert).
+- Der Entwicklungsserver läuft auf Port 3000. Zum Prüfen des Produktionsbuilds
+  wurde bei unverändertem Schema direkt `node node_modules/next/dist/bin/next build`
+  ausgeführt; damit blieb der Server während des Builds verfügbar und es gab
+  keinen Prisma-DLL-Lock durch ein unnötiges `prisma generate`.
 
 ---
 
@@ -237,9 +697,10 @@ haben, nicht nur Symptome behoben haben.
 | `src/app/(app)/aufnahmen/[id]/page.tsx` | Vollständige Leseansicht |
 | `src/app/(app)/aufnahmen/[id]/bearbeiten/page.tsx` | Korrekturansicht |
 
-Breite, Länge und Tiefe werden bei Folgeaufnahmen bewusst **nicht**
-vorbefüllt. Genau diese Werte müssen bei jedem Verbandwechsel neu gemessen
-werden, damit kein stehengebliebener Wert die Verlaufskurve verfälscht.
+Breite, Länge und Tiefe wurden bei Folgeaufnahmen zunächst bewusst **nicht**
+vorbefüllt, damit kein stehengebliebener Wert die Verlaufskurve verfälscht.
+**Auf Nutzerwunsch am 21.09.2026 zurückgenommen** — sie werden jetzt wie alle
+anderen Felder übernommen, siehe den Nachtrag „Abheilung dokumentieren".
 
 ## Phase 4 — fertig
 

@@ -49,7 +49,7 @@ export function AbschnittTherapie({
         </Field>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2">
+          <div className="form-grid gap-5">
         <Field id="hautpflege" label="Hautpflege" fehler={fehler("hautpflege")}>
           {(p) => <Input {...p} name="hautpflege" defaultValue={werte.hautpflege} />}
         </Field>
@@ -66,7 +66,7 @@ export function AbschnittTherapie({
           vorgabe={werte.wundfuellung}
           fehler={fehler("wundfuellung")}
         />
-        <div className="grid gap-5 sm:grid-cols-2">
+          <div className="form-grid gap-5">
           <Field id="wundfuellungGroesseCm" label="Größe (cm)" fehler={fehler("wundfuellungGroesseCm")}>
             {(p) => <Input {...p} name="wundfuellungGroesseCm" inputMode="decimal" defaultValue={werte.wundfuellungGroesseCm} />}
           </Field>
@@ -84,7 +84,7 @@ export function AbschnittTherapie({
           vorgabe={werte.wundabdeckung}
           fehler={fehler("wundabdeckung")}
         />
-        <div className="grid gap-5 sm:grid-cols-2">
+          <div className="form-grid gap-5">
           <Field id="wundabdeckungGroesseCm" label="Größe (cm)" fehler={fehler("wundabdeckungGroesseCm")}>
             {(p) => <Input {...p} name="wundabdeckungGroesseCm" inputMode="decimal" defaultValue={werte.wundabdeckungGroesseCm} />}
           </Field>
@@ -115,7 +115,7 @@ export function AbschnittTherapie({
           vorgabe={werte.kompression}
           fehler={fehler("kompression")}
         />
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="compact-grid gap-5">
           <Field id="kompressionBinde1BreiteCm" label="Binde 1: Breite (cm)" fehler={fehler("kompressionBinde1BreiteCm")}>
             {(p) => <Input {...p} name="kompressionBinde1BreiteCm" inputMode="decimal" defaultValue={werte.kompressionBinde1BreiteCm} />}
           </Field>

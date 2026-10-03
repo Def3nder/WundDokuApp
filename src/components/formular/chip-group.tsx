@@ -75,8 +75,8 @@ export function ChipGroup({
 
       <div
         className={cn(
-          "flex flex-wrap gap-2",
-          spalten === "zwei" && "grid grid-cols-1 sm:grid-cols-2",
+          "gap-2",
+          spalten === "zwei" ? "form-grid" : "flex flex-wrap",
         )}
       >
         {optionen.map((o) => {
@@ -89,7 +89,7 @@ export function ChipGroup({
               aria-checked={aktiv}
               onClick={() => umschalten(o.wert)}
               className={cn(
-                "tippziel inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors duration-200 cursor-pointer",
+                "tippziel inline-flex min-w-0 max-w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors duration-200 cursor-pointer",
                 aktiv
                   ? "border-primary bg-primary text-on-primary"
                   : "border-border-strong bg-surface text-foreground hover:bg-surface-muted",
@@ -104,7 +104,7 @@ export function ChipGroup({
               >
                 {aktiv && <Check className="size-3.5" strokeWidth={3} />}
               </span>
-              {o.label}
+              <span className="min-w-0">{o.label}</span>
             </button>
           );
         })}

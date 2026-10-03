@@ -51,7 +51,7 @@ export default async function NeueAufnahmeSeite({
   const vorherigeFlaeche = letzte ? flaecheMm2(letzte) : null;
 
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="page-fluid min-w-0 w-full space-y-6">
       <div>
         <Breadcrumb eintraege={[
           { label: "Patienten", href: "/" },
@@ -72,7 +72,7 @@ export default async function NeueAufnahmeSeite({
           <div>
             <p className="font-medium text-foreground">Befund vom {datum(letzte.datum)} übernommen</p>
             <p className="mt-0.5 text-muted-foreground">
-              Breite, Länge und Tiefe bleiben leer und müssen für eine verlässliche Verlaufskurve neu gemessen werden.
+              Alle Angaben lassen sich überschreiben. Breite, Länge und Tiefe bitte neu messen.
             </p>
           </div>
         </div>
@@ -90,6 +90,7 @@ export default async function NeueAufnahmeSeite({
         aufnahmeId={entwurf?.id ?? null}
         initialFotos={entwurf?.fotos.map(fotoZuAnsicht) ?? []}
         absendeText={letzte ? "Folgeaufnahme speichern" : "Erstaufnahme speichern"}
+        istFolgeaufnahme={Boolean(letzte)}
       />
     </div>
   );

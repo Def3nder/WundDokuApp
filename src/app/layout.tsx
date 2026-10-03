@@ -26,11 +26,13 @@ export const metadata: Metadata = {
   },
   description: "Digitale Wunddokumentation für Praxis und Pflege",
   robots: { index: false, follow: false },
+  appleWebApp: { capable: true, title: "WundDoku", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
   // maximumScale bewusst nicht gesetzt: Zoom darf nie unterbunden werden.
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f8fafc" },

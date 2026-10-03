@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeftRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/field";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export type VergleichOption = {
@@ -43,22 +44,22 @@ export function VergleichAuswahl({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid items-end gap-3 md:grid-cols-[1fr_auto_1fr]">
-          <label className="space-y-1.5 text-sm font-medium">
-            <span>Ausgangsaufnahme</span>
-            <select
+        <div className="grid items-end gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <div className="min-w-0 space-y-1.5 text-sm font-medium">
+            <label htmlFor="vergleich-ausgang">Ausgangsaufnahme</label>
+            <Select
+              id="vergleich-ausgang"
               value={ausgangId}
               onChange={(ereignis) => wechseln("a", ereignis.target.value)}
               disabled={laedt}
-              className="tippziel w-full rounded-lg border border-border-strong bg-input px-3 py-2 text-base text-foreground shadow-sm disabled:opacity-60"
             >
               {optionen.map((option) => (
                 <option key={option.id} value={option.id} disabled={option.id === vergleichId}>
                   {option.label}
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </div>
 
           <Button
             type="button"
@@ -81,21 +82,21 @@ export function VergleichAuswahl({
             {laedt ? <Loader2 className="animate-spin" aria-hidden="true" /> : <ArrowLeftRight aria-hidden="true" />}
           </Button>
 
-          <label className="space-y-1.5 text-sm font-medium">
-            <span>Vergleichsaufnahme</span>
-            <select
+          <div className="min-w-0 space-y-1.5 text-sm font-medium">
+            <label htmlFor="vergleich-ziel">Vergleichsaufnahme</label>
+            <Select
+              id="vergleich-ziel"
               value={vergleichId}
               onChange={(ereignis) => wechseln("b", ereignis.target.value)}
               disabled={laedt}
-              className="tippziel w-full rounded-lg border border-border-strong bg-input px-3 py-2 text-base text-foreground shadow-sm disabled:opacity-60"
             >
               {optionen.map((option) => (
                 <option key={option.id} value={option.id} disabled={option.id === ausgangId}>
                   {option.label}
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </div>
         </div>
       </CardContent>
     </Card>

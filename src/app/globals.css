@@ -34,7 +34,10 @@
   --on-secondary: #0c4a6e;
 
   /* Semantik */
-  --accent: #047857;
+  /* Etwas dunkler als das urspruengliche #047857: Als Textfarbe auf der eigenen
+     15-%-Flaeche (Abzeichen "Abgeschlossen", "Abgeheilt") kam das nur auf 4,43:1
+     und verfehlte damit die 4,5:1 fuer normalen Text. */
+  --accent: #046b4e;
   --on-accent: #ffffff;
   --warning: #92400e;
   --on-warning: #ffffff;
@@ -52,7 +55,9 @@
   --status-gut: #047857;
   --status-mittel: #92400e;
   --status-schlecht: #b91c1c;
-  --status-neutral: #64748b;
+  /* Dunkler als das urspruengliche #64748b: Als Textfarbe auf der eigenen
+     15-%-Flaeche (Trendabzeichen "unveraendert") kam das nur auf 3,95:1. */
+  --status-neutral: #4b5563;
 
   /* Diagrammserien: in Helligkeit gestaffelt, damit sie auch ohne
      Farbsehen unterscheidbar bleiben (zusaetzlich Strichmuster). */
@@ -63,6 +68,9 @@
   --chart-5: #be123c;
 
   --radius: 0.625rem;
+  --page-gutter: clamp(1rem, 2.5vw, 1.5rem);
+  --card-padding: clamp(1rem, 2.5vw, 1.5rem);
+  --app-header-height: calc(5rem + env(safe-area-inset-top, 0px));
 }
 
 .dark {
@@ -158,6 +166,8 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-padding-top: calc(var(--app-header-height) + 1rem);
   }
 
   body {
@@ -168,6 +178,13 @@
     font-size: 1rem;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    overflow-wrap: anywhere;
+  }
+
+  /* Flex-/Grid-Kinder und native Felder duerfen ihre Spalte nicht aufweiten. */
+  fieldset, legend, input, select, textarea {
+    min-inline-size: 0;
+    max-inline-size: 100%;
   }
 
   h1, h2, h3, h4 {
@@ -242,9 +259,198 @@
   }
 }
 
+@layer components {
+  .app-container {
+    width: 100%;
+    max-width: 80rem;
+    margin-inline: auto;
+    padding-left: max(var(--page-gutter), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--page-gutter), env(safe-area-inset-right, 0px));
+  }
+
+  .app-header {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .app-header-row {
+    height: calc(5rem - 1px);
+  }
+
+  .app-main {
+    min-width: 0;
+    padding-block: 1.5rem 2rem;
+  }
+
+  /* Breite Formulare nutzen auch oberhalb von 80rem den Bildschirm;
+     die gemeinsamen Aussenabstaende und Safe Areas bleiben erhalten. */
+  .app-main:has(> .page-fluid) {
+    max-width: none;
+  }
+
+  .app-footer {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .card-header, .card-content, .card-footer {
+    padding: var(--card-padding);
+  }
+
+  .card-header + .card-content {
+    padding-top: 0;
+  }
+
+  /* Spalten richten sich nach dem Platz IN der Karte, auch in Split View. */
+  .form-grid, .compact-grid, .detail-grid, .panel-grid, .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  }
+
+  .compact-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  }
+
+  .detail-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  }
+
+  .panel-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  }
+
+  .photo-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  }
+
+  .form-grid > *, .compact-grid > *, .detail-grid > *, .panel-grid > *, .photo-grid > * {
+    min-width: 0;
+  }
+
+  .form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .form-actions > * {
+    max-width: 100%;
+  }
+
+  .section-navigation {
+    top: var(--app-header-height);
+    scroll-padding-inline: 0.5rem;
+  }
+
+  .form-section {
+    scroll-margin-top: 4rem;
+  }
+
+  .save-bar {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .media-dialog {
+    top: max(0.75rem, env(safe-area-inset-top, 0px));
+    right: max(0.75rem, env(safe-area-inset-right, 0px));
+    bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+    left: max(0.75rem, env(safe-area-inset-left, 0px));
+    max-height: calc(100dvh - max(0.75rem, env(safe-area-inset-top, 0px)) - max(0.75rem, env(safe-area-inset-bottom, 0px)));
+    min-width: 0;
+  }
+
+  .vas-values {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(2.75rem, 1fr));
+    gap: 0.25rem;
+  }
+
+  .vas-slider::-webkit-slider-runnable-track {
+    height: 0.375rem;
+    border-radius: 999px;
+    background: var(--border-strong);
+  }
+
+  .vas-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-top: -0.5625rem;
+    border: 2px solid var(--surface);
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 0 1px currentColor;
+  }
+
+  .vas-slider::-moz-range-track {
+    height: 0.375rem;
+    border-radius: 999px;
+    background: var(--border-strong);
+  }
+
+  .vas-slider::-moz-range-thumb {
+    width: 1.5rem;
+    height: 1.5rem;
+    box-sizing: border-box;
+    border: 2px solid var(--surface);
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 0 1px currentColor;
+  }
+
+  /* Der Zeitstrahl zeichnet Spur und Terminmarken unter dem nativen Range-Feld.
+     Native Bedienung liefert Live-Updates, ganze Schritte und Touch/Tastatur. */
+  .timeline-slider::-webkit-slider-runnable-track {
+    height: 0.25rem;
+    background: transparent;
+  }
+
+  .timeline-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 1.75rem;
+    height: 1.75rem;
+    margin-top: -0.75rem;
+    border: 3px solid var(--surface);
+    border-radius: 50%;
+    background: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary);
+  }
+
+  .timeline-slider::-moz-range-track {
+    height: 0.25rem;
+    background: transparent;
+  }
+
+  .timeline-slider::-moz-range-progress {
+    background: transparent;
+  }
+
+  .timeline-slider::-moz-range-thumb {
+    width: 1.75rem;
+    height: 1.75rem;
+    box-sizing: border-box;
+    border: 3px solid var(--surface);
+    border-radius: 50%;
+    background: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary);
+  }
+
+  @media (min-width: 40rem) {
+    .app-main { padding-top: 2rem; }
+  }
+
+  @media (max-width: 39.999rem) {
+    .form-actions > button, .form-actions > a, .form-actions > form {
+      flex: 1 1 10rem;
+    }
+
+    .form-actions > form > button { width: 100%; }
+  }
+
+}
+
 @layer utilities {
-  /* iPadOS/Safari gibt Datumsfeldern sonst eine eigene Mindestbreite und Höhe. */
-  .ipad-datumsrahmen {
+  /* iPadOS/Safari gibt Datums- und Uhrzeitfeldern sonst eigene Mindestmaße. */
+  .datumsrahmen,
+  .zeitrahmen {
     position: relative;
     display: block;
     box-sizing: border-box;
@@ -252,11 +458,11 @@
     min-inline-size: 0;
     max-inline-size: 100%;
     block-size: 2.75rem;
-    overflow: hidden;
     border-radius: var(--radius-sm);
   }
 
-  .ipad-datumsrahmen > input.ipad-datumsfeld[type="date"] {
+  .datumsrahmen > input.datumsfeld[type="date"],
+  .zeitrahmen > input.zeitfeld[type="time"] {
     -webkit-appearance: none;
     appearance: none;
     position: absolute;
@@ -272,7 +478,8 @@
     line-height: 1.25rem;
   }
 
-  .ipad-datumsrahmen > input.ipad-datumsfeld[type="date"]::-webkit-date-and-time-value {
+  .datumsrahmen > input.datumsfeld[type="date"]::-webkit-date-and-time-value,
+  .zeitrahmen > input.zeitfeld[type="time"]::-webkit-date-and-time-value {
     min-block-size: 1.25rem;
     text-align: left;
   }
@@ -294,6 +501,11 @@
     white-space: nowrap;
     border-width: 0;
   }
+}
+
+/* Nach den Utilities: die normale sticky-Klasse darf dies nicht ueberstimmen. */
+@media (max-height: 32rem) {
+  .save-bar { position: static; }
 }
 
 /* Bewegung nur, wenn der Nutzer sie nicht abbestellt hat. */

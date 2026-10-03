@@ -209,7 +209,7 @@ export function WundeFormular({
       <Card>
         <CardContent className="space-y-5 pt-6">
           <h2 className="text-base font-semibold">Versorgungspartner</h2>
-          <div className="grid items-start gap-5 sm:grid-cols-2">
+          <div className="form-grid items-start gap-5">
             <div className="min-w-0 space-y-3">
               <Field id="arztId" label="Behandelnder Arzt (optional)" fehler={f("arztId")}>
                 {(p) => (
@@ -320,7 +320,7 @@ export function WundeFormular({
         <CardContent className="space-y-5 pt-6">
           <h2 className="text-base font-semibold">Lokalisation</h2>
 
-          <div className="grid gap-5 sm:grid-cols-3">
+          <div className="compact-grid gap-5">
             <Field id="lokalisationRegion" label="Körperregion" fehler={f("lokalisationRegion")}>
               {(p) => (
                 <Select
@@ -390,7 +390,7 @@ export function WundeFormular({
             <div
               role="group"
               aria-label="Anzeigeart der Lokalisationshilfe"
-              className="inline-flex rounded-lg border border-border-strong p-1"
+              className="flex flex-wrap gap-1 rounded-lg border border-border-strong p-1"
             >
               <button
                 type="button"
@@ -455,7 +455,7 @@ export function WundeFormular({
 
           <fieldset className="space-y-1.5">
             <legend className="mb-1.5 text-sm font-medium">Wunde besteht seit</legend>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Input
                 id="bestehtSeitWert"
                 name="bestehtSeitWert"
@@ -466,7 +466,7 @@ export function WundeFormular({
                 defaultValue={w("bestehtSeitWert")}
                 aria-label="Dauer"
                 aria-invalid={f("bestehtSeitWert") ? true : undefined}
-                className="w-28"
+                  className="w-36"
               />
               <Select
                 id="bestehtSeitEinheit"
@@ -528,7 +528,7 @@ export function WundeFormular({
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="form-actions">
         <Button type="submit" laedt={laeuft}>
           {absendeText}
         </Button>

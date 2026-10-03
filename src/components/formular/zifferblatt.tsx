@@ -25,6 +25,9 @@ export function Zifferblatt({
   const groesse = 180;
   const mitte = groesse / 2;
   const radius = 66;
+  // CSS kuerzt lange Nachkommastellen browserabhaengig. Gleiche Praezision
+  // fuer Server und Client verhindert abweichende Hydration-Attribute.
+  const pixel = (wert: number) => Math.round(wert * 1000) / 1000;
 
   function mitTastatur(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const ziel = radioZielIndex(event.key, index, 12);
@@ -63,8 +66,8 @@ export function Zifferblatt({
             <line
               x1={mitte}
               y1={mitte}
-              x2={mitte + radius * Math.sin((stunde / 12) * 2 * Math.PI)}
-              y2={mitte - radius * Math.cos((stunde / 12) * 2 * Math.PI)}
+              x2={pixel(mitte + radius * Math.sin((stunde / 12) * 2 * Math.PI))}
+              y2={pixel(mitte - radius * Math.cos((stunde / 12) * 2 * Math.PI))}
               stroke="var(--primary)"
               strokeWidth={2.5}
               strokeLinecap="round"
@@ -97,7 +100,7 @@ export function Zifferblatt({
                   ? "bg-primary text-on-primary"
                   : "text-foreground hover:bg-surface",
               )}
-              style={{ left: x - 22, top: y - 22 }}
+              style={{ left: pixel(x - 22), top: pixel(y - 22) }}
             >
               {h}
             </button>

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { verlangeSitzung } from "@/lib/auth";
 import { geaenderteFelder, protokolliere } from "@/lib/audit";
+import { statuswechsel } from "@/lib/wundstatus";
 import {
   aufnahmeAusFormData,
   aufnahmeZuDatensatz,
@@ -19,6 +20,7 @@ function zuFehlern(issues: { path: (string | number)[]; message: string }[]) {
   }
   return fehler;
 }
+
 
 export async function aufnahmeAnlegen(
   wundeId: string,
@@ -45,52 +47,72 @@ export async function aufnahmeAnlegen(
   const typ = wunde._count.aufnahmen === 0 ? "ERSTAUFNAHME" : "FOLGEAUFNAHME";
   const entwurfId = String(fd.get("entwurfId") ?? "");
 
-  let aufnahmeId: string;
+  const daten = aufnahmeZuDatensatz(geprueft.data);
+  // Eine neue Folgeaufnahme auf einer bereits abgeschlossenen Wunde eröffnet
+  // sie wieder - dokumentiert wird ja weiterbehandelt.
+  const wechsel = statuswechsel(
+    geprueft.data.wundeGeheilt,
+    geprueft.data.datum,
+    wunde.abgeschlossenAm !== null,
+  );
 
-  if (entwurfId) {
-    // Der Autosave hat bereits einen Entwurf angelegt - den fertigstellen,
-    // statt einen zweiten Datensatz zu erzeugen. Die Wund-ID wird mitgeprüft,
-    // damit eine manipulierte versteckte ID keine fremde Aufnahme überschreibt.
-    const entwurf = await db.assessment.findFirst({
-      where: { id: entwurfId, woundId: wundeId, istEntwurf: true, geloeschtAm: null },
-    });
-    if (entwurf) {
-      const aktualisiert = await db.assessment.update({
-        where: { id: entwurf.id },
-        data: {
-          ...aufnahmeZuDatensatz(geprueft.data),
-          typ,
-          istEntwurf: false,
-          erstelltVonId: sitzung.user.id,
-        },
+  // Aufnahme und Wundstatus gemeinsam, damit keine gespeicherte Abheilung ohne
+  // abgeschlossene Wunde zurückbleibt.
+  const aufnahmeId = await db.$transaction(async (tx) => {
+    let id: string;
+
+    if (entwurfId) {
+      // Der Autosave hat bereits einen Entwurf angelegt - den fertigstellen,
+      // statt einen zweiten Datensatz zu erzeugen. Die Wund-ID wird mitgeprüft,
+      // damit eine manipulierte versteckte ID keine fremde Aufnahme überschreibt.
+      const entwurf = await tx.assessment.findFirst({
+        where: { id: entwurfId, woundId: wundeId, istEntwurf: true, geloeschtAm: null },
       });
-      aufnahmeId = aktualisiert.id;
+      if (entwurf) {
+        const aktualisiert = await tx.assessment.update({
+          where: { id: entwurf.id },
+          data: { ...daten, typ, istEntwurf: false, erstelltVonId: sitzung.user.id },
+        });
+        id = aktualisiert.id;
+      } else {
+        const neu = await tx.assessment.create({
+          data: {
+            ...daten,
+            woundId: wundeId,
+            typ,
+            istEntwurf: false,
+            erstelltVonId: sitzung.user.id,
+          },
+        });
+        id = neu.id;
+      }
     } else {
-      const neu = await db.assessment.create({
+      const neu = await tx.assessment.create({
         data: {
-          ...aufnahmeZuDatensatz(geprueft.data),
+          ...daten,
           woundId: wundeId,
           typ,
           istEntwurf: false,
           erstelltVonId: sitzung.user.id,
         },
       });
-      aufnahmeId = neu.id;
+      id = neu.id;
     }
-  } else {
-    const neu = await db.assessment.create({
-      data: {
-        ...aufnahmeZuDatensatz(geprueft.data),
-        woundId: wundeId,
-        typ,
-        istEntwurf: false,
-        erstelltVonId: sitzung.user.id,
-      },
-    });
-    aufnahmeId = neu.id;
-  }
+
+    if (wechsel) {
+      await tx.wound.update({
+        where: { id: wundeId },
+        data: { abgeschlossenAm: wechsel.abgeschlossenAm },
+      });
+    }
+
+    return id;
+  });
 
   await protokolliere(sitzung.user.id, "Assessment", aufnahmeId, "ANLEGEN", typ);
+  if (wechsel) {
+    await protokolliere(sitzung.user.id, "Wound", wundeId, "AENDERN", wechsel.protokoll);
+  }
 
   revalidatePath(`/wunden/${wundeId}`);
   revalidatePath(`/patienten/${wunde.patientId}`);
@@ -109,15 +131,35 @@ export async function aufnahmeAendern(
     return { fehler: zuFehlern(geprueft.error.issues) };
   }
 
-  const vorher = await db.assessment.findUnique({ where: { id: aufnahmeId } });
+  const vorher = await db.assessment.findUnique({
+    where: { id: aufnahmeId },
+    include: { wunde: { select: { patientId: true } } },
+  });
   if (!vorher || vorher.geloeschtAm) {
     return { meldung: "Diese Aufnahme existiert nicht mehr." };
   }
 
   const daten = aufnahmeZuDatensatz(geprueft.data);
-  await db.assessment.update({
-    where: { id: aufnahmeId },
-    data: { ...daten, istEntwurf: false },
+  // Wiedereröffnen nur, wenn genau diese Aufnahme die Wunde geschlossen hatte.
+  // Sonst würde das Korrigieren einer alten Aufnahme eine später abgeheilte
+  // Wunde unbemerkt wieder öffnen.
+  const wechsel = statuswechsel(
+    geprueft.data.wundeGeheilt,
+    geprueft.data.datum,
+    vorher.wundeGeheilt,
+  );
+
+  await db.$transaction(async (tx) => {
+    await tx.assessment.update({
+      where: { id: aufnahmeId },
+      data: { ...daten, istEntwurf: false },
+    });
+    if (wechsel) {
+      await tx.wound.update({
+        where: { id: vorher.woundId },
+        data: { abgeschlossenAm: wechsel.abgeschlossenAm },
+      });
+    }
   });
 
   await protokolliere(
@@ -127,8 +169,12 @@ export async function aufnahmeAendern(
     "AENDERN",
     geaenderteFelder(vorher, daten),
   );
+  if (wechsel) {
+    await protokolliere(sitzung.user.id, "Wound", vorher.woundId, "AENDERN", wechsel.protokoll);
+  }
 
   revalidatePath(`/wunden/${vorher.woundId}`);
+  revalidatePath(`/patienten/${vorher.wunde.patientId}`);
   revalidatePath(`/aufnahmen/${aufnahmeId}`);
   redirect(`/aufnahmen/${aufnahmeId}`);
 }

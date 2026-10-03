@@ -63,6 +63,7 @@ export type AufnahmeWerte = {
   kompressionMass: string;
   therapieSonstiges: string;
   anmerkungen: string;
+  wundeGeheilt: boolean;
 };
 
 function datumFuerEingabe(datum: Date): string {
@@ -138,6 +139,7 @@ export function leereAufnahmeWerte(datum = new Date()): AufnahmeWerte {
     kompressionMass: "",
     therapieSonstiges: "",
     anmerkungen: "",
+    wundeGeheilt: false,
   };
 }
 
@@ -205,13 +207,15 @@ export function aufnahmeZuWerten(a: Assessment): AufnahmeWerte {
     kompressionMass: text(a.kompressionMass),
     therapieSonstiges: text(a.therapieSonstiges),
     anmerkungen: text(a.anmerkungen),
+    wundeGeheilt: a.wundeGeheilt,
   };
 }
 
 /**
  * Übernimmt die letzte Aufnahme als Arbeitsgrundlage einer Folgeaufnahme.
- * Maße bleiben absichtlich leer: Sie müssen bei jedem Verbandwechsel neu
- * gemessen werden, damit keine alten Werte die Verlaufskurve verfälschen.
+ *
+ * Die Abheilung wird als einziges Feld nie übernommen: Ein stehengebliebener
+ * Haken würde jede Folgeaufnahme vorab abschließen.
  */
 export function vorbefuellungAus(letzte: Assessment | null): AufnahmeWerte {
   if (!letzte) return leereAufnahmeWerte();
@@ -219,8 +223,6 @@ export function vorbefuellungAus(letzte: Assessment | null): AufnahmeWerte {
   return {
     ...aufnahmeZuWerten(letzte),
     datum: datumFuerEingabe(new Date()),
-    breiteMm: "",
-    laengeMm: "",
-    tiefeMm: "",
+    wundeGeheilt: false,
   };
 }

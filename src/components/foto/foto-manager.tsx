@@ -241,10 +241,10 @@ export const FotoManager = forwardRef<FotoManagerHandle, {
               {laedt ? "Fotos werden geschützt verarbeitet …" : "Fotos hochladen"}
             </Button>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="panel-grid gap-4">
             {auswahl.map((eintrag) => (
               <div key={eintrag.id} className="flex gap-3 rounded-lg border border-border bg-card p-3">
-                <div className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-muted">
+                <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-muted sm:size-24">
                   {eintrag.vorschau ? (
                     <img src={eintrag.vorschau} alt="Vorschau des ausgewählten Fotos" className="size-full object-cover" />
                   ) : (
