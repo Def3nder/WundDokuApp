@@ -141,7 +141,7 @@ log "Dienst $SERVICE ist fuer den Systemstart angemeldet."
 
 # --- Abhaengigkeiten, Build, Migrationen, Start -------------------------
 log 'Starte update.sh (Abhaengigkeiten, Build, Migrationen, Dienststart) ...'
-SERVICE="$SERVICE" PORT="$PORT" "$APP_DIR/update.sh"
+env SERVICE="$SERVICE" PORT="$PORT" "$APP_DIR/update.sh"
 
 # --- Erster Administrator -----------------------------------------------
 if npx tsx prisma/admin-anlegen.ts --pruefen; then admin_status=0; else admin_status=$?; fi
