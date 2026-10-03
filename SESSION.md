@@ -8,6 +8,34 @@ inhaltlichen Dokumente in [docs/](docs/) um das, was beim Bauen gelernt wurde.
 
 ---
 
+## Nachtrag — Server-Betrieb: setup.sh und update.sh (03.10.2026)
+
+Debian-Server (LXC, Dienst als `ralf`, Repo `/opt/wunddoku-app`, Port 3003, Reverse
+Proxy `192.168.1.14` auf einem anderen Rechner). Vorbild: die Marker-Einrichtung aus
+dem Obsidian-Vault (Konfiguration in `/etc/…`, `EnvironmentFile`, UFW nur für den Proxy,
+Backup nach `/var/backups/…`, Tests vor dem Neustart). Ablauf und Pfade: README, Abschnitt
+„Betrieb auf dem Debian-Server".
+
+- **Konfiguration nicht mehr als `.env` im Repo,** sondern `/etc/wunddoku/app.env`
+  (`root:ralf`, 640). `setup.sh` verschiebt eine vorhandene `.env` dorthin und behält
+  `AUTH_SECRET`. Die Scripts `source`n die Datei, damit Prisma/tsx `DATABASE_URL` kennen.
+- **Tests laufen ohne Produktivvariablen** (`unset DATABASE_URL STORAGE_DIR …`), damit
+  kein Test je die echte Datenbank oder die Wundfotos berührt. `SKIP_TESTS=1` als Notausgang.
+- **Backup = `tar.gz` von `/var/lib/wunddoku`** (Datenbank + Fotos), nicht nur die DB.
+- **Stolpersteine, die aufgetreten sind:** `SERVICE="$SERVICE" cmd` scheitert bei
+  `readonly` (→ `env SERVICE=… cmd`); `next build` lief mit Node-Standardheap (~512 MB) in
+  `JavaScript heap out of memory` (→ `--max-old-space-size` aus RAM+Swap, ggf. Swap anlegen);
+  Heredoc-Begrenzer `EOF` im Python-Heredoc beendet diesen vorzeitig; `ERR`-Trap feuert
+  auch bei `set +e` (deshalb `if cmd; then … else status=$?; fi`).
+- `next build` sendet standardmäßig Telemetrie → `NEXT_TELEMETRY_DISABLED=1` (Build und Unit),
+  passend zur Zusage „keine Telemetrie". `next` auf 16.3.8 gehoben (GHSA-vcvr-r3jv-pc5j, `next/og`,
+  von uns nicht genutzt).
+- **Nicht auf dem Server geprüft** (nur `bash -n` und Teilstücke lokal). `ProtectSystem=strict`
+  ist neu: Startet der Dienst nicht, zuerst `journalctl -u wunddoku -n 50` und notfalls
+  `ReadWritePaths` erweitern.
+
+---
+
 ## Nachtrag — PWA und Zeiterfassung ohne Verbindung (03.10.2026)
 
 App ist als PWA installierbar (iPhone: apple-touch-icon, Android: Manifest) und die

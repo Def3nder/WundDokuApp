@@ -159,13 +159,25 @@ abweichende vorhandene WebKit-Engine kann wie beim Responsive-Test
 
 ## Betrieb auf dem Debian-Server
 
-Das Repository liegt unter `/opt/wunddoku-app` (Branch `main`). Zwei Scripts
-übernehmen den Betrieb; beide als normaler Benutzer, nicht als root:
+Das Repository liegt unter `/opt/wunddoku-app` (Branch `main`), der Dienst läuft als
+Benutzer `ralf`. Zwei Scripts übernehmen den Betrieb; beide als normaler Benutzer,
+nicht als root:
 
 | Script | Zweck |
 |---|---|
-| `./setup.sh` | Einmalige Einrichtung (wiederholbar): Datenverzeichnis `/var/lib/wunddoku` (Datenbank und Wundfotos), `.env` mit frischem `AUTH_SECRET`, systemd-Dienst `wunddoku` anlegen und für den Systemstart anmelden, danach `update.sh` ausführen und den ersten Administrator abfragen. Eine vorhandene `.env` bleibt unverändert. |
-| `./update.sh` | Update: Git-Stand holen, Dienst stoppen, Datenbank nach `~/wunddoku-backups` sichern, `npm ci`, Build, `prisma migrate deploy`, Dienst starten und prüfen. |
+| `./setup.sh` | Einmalige Einrichtung (wiederholbar): Verzeichnisse anlegen, Konfiguration erzeugen, systemd-Dienst `wunddoku` anmelden, Port prüfen, UFW-Freigabe für den Reverse Proxy, danach `update.sh` ausführen und den ersten Administrator abfragen. |
+| `./update.sh` | Update: Git-Stand holen, Dienst stoppen, Daten sichern, `npm ci`, Build, Tests, `prisma migrate deploy`, Dienst starten und prüfen. `SKIP_TESTS=1` überspringt die Tests. |
+
+| Pfad | Inhalt |
+|---|---|
+| `/etc/wunddoku/app.env` | Konfiguration (`DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`, `STORAGE_DIR`), Besitzer `root:ralf`, Rechte 640. Außerhalb des Repositorys; systemd lädt sie per `EnvironmentFile`. `AUTH_SECRET` nie ändern – das macht alle Sitzungen ungültig. |
+| `/var/lib/wunddoku/` | Datenbank `wunddoku.db` und Wundfotos `storage/` |
+| `/var/backups/wunddoku/` | Vor jedem Update ein `tar.gz` von Datenbank **und** Wundfotos (Rechte 600, die letzten 10 bleiben) |
+
+Die Sicherung wiederherstellen (Dienst vorher stoppen):
+`sudo systemctl stop wunddoku && tar -C /var -xzf /var/backups/wunddoku/<Datei>.tar.gz`.
+Bei sehr vielen Wundfotos wächst jede Sicherung entsprechend; `update.sh` behält deshalb nur
+die letzten 10.
 
 Der Build braucht Arbeitsspeicher: `update.sh` erhöht dafür die Heap-Grenze von
 Node anhand von RAM plus Swap (überschreibbar mit `BUILD_HEAP_MB=3072 ./update.sh`).
@@ -178,12 +190,18 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 
 Der Dienst lauscht auf `0.0.0.0:3003` (HTTP, unverschlüsselt); HTTPS und die Domain
-übernimmt ein Reverse Proxy (Beispiel am Ende der Ausgabe von `setup.sh`). Den Port
-bitte per Firewall auf die Adresse des Proxys beschränken. Liegt der Proxy auf
-demselben Server, `BIND_HOST=127.0.0.1 ./setup.sh` verwenden. Die Domain muss in
-`next.config.ts` unter `serverActions.allowedOrigins` stehen. Der erste
-Administrator wird mit `prisma/admin-anlegen.ts` angelegt – bewusst nicht mit dem
-Seed, der Testpatienten und ein Konto mit bekanntem Passwort erzeugt.
+übernimmt ein Reverse Proxy auf einem anderen Rechner (Standard `192.168.1.14`).
+`setup.sh` gibt den Port per UFW nur für dessen Adresse frei. Liegt der Proxy auf
+demselben Server, `BIND_HOST=127.0.0.1 ./setup.sh` verwenden. Der Proxy muss `Host` und
+`X-Forwarded-Proto` durchreichen und Uploads bis 25 MB erlauben
+(nginx: `client_max_body_size 25m;`). Die Domain muss in `next.config.ts` unter
+`serverActions.allowedOrigins` stehen.
+
+Der erste Administrator wird mit `prisma/admin-anlegen.ts` angelegt – bewusst nicht
+mit dem Seed, der Testpatienten und ein Konto mit bekanntem Passwort erzeugt. Weitere
+Benutzer und Passwortänderungen laufen in der Anwendung unter **Benutzer** (nur Administratoren).
+Der Dienst ist eingeschränkt (`ProtectSystem=strict`): Schreiben darf er nur in
+`/var/lib/wunddoku` und `.next/`. Next.js-Telemetrie ist abgeschaltet.
 
 ## Datenschutz und Betrieb
 
